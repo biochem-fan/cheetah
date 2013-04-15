@@ -18,8 +18,10 @@ void calculateHotPixelMask(cGlobal*);
 void identifyHotPixels(cEventData*, cGlobal*);
 void applyHotPixelMask(cEventData*, cGlobal*);
 void calculateHaloPixelMask(cGlobal*);
-void identifyHaloPixels(cEventData*, cGlobal*);
-void calculatePixelGMDCorrelations(cEventData*, cGlobal*);
+//void identifyHaloPixels(cEventData*, cGlobal*);
+void updateHaloPixelBuffers(cEventData*, cGlobal*);
+void calculatePixelGMDCorrelations(cGlobal*);
+
 
 void subtractDarkcal(float*, float*, long);
 void applyGainCorrection(float*, float*, long);

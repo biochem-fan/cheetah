@@ -68,7 +68,7 @@ void *worker(void *threadarg) {
   /*
    *    Calculate GMD running average
    */
-  //updateAvgGMD(eventData,global);
+  updateAvgGMD(eventData,global);
 
   DETECTOR_LOOP {
     /*
@@ -83,6 +83,13 @@ void *worker(void *threadarg) {
     for(long i=0;i<global->detector[detID].pix_nn;i++){
       eventData->detector[detID].corrected_data[i] = eventData->detector[detID].raw_data[i];
     }
+    if(global->detector[detID].useAutoHalopixel) {
+    /*
+     *	Copy raw detector data into corrected array as starting point for corrections
+     */
+      memcpy(eventData->detector[detID].runningCorrelationsPixGMD,global->detector[detID].runningCorrelationsPixGMD,global->detector[detID].pix_nn*sizeof(float));
+    }
+    
   }
 	
   /*
@@ -129,6 +136,8 @@ void *worker(void *threadarg) {
       eventData->detector[detID].corrected_data_int16[i] = (int16_t) lrint(eventData->detector[detID].corrected_data[i]);
     }
   }
+
+  updateHaloPixelBuffers(eventData, global);
        
   /*
    *	Subtract persistent photon background
@@ -198,10 +207,11 @@ void *worker(void *threadarg) {
   /*
    *	Identify halo pixels
    */
-  identifyHaloPixels(eventData, global);	
-  calculateHaloPixelMask(global);
+  //identifyHaloPixels(eventData, global);	
+  //calculateHaloPixelMask(global);
   // CHANGE!!!
   //calculatePixelGMDCorrelations(eventData,global);
+  calculatePixelGMDCorrelations(global);
 	
   /*
    *	Update running backround estimate based on non-hits
@@ -454,5 +464,7 @@ void updateAvgGMD(cEventData *eventData, cGlobal *global){
   global->avgGMD2 = global->avgGMD2 * mem + gmd2 * (1-mem);
   global->avgSqGMD1 = global->avgSqGMD1 * mem + gmd1 * gmd1 * (1-mem);
   global->avgSqGMD2 = global->avgSqGMD2 * mem + gmd2 * gmd2 * (1-mem);
+  //printf("GMD1 = %f mJ [(%f +/- %f) mJ]\n",gmd1,global->avgGMD1,sqrt(global->avgSqGMD1-global->avgGMD1*global->avgGMD1));
+  //printf("GMD2 = %f mJ [(%f +/- %f) mJ]\n",gmd2,global->avgGMD2,sqrt(global->avgSqGMD2-global->avgGMD2*global->avgGMD2));
   pthread_mutex_unlock(&global->gmd_mutex);  
 }

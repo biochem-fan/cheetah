@@ -246,10 +246,12 @@ public:
 	int16_t   *bg_buffer;
 	int16_t   *hotpix_buffer;
 	float   *halopix_buffer;
+	float   *halopix_bufferGMD;
 	float     *darkcal;
 	float     *selfdark;
 	float     *gaincal;
 	uint16_t  *pixelmask_shared;
+	float     *runningCorrelationsPixGMD;
 
 
 	/*

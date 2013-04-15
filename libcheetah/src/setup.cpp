@@ -213,6 +213,8 @@ void cGlobal::setup() {
     detector[i].readBadpixelMask(detector[i].badpixelFile);
     detector[i].readBaddataMask(detector[i].baddataFile);
     detector[i].readWireMask(detector[i].wireMaskFile);
+    // CHANGE!!!
+    detector[i].runningCorrelationsPixGMD = (float*) calloc(detector[i].pix_nn,sizeof(float));
   }
 	
 
@@ -222,7 +224,7 @@ void cGlobal::setup() {
   if(hitfinder==0)
     nPowderClasses=1;
   else
-    nPowderClasses=2;
+    nPowderClasses=3;
 
   if(generateDarkcal || generateGaincal)
     nPowderClasses=1;

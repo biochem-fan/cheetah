@@ -624,7 +624,7 @@ void pnccdFixWiringError(float *data) {
 }
 
 
-
+/*
 void identifyHaloPixels(cEventData *eventData, cGlobal *global) {
   if(!eventData->hit){
     
@@ -655,12 +655,12 @@ void identifyHaloPixels(cEventData *eventData, cGlobal *global) {
     }
   }
 }
-  
+*/  
    
 /* 
  *	Recalculate halo pixel masks using frame buffer
  */
-
+/*
 void calculateHaloPixelMask(cGlobal *global){
 
 	
@@ -696,6 +696,202 @@ void calculateHaloPixelMask(cGlobal *global){
     }	
   }
 }
+*/
+
+/*
+long calculateHaloPixelMask(uint16_t *mask, float *frameBuffer, float threshold, long bufferDepth, long pix_nn){
+
+  // Loop over all pixels 
+  float	sum;
+  long	nhalo = 0;
+  for(long i=0; i<pix_nn; i++) {
+		
+    sum = 0.;
+    for(long j=0; j< bufferDepth; j++) {
+      sum += frameBuffer[j*pix_nn+i]; 
+    }
+		
+    // Apply threshold
+    if(sum < threshold) {
+      mask[i] &= ~(PIXEL_IS_IN_HALO);
+    }
+    else {
+      mask[i] |= PIXEL_IS_IN_HALO;
+      nhalo++;				
+    }
+
+  }	
+    
+  return nhalo;
+
+}
+*/
+
+/*			
+void calculatePixelGMDCorrelations(cEventData *eventData, cGlobal *global){
+  DETECTOR_LOOP {
+    //if (global->detector[detID].useAutoHaloPixel) {
+      
+      long   nn = global->detector[detID].pix_nn;
+      float *valData = eventData->detector[detID].corrected_data;
+      float *avgData = (float *) calloc(nn,sizeof(float));
+      float *stdData = (float *) calloc(nn,sizeof(float));
+      float *correlations = eventData->detector[detID].runningCorrelationsPixGMD;
+      float mem = global->avgGMDMemory;
+      float avgGMD,stdGMD;
+      float valGMD = (eventData->gmd11+eventData->gmd12)/2.;
+      long powderType = 0;
+
+      // thread-safe copy of required data from global
+      pthread_mutex_lock(&global->gmd_mutex);
+      avgGMD = global->avgGMD1;
+      stdGMD = sqrt(global->avgSqGMD1 - avgGMD*avgGMD);
+      memcpy(correlations, global->detector[detID].runningCorrelationsPixGMD, nn*sizeof(float));      
+      pthread_mutex_unlock(&global->gmd_mutex);
+      pthread_mutex_lock(&global->detector[detID].powderCorrected_mutex[powderType]);
+      for(long i = 0; i<nn; i++){
+	avgData[i] = global->detector[detID].powderCorrected[powderType][i];
+      }
+      pthread_mutex_unlock(&global->detector[detID].powderCorrected_mutex[powderType]);
+      pthread_mutex_lock(&global->detector[detID].powderCorrectedSquared_mutex[powderType]);
+      for(long i = 0; i<nn; i++){
+	stdData[i] = sqrt(global->detector[detID].powderCorrectedSquared[powderType][i] - avgData[i] * avgData[i]);
+      }
+      pthread_mutex_unlock(&global->detector[detID].powderCorrectedSquared_mutex[powderType]);
+      
+      // calculate correlations
+      for(long i = 0; i<nn; i++){
+	correlations[i] =
+	  mem * correlations[i] + (1-mem)*((valGMD-avgGMD)*(valData[i]-avgData[i]))/(stdGMD*stdData[i]+1.E-6);
+      }
+      
+      // free buffers
+      free(avgData);
+      free(stdData);
+      //}
+  }	 
+}
+*/
+
+
+void updateHaloPixelBuffers(cEventData *eventData, cGlobal *global) {
+  
+  //if(!eventData->hit){
+    DETECTOR_LOOP {
+      if(global->detector[detID].useAutoHalopixel) {      
+	long	pix_nn = global->detector[detID].pix_nn;
+	long	bufferDepth = global->detector[detID].halopixMemory;
+	long	halopixCounter = global->detector[detID].halopixCounter;
+	long      frameID = halopixCounter%bufferDepth;
+      
+	float	*frameData = eventData->detector[detID].corrected_data;
+	float     *frameBuffer = global->detector[detID].halopix_buffer;
+
+	float     frameGMD = (eventData->gmd11+eventData->gmd12)/2.;
+	float     *frameBufferGMD = global->detector[detID].halopix_bufferGMD;
+    
+	pthread_mutex_lock(&global->halopixel_mutex);
+	memcpy(frameBuffer+pix_nn*frameID, frameData, pix_nn*sizeof(float));
+	frameBufferGMD[frameID] = frameGMD;
+	global->detector[detID].halopixCounter += 1;
+	pthread_mutex_unlock(&global->halopixel_mutex);
+      
+      }
+    }
+    //}
+}
+  
+   
+/* 
+ *	Recalculate halo pixel masks using frame buffer
+ */
+
+void calculatePixelGMDCorrelations(cGlobal *global){
+
+	
+  DETECTOR_LOOP {
+    if(global->detector[detID].useAutoHalopixel) {      
+      float	halopixMinDeviation = global->detector[detID].halopixMinDeviation;
+      long	bufferDepth = global->detector[detID].halopixMemory;
+      long	halopixCounter = global->detector[detID].halopixCounter;
+      long	lastUpdate = global->detector[detID].last_halopix_update;
+
+      pthread_mutex_lock(&global->halopixel_mutex);
+      halopixCounter = global->detector[detID].halopixCounter;
+      lastUpdate = global->detector[detID].last_halopix_update;
+      //pthread_mutex_unlock(&global->halopixel_mutex);
+			
+      if( ( ((halopixCounter+1) % bufferDepth) == 0 ) && halopixCounter != lastUpdate ) {
+								
+	long	pix_nn = global->detector[detID].pix_nn;
+	//float threshold = 0.5;
+
+	float *frameBuffer = (float *) calloc(pix_nn*bufferDepth,sizeof(float));
+	float *frameBufferGMD = (float *) calloc(bufferDepth,sizeof(float));
+
+	float GMDMedian,GMDSquaredMedian,GMDSigma,pixelSigma;
+	float *pixelMedian = (float *) calloc(pix_nn,sizeof(float));
+	float *pixelSquaredMedian = (float *) calloc(pix_nn,sizeof(float));
+	float *correlationsBuffer = (float *) calloc(pix_nn,sizeof(float));
+	
+	// Buffer for median calculation
+	float *buffer1 = (float*) calloc(bufferDepth,sizeof(float));
+	float *buffer2 = (float*) calloc(bufferDepth,sizeof(float));
+	puts("1");
+	//pthread_mutex_lock(&global->halopixel_mutex);
+	memcpy(frameBuffer,global->detector[detID].halopix_buffer,pix_nn*bufferDepth*sizeof(float));
+	memcpy(frameBufferGMD,global->detector[detID].halopix_bufferGMD,bufferDepth*sizeof(float));
+	//pthread_mutex_unlock(&global->halopixel_mutex);
+	
+	// GMD
+	GMDMedian = median(frameBufferGMD, bufferDepth);
+	for(long j=0; j< bufferDepth; j++) {
+	  buffer2[j] = frameBufferGMD[j]*frameBufferGMD[j];
+	}
+	GMDSquaredMedian = median(buffer2, bufferDepth);
+	GMDSigma = sqrt(fabs(GMDSquaredMedian - GMDMedian*GMDMedian));
+
+	// Loop over all pixels 
+	for(long i=0; i<pix_nn; i++) {
+	  // Create a local array for sorting
+	  for(long j=0; j< bufferDepth; j++) {
+	    buffer1[j] = frameBuffer[j*pix_nn+i];
+	    buffer2[j] = frameBuffer[j*pix_nn+i]*frameBuffer[j*pix_nn+i];
+	  }
+
+	  // Find median value of the temporary array
+	  pixelMedian[i] = median(buffer1, bufferDepth);
+	  pixelSquaredMedian[i] = median(buffer2, bufferDepth);
+	  
+	}
+	  
+	puts("2.1 bla");
+	for(long i=0; i<pix_nn; i++) {
+	  pixelSigma = sqrt(fabs(pixelSquaredMedian[i] - pixelMedian[i]*pixelMedian[i]));
+	  for(long j=0; j< bufferDepth; j++) {
+	    buffer1[j] =
+	      (frameBufferGMD[j]-GMDMedian)*(frameBuffer[j*pix_nn+i]-pixelMedian[i]);
+	  }
+	  correlationsBuffer[i] = median(buffer1, bufferDepth)/(pixelSigma*GMDSigma+1.E-4);
+	}
+	puts("3");
+	//pthread_mutex_lock(&global->halopixel_mutex);
+	memcpy(global->detector[detID].runningCorrelationsPixGMD,correlationsBuffer,pix_nn*sizeof(float));
+
+	free(buffer1);
+	free(buffer2);
+	free(frameBuffer);
+	free(frameBufferGMD);
+	free(pixelMedian);
+	free(pixelSquaredMedian);
+	free(correlationsBuffer);
+	
+	puts("5");
+      }
+      pthread_mutex_unlock(&global->halopixel_mutex);
+    }	
+  }
+}
 
 
 
@@ -725,49 +921,3 @@ long calculateHaloPixelMask(uint16_t *mask, float *frameBuffer, float threshold,
   return nhalo;
 
 }
-
-
-			
-void calculatePixelGMDCorrelations(cEventData *eventData, cGlobal *global){
-  DETECTOR_LOOP {
-    //if (global->detector[detID].useAutoHaloPixel) {
-      
-      long   nn = global->detector[detID].pix_nn;
-      float *valData = eventData->detector[detID].corrected_data;
-      float *avgData = (float *) calloc(nn,sizeof(float));
-      float *stdData = (float *) calloc(nn,sizeof(float));
-      float *correlations = eventData->detector[detID].runningCorrelationsPixGMD;
-      float mem = global->avgGMDMemory;
-      float avgGMD,stdGMD;
-      float valGMD = (eventData->gmd11+eventData->gmd12)/2.;
-      long powderType = 0;
-
-      // thread-safe copy of required data from global
-      pthread_mutex_lock(&global->gmd_mutex);
-      avgGMD = global->avgGMD1;
-      stdGMD = global->avgSqGMD1 - avgGMD*avgGMD;
-      pthread_mutex_unlock(&global->gmd_mutex);
-      pthread_mutex_lock(&global->detector[detID].powderCorrected_mutex[powderType]);
-      for(long i = 0; i<nn; i++){
-	avgData[i] = global->detector[detID].powderCorrected[powderType][i];
-      }
-      pthread_mutex_unlock(&global->detector[detID].powderCorrected_mutex[powderType]);
-      pthread_mutex_lock(&global->detector[detID].powderCorrectedSquared_mutex[powderType]);
-      for(long i = 0; i<nn; i++){
-	stdData[i] = global->detector[detID].powderCorrectedSquared[powderType][i] - avgData[i] * avgData[i];
-      }
-      pthread_mutex_unlock(&global->detector[detID].powderCorrectedSquared_mutex[powderType]);
-
-      // calculate correlations
-      for(long i = 0; i<nn; i++){
-	correlations[i] =
-	  mem * correlations[i] + (1-mem)*((valGMD-avgGMD)*(valData[i]-avgData[i]))/(stdGMD*stdData[i]+1.E-6);
-      }
-      
-      // free buffers
-      free(avgData);
-      free(stdData);
-      //}
-  }	 
-}
-

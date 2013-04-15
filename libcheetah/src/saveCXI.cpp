@@ -197,6 +197,8 @@ static void write2DToStack(hid_t dataset, int stackSlice, T * data){
     type = H5T_NATIVE_INT32;
   }else if(typeid(T) == typeid(double)){
     type = H5T_NATIVE_DOUBLE;
+  }else if(typeid(T) == typeid(float)){
+    type = H5T_NATIVE_FLOAT;
   }else if(typeid(T) == typeid(unsigned int)){
     type = H5T_NATIVE_UINT32;
   }else if(typeid(T) == typeid(unsigned short)){
@@ -229,6 +231,8 @@ static void createAndWrite2DDataset(const char *name, hid_t loc, int width, int 
     datatype = H5T_NATIVE_INT32;
   }else if(typeid(T) == typeid(double)){
     datatype = H5T_NATIVE_DOUBLE;
+  }else if(typeid(T) == typeid(float)){
+    datatype = H5T_NATIVE_FLOAT;
   }else if(typeid(T) == typeid(unsigned int)){
     datatype = H5T_NATIVE_UINT32;
   }else if(typeid(T) == typeid(unsigned short)){

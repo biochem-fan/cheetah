@@ -118,7 +118,7 @@ cPixelDetectorCommon::cPixelDetectorCommon() {
   // Identify persistently illuminated pixels (halo)
   useAutoHalopixel = 0;
   halopixMinDeviation = 100;
-  halopixMemory = 50;
+  halopixMemory = 100;
     
   // correction for PNCCD read out artifacts 
   usePnccdOffsetCorrection = 0;
@@ -385,6 +385,7 @@ void cPixelDetectorCommon::allocatePowderMemory(cGlobal *global) {
   bg_buffer = (int16_t*) calloc(bgMemory*pix_nn, sizeof(int16_t)); 
   hotpix_buffer = (int16_t*) calloc(hotpixMemory*pix_nn, sizeof(int16_t)); 
   halopix_buffer = (float*) calloc(halopixMemory*pix_nn, sizeof(float)); 
+  halopix_bufferGMD = (float*) calloc(halopixMemory, sizeof(float)); 
     
   // Powder sums and mutexes
   for(long i=0; i<nPowderClasses; i++) {
