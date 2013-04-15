@@ -385,9 +385,6 @@ void cPixelDetectorCommon::allocatePowderMemory(cGlobal *global) {
   bg_buffer = (int16_t*) calloc(bgMemory*pix_nn, sizeof(int16_t)); 
   hotpix_buffer = (int16_t*) calloc(hotpixMemory*pix_nn, sizeof(int16_t)); 
   halopix_buffer = (float*) calloc(halopixMemory*pix_nn, sizeof(float)); 
-  for(long j=0; j<pix_nn; j++) {
-    selfdark[j] = 0;
-  }
     
   // Powder sums and mutexes
   for(long i=0; i<nPowderClasses; i++) {

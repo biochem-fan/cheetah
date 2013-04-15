@@ -19,7 +19,7 @@ void identifyHotPixels(cEventData*, cGlobal*);
 void applyHotPixelMask(cEventData*, cGlobal*);
 void calculateHaloPixelMask(cGlobal*);
 void identifyHaloPixels(cEventData*, cGlobal*);
-
+void calculatePixelGMDCorrelations(cEventData*, cGlobal*);
 
 void subtractDarkcal(float*, float*, long);
 void applyGainCorrection(float*, float*, long);
@@ -103,3 +103,5 @@ void evr41fudge(cEventData *t, cGlobal *g);
 // datarate timing
 void updateDatarate(cEventData *t, cGlobal *g);
 
+// running average of GMD data
+void updateAvgGMD(cEventData *t, cGlobal *g);

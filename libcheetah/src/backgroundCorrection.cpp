@@ -77,16 +77,7 @@ void subtractPersistentBackground(cEventData *eventData, cGlobal *global){
 	pthread_mutex_unlock(&global->bgbuffer_mutex);
 			
 			
-			
-      /*
-       *	Remember GMD values  (why is this here?)
-       */
-      float	gmd;
-      pthread_mutex_lock(&global->selfdark_mutex);
-      gmd = (eventData->gmd21+eventData->gmd22)/2;
-      global->avgGMD = ( gmd + (global->detector[0].bgMemory-1)*global->avgGMD) / global->detector[0].bgMemory;
-      pthread_mutex_unlock(&global->selfdark_mutex);
-
+		      
     }
   }	
 }
@@ -372,6 +363,4 @@ void checkSaturatedPixels(cEventData *eventData, cGlobal *global){
 		}
 	}	
 }
-
-
 

@@ -429,6 +429,8 @@ static CXI::File * createCXISkeleton(const char * filename,cGlobal *global){
       d.thumbnail = create2DStack("thumbnail", d.self, global->detector[detID].pix_nx/CXI::thumbnailScale, global->detector[detID].pix_ny/CXI::thumbnailScale, H5T_STD_I16LE);
       // /entry_1/instrument_1/detector_i/experiment_identifier -> /entry_1/experiment_identifier
       H5Lcreate_soft("/entry_1/experiment_identifier",d.self,"experiment_identifier",H5P_DEFAULT,H5P_DEFAULT);
+      // CHANGE!!!
+      d.correlations = create2DStack("correlations", d.self, global->detector[detID].pix_nx, global->detector[detID].pix_ny, H5T_NATIVE_FLOAT);
     }
     cxi->entry.instrument.detectors.push_back(d);
 
@@ -600,6 +602,8 @@ void writeCXI(cEventData *info, cGlobal *global ){
     if(global->saveRaw){
       if (cxi->entry.instrument.detectors[detID].data<0){ERROR("No valid dataset.");}
       write2DToStack(cxi->entry.instrument.detectors[detID].data,stackSlice,info->detector[detID].corrected_data_int16);
+      // CHANGE!!!
+      write2DToStack(cxi->entry.instrument.detectors[detID].correlations,stackSlice,info->detector[detID].runningCorrelationsPixGMD);
       if(global->savePixelmask){
 	write2DToStack(cxi->entry.instrument.detectors[detID].mask,stackSlice,info->detector[detID].pixelmask);
       }

@@ -623,6 +623,8 @@ void pnccdFixWiringError(float *data) {
     
 }
 
+
+
 void identifyHaloPixels(cEventData *eventData, cGlobal *global) {
   if(!eventData->hit){
     
@@ -653,10 +655,12 @@ void identifyHaloPixels(cEventData *eventData, cGlobal *global) {
     }
   }
 }
-     
+  
+   
 /* 
  *	Recalculate halo pixel masks using frame buffer
  */
+
 void calculateHaloPixelMask(cGlobal *global){
 
 	
@@ -694,6 +698,7 @@ void calculateHaloPixelMask(cGlobal *global){
 }
 
 
+
 long calculateHaloPixelMask(uint16_t *mask, float *frameBuffer, float threshold, long bufferDepth, long pix_nn){
 
   // Loop over all pixels 
@@ -723,3 +728,46 @@ long calculateHaloPixelMask(uint16_t *mask, float *frameBuffer, float threshold,
 
 
 			
+void calculatePixelGMDCorrelations(cEventData *eventData, cGlobal *global){
+  DETECTOR_LOOP {
+    //if (global->detector[detID].useAutoHaloPixel) {
+      
+      long   nn = global->detector[detID].pix_nn;
+      float *valData = eventData->detector[detID].corrected_data;
+      float *avgData = (float *) calloc(nn,sizeof(float));
+      float *stdData = (float *) calloc(nn,sizeof(float));
+      float *correlations = eventData->detector[detID].runningCorrelationsPixGMD;
+      float mem = global->avgGMDMemory;
+      float avgGMD,stdGMD;
+      float valGMD = (eventData->gmd11+eventData->gmd12)/2.;
+      long powderType = 0;
+
+      // thread-safe copy of required data from global
+      pthread_mutex_lock(&global->gmd_mutex);
+      avgGMD = global->avgGMD1;
+      stdGMD = global->avgSqGMD1 - avgGMD*avgGMD;
+      pthread_mutex_unlock(&global->gmd_mutex);
+      pthread_mutex_lock(&global->detector[detID].powderCorrected_mutex[powderType]);
+      for(long i = 0; i<nn; i++){
+	avgData[i] = global->detector[detID].powderCorrected[powderType][i];
+      }
+      pthread_mutex_unlock(&global->detector[detID].powderCorrected_mutex[powderType]);
+      pthread_mutex_lock(&global->detector[detID].powderCorrectedSquared_mutex[powderType]);
+      for(long i = 0; i<nn; i++){
+	stdData[i] = global->detector[detID].powderCorrectedSquared[powderType][i] - avgData[i] * avgData[i];
+      }
+      pthread_mutex_unlock(&global->detector[detID].powderCorrectedSquared_mutex[powderType]);
+
+      // calculate correlations
+      for(long i = 0; i<nn; i++){
+	correlations[i] =
+	  mem * correlations[i] + (1-mem)*((valGMD-avgGMD)*(valData[i]-avgData[i]))/(stdGMD*stdData[i]+1.E-6);
+      }
+      
+      // free buffers
+      free(avgData);
+      free(stdData);
+      //}
+  }	 
+}
+

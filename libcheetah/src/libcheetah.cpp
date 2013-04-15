@@ -105,6 +105,10 @@ cEventData* cheetahNewEvent(cGlobal	*global) {
 		
 		eventData->detector[detID].radialAverage = (float *) calloc(radial_nn, sizeof(float));
 		eventData->detector[detID].radialAverageCounter = (float *) calloc(radial_nn, sizeof(float));
+		
+		// CHANGE!!!
+		eventData->detector[detID].runningCorrelationsPixGMD = (float *) calloc(pix_nn,sizeof(float));
+		//eventData->detector[detID].runningCorrelationsPixGMD_int16 = (int16_t *) calloc(pix_nn,sizeof(int16_t));
 	}	
 	
 	

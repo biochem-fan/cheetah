@@ -317,6 +317,7 @@ public:
 	float     *radialAverage;
 	float     *radialAverageCounter;
 	double    detectorZ;
+	float     *runningCorrelationsPixGMD;
 
 };
 

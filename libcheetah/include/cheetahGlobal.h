@@ -181,6 +181,8 @@ public:
 	int      powderSumHits;
 	/** @brief Toggle the creation of virtual powder patterns from non-hits. */
 	int      powderSumBlanks;
+	/** @brief Toggle the creation of virtual powder patterns from all events. */
+	int      powderSumAll;
 	/** @brief Lower intensity threshold for forming powder patterns. */
 	float   powderthresh;
 	/** @brief Toggle intensity threshold for forming powder patterns. */
@@ -289,11 +291,17 @@ public:
 	pthread_mutex_t  espectrumBuffer_mutex;
 	pthread_mutex_t  datarateWorker_mutex;
 	pthread_mutex_t  saveCXI_mutex;
+	pthread_mutex_t  gmd_mutex;
 
 	/*
 	 *	Common variables
 	 */
-	float    avgGMD;
+	float    avgGMD1;
+	float    avgGMD2;
+	float    avgSqGMD1;
+	float    avgSqGMD2;
+	// value between 0. and 1.
+	float    avgGMDMemory;
 
 	/*
 	 *	Powder patterns/sums
@@ -326,6 +334,7 @@ public:
 	long      lastTimingFrame;
 	timeval   datarateWorkerTimevalLast;
 	double    datarateWorker;
+	// value between 0. and 1.
 	double    datarateWorkerMemory;
 	long      datarateWorkerSkipCounter;
 

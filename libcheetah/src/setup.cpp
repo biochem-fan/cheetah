@@ -119,11 +119,12 @@ cGlobal::cGlobal(void) {
   strcpy(espectrumScaleFile, "No_file_specified");
 
   // Powder pattern generation
-  nPowderClasses = 2;
+  nPowderClasses = 3;
   usePowderThresh = 0;
   powderthresh = 0.0;
   powderSumHits = 1;
   powderSumBlanks = 0;
+  powderSumAll = 1;
 
   // Radial average stacks
   saveRadialStacks=0;
@@ -133,6 +134,13 @@ cGlobal::cGlobal(void) {
   assembleInterpolation = ASSEMBLE_INTERPOLATION_DEFAULT;
   assemble2DImage = 1;
   assemble2DMask = 1;
+
+  // log GMDs
+  avgGMDMemory = 0.95;
+  avgGMD1 = 0.;
+  avgGMD2 = 0.;
+  avgSqGMD1 = 0.;
+  avgSqGMD2 = 0.;
 
   // Saving options
   savehits = 0;
@@ -161,7 +169,6 @@ cGlobal::cGlobal(void) {
   subdirFileCount = -1;
   subdirNumber = 0;
   strcpy(subdirName, "");
-
 
   // Log files
   strcpy(logfile, "log.txt");
@@ -308,6 +315,7 @@ void cGlobal::setup() {
   pthread_mutex_init(&espectrumBuffer_mutex, NULL);
   pthread_mutex_init(&datarateWorker_mutex, NULL);  
   pthread_mutex_init(&saveCXI_mutex, NULL);  
+  pthread_mutex_init(&gmd_mutex, NULL);  
   threadID = (pthread_t*) calloc(nThreads, sizeof(pthread_t));
 
   /*
@@ -387,7 +395,9 @@ void cGlobal::setup() {
   datarate = 1;
   runNumber = 0;
   time(&tstart);
-  avgGMD = 0;
+  avgGMD1 = 0.;
+  avgGMD2 = 0.;
+  avgGMDMemory = 0.95;
 
   for(long i=0; i<MAX_DETECTORS; i++) {
     detector[i].bgCounter = 0;

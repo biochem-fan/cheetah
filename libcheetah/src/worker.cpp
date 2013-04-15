@@ -65,6 +65,11 @@ void *worker(void *threadarg) {
    */
   nameEvent(eventData, global);
 	
+  /*
+   *    Calculate GMD running average
+   */
+  //updateAvgGMD(eventData,global);
+
   DETECTOR_LOOP {
     /*
      *	Copy pixelmask_shared into pixelmask for this event
@@ -195,6 +200,8 @@ void *worker(void *threadarg) {
    */
   identifyHaloPixels(eventData, global);	
   calculateHaloPixelMask(global);
+  // CHANGE!!!
+  //calculatePixelGMDCorrelations(eventData,global);
 	
   /*
    *	Update running backround estimate based on non-hits
@@ -433,3 +440,19 @@ void updateDatarate(cEventData *eventData, cGlobal *global){
   
 }
 
+void updateAvgGMD(cEventData *eventData, cGlobal *global){
+
+  /*
+   *	Remember GMD values
+   */
+  float	gmd1,gmd2;
+  float mem =  global->avgGMDMemory;
+  gmd1 = (eventData->gmd11+eventData->gmd12)/2.;
+  gmd2 = (eventData->gmd21+eventData->gmd22)/2.;
+  pthread_mutex_lock(&global->gmd_mutex);
+  global->avgGMD1 = global->avgGMD1 * mem + gmd1 * (1-mem);
+  global->avgGMD2 = global->avgGMD2 * mem + gmd2 * (1-mem);
+  global->avgSqGMD1 = global->avgSqGMD1 * mem + gmd1 * gmd1 * (1-mem);
+  global->avgSqGMD2 = global->avgSqGMD2 * mem + gmd2 * gmd2 * (1-mem);
+  pthread_mutex_unlock(&global->gmd_mutex);  
+}

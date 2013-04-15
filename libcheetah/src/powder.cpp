@@ -31,16 +31,18 @@ void addToPowder(cEventData *eventData, cGlobal *global) {
   int hit = eventData->hit;
     
   DETECTOR_LOOP {
-    if(hit && global->powderSumHits) 
-      addToPowder(eventData, global, hit, detID);
-    
-    if(!hit && global->powderSumBlanks)
-      addToPowder(eventData, global, hit, detID);
-    
-    if(global->generateDarkcal || global->generateGaincal)
+    if(global->powderSumAll || global->generateDarkcal || global->generateGaincal || global->detector[detID].useAutoHalopixel){
       addToPowder(eventData, global, 0, detID);
-  } 
+    }
 
+    if(hit && global->powderSumHits){
+      addToPowder(eventData, global, hit+1, detID);
+    }
+    
+    if(!hit && global->powderSumBlanks){
+      addToPowder(eventData, global, hit+1, detID);
+    }
+  } 
 }
 
 void addToPowder(cEventData *eventData, cGlobal *global, int powderClass, int detID){
@@ -218,7 +220,6 @@ void savePowderPattern(cGlobal *global, int detID, int powderType) {
   calculateRadialAverage(bufferCorrectedSigma, radialAverageCorrectedSigma, radialAverageCorrectedCounter, global, detID);
   //writePowderData(filename, bufferSigma, detector->pix_nx, detector->pix_ny, radialAverage, radialAverageCounter, radial_nn, detector->nPowderFrames[powderType], H5T_NATIVE_DOUBLE);	
 	
-
   /*
    *	Mess of stuff for writing the compound HDF5 file
    */
