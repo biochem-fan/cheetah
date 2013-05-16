@@ -147,6 +147,9 @@ cGlobal::cGlobal(void) {
   sigPhotonThreshold = 0.;
   totalPhotonsThreshold = 0.;
 
+  // Visualization
+  pythonFile[0] = 0;
+
   // Peak lists
   savePeakList = 1;
 
@@ -853,6 +856,8 @@ int cGlobal::parseConfigTag(char *tag, char *value) {
   }
   else if (!strcmp(tag, "savecxi")) {
     saveCXI = atoi(value);
+  } else if (!strcmp(tag, "pythonfile")) {
+    strcpy(pythonFile, value);
   }
   else if (!strcmp(tag, "readcxi")) {
     readCXI = atoi(value);
@@ -991,6 +996,7 @@ void cGlobal::writeConfigurationLog(void){
   fprintf(fp, "readCXIFile=%s\n",readCXIFile);
   fprintf(fp, "sigPhotonThreshold=%g\n",sigPhotonThreshold);
   fprintf(fp, "totalPhotonsThreshold=%g\n",totalPhotonsThreshold);
+  fprintf(fp, "pythonfile=%s\n", pythonFile);
   //fprintf(fp, "selfdarkMemory=%li\n",bgMemory);
   //fprintf(fp, "bgMemory=%li\n",bgMemory);
   //fprintf(fp, "bgRecalc=%ld\n",bgRecalc);
