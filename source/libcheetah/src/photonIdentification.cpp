@@ -27,8 +27,10 @@ void calculateSignificanceMap(cEventData *eventData, cGlobal *global) {
     uint16_t  pixel_options = PIXEL_IS_IN_PEAKMASK | PIXEL_IS_OUT_OF_RESOLUTION_LIMITS | PIXEL_IS_HOT | PIXEL_IS_BAD | PIXEL_IS_SATURATED | PIXEL_IS_MISSING;
     
     for (int i = 0; i < pix_nn; i++) {
-      significanceMap[i] = data[i] / sigma[i];
+      significanceMap[i] = fabs(data[i]) / fabs(sigma[i]);
+      printf("sig[%d] = %g = %g / %g \n", i, significanceMap[i], data[i], sigma[i]);
     }
+    exit(0);
 
     for (int i = 0; i < pix_nn; i++) {
       if (significanceMap[i] > global->sigPhotonThreshold) {
