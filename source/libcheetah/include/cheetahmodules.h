@@ -58,6 +58,7 @@ void writeCXI(cEventData *info, cGlobal *global);
 void writeAccumulatedCXI(cGlobal * global);
 void closeCXIFiles(cGlobal * global);
 herr_t cheetahHDF5ErrorHandler(hid_t, void *unused);
+void loadCXI(cGlobal *global, const char *filename);
 
 // assemble2DImage.cpp
 void assemble2Dimage(cEventData*, cGlobal*);
@@ -112,3 +113,6 @@ void evr41fudge(cEventData*, cGlobal*);
 // datarate timing
 void updateDatarate(cEventData*, cGlobal*);
 
+
+//photonIdentification.cpp
+void calculateSignificanceMap(cEventData*, cGlobal*);

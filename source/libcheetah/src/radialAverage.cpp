@@ -46,7 +46,7 @@ void calculateRadialAverage(cEventData *eventData, cGlobal *global) {
         calculateRadialAverage(corrected_data, pix_r, pix_nn, radial_average, radial_average_counter, radial_nn, mask);
         
         // Remember to free the mask
-        free(mask); 
+        free(mask);
     }
    
 }

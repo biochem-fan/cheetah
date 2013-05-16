@@ -279,6 +279,15 @@ public:
 	pthread_mutex_t assembledMin_mutex[MAX_POWDER_CLASSES];
 	pthread_mutex_t assembledMax_mutex[MAX_POWDER_CLASSES];
 
+	/* 
+	 * Statistical hitfinder stuff
+	 */
+	//float *darkAverageMap;
+	double *darkSigmaMap;
+	//float *significanceMap;
+	//float *photonMap;
+	float *cumPhotonMap;
+
 	/*
 	 *  Radial stacks for this detector
 	 */
@@ -330,6 +339,9 @@ public:
 	float     *radialAverage;
 	float     *radialAverageCounter;
 	double    detectorZ;
+	float     *significanceMap;
+	float     *photonMap;
+
 
 };
 

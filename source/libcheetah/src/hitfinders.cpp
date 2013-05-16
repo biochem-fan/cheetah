@@ -24,6 +24,7 @@
  *		5 - Depreciated and no longer exists
  *		6 - Experimental - find peaks by SNR criteria
  *              7 - Laser on event code (usually EVR41)
+ *              8 - Statistical hit finder
  */
 int  hitfinder(cEventData *eventData, cGlobal *global){
 	
@@ -271,4 +272,41 @@ int hitfinder4(cGlobal *global,cEventData *eventData,long detID){
   return hit;
 }
 
+int hitfinder8(cGlobal *global, cEventData *eventData, long detID) {
 
+  int       hit = 0;
+  long      nat = 0;
+  float     tat = 0.;
+  uint16_t  *mask = eventData->detector[detID].pixelmask;
+  float     *data = eventData->detector[detID].corrected_data;
+  double     *sigma = eventData->detector[detID].darkSigmaMap;
+  //double     *sigma = global->detector[detID].darkSigmaMap;
+  long	    pix_nn = global->detector[detID].pix_nn;  
+  float     ADC_threshold = global->hitfinderADC;
+  // Combine pixel options for pixels to be ignored
+  uint16_t  pixel_options = PIXEL_IS_IN_PEAKMASK | PIXEL_IS_OUT_OF_RESOLUTION_LIMITS | PIXEL_IS_HOT | PIXEL_IS_BAD | PIXEL_IS_SATURATED | PIXEL_IS_MISSING;
+
+  long photonSum = 0;
+  for (int i = 0; i<pix_nn; i++) {
+    photonSum += global->detector[detID].photonMap[i];
+  }
+
+  if (photonSum > global->totalPhotonsThreshold) {
+
+  }
+  integratePixAboveThreshold(data,mask,pix_nn,ADC_threshold,pixel_options,&nat,&tat);
+  eventData->peakTotal = tat;
+  eventData->peakNpix = nat;
+  eventData->nPeaks = nat;
+
+  if(nat >= global->hitfinderMinPixCount){
+    hit = 1;
+  }
+  return hit;
+}
+
+/*
+int hitfinder9(cGlobal *global, cEventData *eventData, long detID) {
+
+}
+*/

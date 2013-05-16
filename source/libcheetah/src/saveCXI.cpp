@@ -723,6 +723,20 @@ void writeAccumulatedCXI(cGlobal * global){
   long	pix_nn,pix_nx,pix_ny;
   long	image_nn;
 
+  char buffer[1024];
+
+  //PHOTONS
+
+  printf(">>> Write accumulated CXI\n");
+  DETECTOR_LOOP{
+    sprintf(buffer,"detector%li_accumulated_photons", detID);
+    float *cumPhotonMap = global->detector[detID].cumPhotonMap;
+    printf(">>> %g %g\n", cumPhotonMap[0], cumPhotonMap[500000]);
+    createAndWriteDataset(buffer, sharedVal.self, cumPhotonMap, global->detector[detID].pix_nx, global->detector[detID].pix_ny);
+    //createAndWriteDataset(buffer, sharedVal.self, global->detector[detID].cumPhotonMap, pix_nx, pix_ny);
+  }
+
+
   DETECTOR_LOOP{
     POWDER_LOOP{
       detector = &global->detector[detID];
@@ -731,7 +745,7 @@ void writeAccumulatedCXI(cGlobal * global){
       pix_nx =  detector->pix_nx;
       pix_ny =  detector->pix_ny;
       image_nn = detector->image_nn;
-      char buffer[1024];
+      //char buffer[1024];
 
       // Dereference/create arrays to be written to file
       // SUM(data)
@@ -786,7 +800,7 @@ void writeAccumulatedCXI(cGlobal * global){
       createAndWriteDataset(buffer, sharedVal.self,sigma_corrected,pix_nx,pix_ny);
       sprintf(buffer,"detector%li_class%li_sigma_corrected_angAvg",detID,powID);
       createAndWriteDataset(buffer, sharedVal.self,sigma_corrected_ang,radial_nn);
-      
+            
       free(sum_corrected_ang);
       free(sum_corrected_angCnt);
       free(sum_correctedSq_ang);
@@ -961,4 +975,40 @@ void writeCXI(cEventData *info, cGlobal *global ){
     writeScalarToStack(cxi->cheetahVal.sharedVal.lastHaloPixUpdate[detID],stackSlice,global->detector[detID].last_halopix_update);  
     writeScalarToStack(cxi->cheetahVal.sharedVal.haloPixCounter[detID],stackSlice,global->detector[detID].halopixCounter);  
   }
+}
+
+void loadCXI(cGlobal *global, const char *filename){
+  printf(">>> read cxi filename = %s\n", filename);
+  hid_t fid = H5Fopen(filename, H5F_ACC_RDONLY, H5P_DEFAULT);
+  char buffer[1000];
+  hsize_t dims[2];
+
+  /*
+  hid_t gid_cheetah = H5Gopen(fid, "cheetah", H5P_DEFAULT);
+  hid_t gid_shared = H5Gopen(gid_cheetah, "shared", H5P_DEFAULT);
+  */
+  hid_t gid = H5Gopen(fid, "/cheetah/shared", H5P_DEFAULT);
+  
+  for (int detectorID = 0; detectorID < global->nDetectors; detectorID++){
+    sprintf(buffer, "detector%d_class0_sigma_corrected", detectorID);
+    printf(">>> read data = %s\n", buffer);
+    //hid_t did = H5Dopen(gid_shared, buffer, H5P_DEFAULT);
+    //hid_t did = H5Dopen(gid, buffer, H5P_DEFAULT);
+    hid_t did = H5Dopen1(gid, buffer);
+    hid_t space = H5Dget_space(did);
+    H5Sget_simple_extent_dims(space, dims, NULL);
+    if (dims[0] != global->detector[detectorID].pix_nx || dims[1] != global->detector[detectorID].pix_ny) {
+      printf("Sigma map read from %s doesn differs in size from the detector\n", filename);
+      printf("Aborting...\n");
+      exit(1);
+    }
+    H5Dread(did, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, global->detector[detectorID].darkSigmaMap);
+    H5Dclose(did);
+  }
+  /*
+  H5Gclose(gid_shared);
+  H5Gclose(gid_cheetah);
+  */
+  H5Gclose(gid);
+  H5Fclose(fid);
 }

@@ -145,7 +145,11 @@ public:
 	int     *hitfinderResMask;
 	/** @brief The minimum signal/noise ratio for peakfinding purposes. */
 	float    hitfinderMinSNR;
-	
+
+
+	/* statistical hitfinding stuff */
+	float *expectedPattern;
+	float probabilityThreshold;
 
 	/** @brief Name of the time-of-flight instrument? */
 	char     tofName[MAX_FILENAME_LENGTH];
@@ -229,7 +233,15 @@ public:
 	 */
 	int      hdf5dump;
     
-    bool saveCXI;
+	bool saveCXI;
+
+	
+	bool readCXI;
+	char readCXIFile[MAX_FILENAME_LENGTH];
+
+	float sigPhotonThreshold;
+	float totalPhotonsThreshold;
+	
 
 
 	/** @brief Toggle the verbosity of Cheetah. */
@@ -291,6 +303,7 @@ public:
 	pthread_mutex_t  datarateWorker_mutex;
 	pthread_mutex_t  saveCXI_mutex;
 	pthread_mutex_t  pixelmask_shared_mutex;
+	pthread_mutex_t  cumPhoton_mutex;
 
 	/*
 	 *	Common variables

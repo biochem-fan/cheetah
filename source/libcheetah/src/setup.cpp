@@ -142,6 +142,10 @@ cGlobal::cGlobal(void) {
   saveInterval = 1000;
   savePixelmask = 0;
   saveCXI = 0;
+  strcpy(readCXIFile, "No_file_specified");
+  readCXI = 0;
+  sigPhotonThreshold = 0.;
+  totalPhotonsThreshold = 0.;
 
   // Peak lists
   savePeakList = 1;
@@ -205,6 +209,11 @@ void cGlobal::setup() {
     detector[i].readBadpixelMask(detector[i].badpixelFile);
     detector[i].readBaddataMask(detector[i].baddataFile);
     detector[i].readWireMask(detector[i].wireMaskFile);
+    detector[i].darkSigmaMap = (double *)calloc(detector[i].pix_nn, sizeof(double));
+    detector[i].significanceMap = (float *)calloc(detector[i].pix_nn, sizeof(float));
+    detector[i].photonMap = (float *)calloc(detector[i].pix_nn, sizeof(float));
+    detector[i].cumPhotonMap = (float *)calloc(detector[i].pix_nn, sizeof(float));
+    for (long j = 0; j < detector[i].pix_nn; j++) {detector[i].cumPhotonMap[j] = 0.;}
   }
 	
 
@@ -256,6 +265,7 @@ void cGlobal::setup() {
   pthread_mutex_init(&datarateWorker_mutex, NULL);  
   pthread_mutex_init(&saveCXI_mutex, NULL);  
   pthread_mutex_init(&pixelmask_shared_mutex, NULL);  
+  pthread_mutex_init(&cumPhoton_mutex, NULL);
   threadID = (pthread_t*) calloc(nThreads, sizeof(pthread_t));
 
   /*
@@ -412,7 +422,9 @@ void cGlobal::setup() {
     }
   }
 
-
+  if (readCXI) {
+    loadCXI(this, readCXIFile);
+  }
 }
 
 
@@ -842,6 +854,18 @@ int cGlobal::parseConfigTag(char *tag, char *value) {
   else if (!strcmp(tag, "savecxi")) {
     saveCXI = atoi(value);
   }
+  else if (!strcmp(tag, "readcxi")) {
+    readCXI = atoi(value);
+  }
+  else if (!strcmp(tag, "readcxifile")) {
+    strcpy(readCXIFile, value);
+  }
+  else if (!strcmp(tag, "sigphotonthreshold")) {
+    sigPhotonThreshold = atof(value);
+  }
+  else if (!strcmp(tag, "totalphotonsthreshold")) {
+    totalPhotonsThreshold = atof(value);
+  }
   // Unknown tags
   else {
     //printf("\tUnknown tag: %s = %s\n",tag,value);
@@ -963,6 +987,10 @@ void cGlobal::writeConfigurationLog(void){
   fprintf(fp, "hitfinderResolutionUnitPixel=%i\n",hitfinderResolutionUnitPixel);
   fprintf(fp, "hitfinderMinSNR=%f\n",hitfinderMinSNR);
   fprintf(fp, "saveCXI=%d\n",saveCXI);
+  fprintf(fp, "readCXI=%d\n",readCXI);
+  fprintf(fp, "readCXIFile=%s\n",readCXIFile);
+  fprintf(fp, "sigPhotonThreshold=%g\n",sigPhotonThreshold);
+  fprintf(fp, "totalPhotonsThreshold=%g\n",totalPhotonsThreshold);
   //fprintf(fp, "selfdarkMemory=%li\n",bgMemory);
   //fprintf(fp, "bgMemory=%li\n",bgMemory);
   //fprintf(fp, "bgRecalc=%ld\n",bgRecalc);

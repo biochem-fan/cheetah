@@ -1028,6 +1028,72 @@ void cPixelDetectorCommon::readWireMask(char *filename){
 
 }
 
+/*
+void cPixelDetectorCommon::readAverageMap(char *filename) {
+  printf("Reading Average map:\n");
+  if ( strcmp(filename,"") == 0 ){
+    printf("Average map file path was not specified.\n");
+    printf("Aborting...\n");
+    exit(1);
+  }
+
+  file *fp = fopen(filename, "r");
+  if (fp)
+    fclose(fp);
+  else {
+    printf("\tAverage map does not exist: %s\n", filename);
+    printf("\tAborting...\n");
+    exit(1);
+  }
+
+  cData2d temp2d;
+  temp2d.readHDF5(filename);
+  
+  if (temp2d.nx != pix_nx || temp2d.ny != pix_ny) {
+    printf("\tGeometry mismatch: %lix%li != %lix%li\n", temp2d.nx, temp2d.ny, pix_nx, pix_ny);
+    printf("\tAborting...\n");
+    exit(1);
+  }
+  
+  darkAverageMap = (float *)calloc(pix_nn, sizeof(float));
+  for (long i = 0; i<pix_nn; i++) {
+    darkAverageMap[i] = temp2d.data[i];
+  }
+}
+
+void cPixelDetectorCommon::readSigmaMap(char *filename) {
+  printf("Reading Sigma map:\n");
+  if ( strcmp(filename,"") == 0 ){
+    printf("Sigma map file path was not specified.\n");
+    printf("Aborting...\n");
+    exit(1);
+  }
+
+  file *fp = fopen(filename, "r");
+  if (fp)
+    fclose(fp);
+  else {
+    printf("\Sigma map does not exist: %s\n", filename);
+    printf("\tAborting...\n");
+    exit(1);
+  }
+
+  cData2d temp2d;
+  temp2d.readHDF5(filename);
+  
+  if (temp2d.nx != pix_nx || temp2d.ny != pix_ny) {
+    printf("\tGeometry mismatch: %lix%li != %lix%li\n", temp2d.nx, temp2d.ny, pix_nx, pix_ny);
+    printf("\tAborting...\n");
+    exit(1);
+  }
+  
+  darkSigmaMap = (float *)calloc(pix_nn, sizeof(float));
+  for (long i = 0; i<pix_nn; i++) {
+    darkSigmaMap[i] = temp2d.data[i];
+  }
+}
+*/
+
 cPixelDetectorEvent::cPixelDetectorEvent() {
 
   detectorZ=0;
