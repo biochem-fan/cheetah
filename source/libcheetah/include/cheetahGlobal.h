@@ -150,6 +150,8 @@ public:
 	/* statistical hitfinding stuff */
 	float *expectedPattern;
 	float probabilityThreshold;
+	float backgroundThresholdMap;
+
 
 	/** @brief Name of the time-of-flight instrument? */
 	char     tofName[MAX_FILENAME_LENGTH];
@@ -240,6 +242,9 @@ public:
 	
 	bool readCXI;
 	char readCXIFile[MAX_FILENAME_LENGTH];
+
+	bool thresholdData;
+	char thresholdMapFile[MAX_FILENAME_LENGTH];
 
 	float sigPhotonThreshold;
 	float totalPhotonsThreshold;

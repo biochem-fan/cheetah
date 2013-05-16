@@ -146,6 +146,7 @@ cGlobal::cGlobal(void) {
   readCXI = 0;
   sigPhotonThreshold = 0.;
   totalPhotonsThreshold = 0.;
+  strcpy(thresholdMapFile, "No_file_specified");
 
   // Visualization
   pythonFile[0] = 0;
@@ -213,6 +214,7 @@ void cGlobal::setup() {
     detector[i].readBaddataMask(detector[i].baddataFile);
     detector[i].readWireMask(detector[i].wireMaskFile);
     detector[i].darkSigmaMap = (double *)calloc(detector[i].pix_nn, sizeof(double));
+    detector[i].thresholdMap = (float *)calloc(detector[i].pix_nn, sizeof(float));
     //detector[i].significanceMap = (float *)calloc(detector[i].pix_nn, sizeof(float));
     //detector[i].photonMap = (float *)calloc(detector[i].pix_nn, sizeof(float));
     detector[i].cumPhotonMap = (long *)calloc(detector[i].pix_nn, sizeof(long));
@@ -427,6 +429,9 @@ void cGlobal::setup() {
 
   if (readCXI) {
     loadCXI(this, readCXIFile);
+  }
+  if (thresholdData) {
+    loadThresholdMap(this, thresholdMapFile);
   }
 }
 
@@ -871,6 +876,12 @@ int cGlobal::parseConfigTag(char *tag, char *value) {
   else if (!strcmp(tag, "totalphotonsthreshold")) {
     totalPhotonsThreshold = atof(value);
   }
+  else if (!strcmp(tag, "thresholddata")) {
+    thresholdData = atoi(value);
+  }
+  else if (!strcmp(tag, "thresholdmapfile")) {
+    strcpy(thresholdMapFile, value);
+  }
   // Unknown tags
   else {
     //printf("\tUnknown tag: %s = %s\n",tag,value);
@@ -997,6 +1008,8 @@ void cGlobal::writeConfigurationLog(void){
   fprintf(fp, "sigPhotonThreshold=%g\n",sigPhotonThreshold);
   fprintf(fp, "totalPhotonsThreshold=%g\n",totalPhotonsThreshold);
   fprintf(fp, "pythonfile=%s\n", pythonFile);
+  fprintf(fp, "thresholdData=%d\n", thresholdData);
+  fprintf(fp, "thresholdMapFile=%s\n", thresholdMapFile);
   //fprintf(fp, "selfdarkMemory=%li\n",bgMemory);
   //fprintf(fp, "bgMemory=%li\n",bgMemory);
   //fprintf(fp, "bgRecalc=%ld\n",bgRecalc);

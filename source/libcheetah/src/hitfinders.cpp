@@ -73,6 +73,10 @@ int  hitfinder(cEventData *eventData, cGlobal *global){
 	  hit = eventData->laserEventCodeOn;
 	  eventData->nPeaks = eventData->laserEventCodeOn;
 	  break;
+
+	case 8 :
+	  hit = hitfinder8(global, eventData, detID);
+	  break;
 			
 	default :
 	  printf("Unknown hit finding algorithm selected: %i\n", global->hitfinderAlgorithm);
@@ -273,10 +277,8 @@ int hitfinder4(cGlobal *global,cEventData *eventData,long detID){
 }
 
 int hitfinder8(cGlobal *global, cEventData *eventData, long detID) {
-
+  
   int       hit = 0;
-  long      nat = 0;
-  float     tat = 0.;
   uint16_t  *mask = eventData->detector[detID].pixelmask;
   float     *data = eventData->detector[detID].corrected_data;
   double     *sigma = global->detector[detID].darkSigmaMap;
@@ -285,21 +287,12 @@ int hitfinder8(cGlobal *global, cEventData *eventData, long detID) {
   // Combine pixel options for pixels to be ignored
   uint16_t  pixel_options = PIXEL_IS_IN_PEAKMASK | PIXEL_IS_OUT_OF_RESOLUTION_LIMITS | PIXEL_IS_HOT | PIXEL_IS_BAD | PIXEL_IS_SATURATED | PIXEL_IS_MISSING;
 
-  long photonSum = 0;
+  float photonSum = 0.;
   for (int i = 0; i<pix_nn; i++) {
-    //photonSum += global->detector[detID].photonMap[i];
     photonSum += eventData->detector[detID].photonMap[i];
   }
 
   if (photonSum > global->totalPhotonsThreshold) {
-
-  }
-  integratePixAboveThreshold(data,mask,pix_nn,ADC_threshold,pixel_options,&nat,&tat);
-  eventData->peakTotal = tat;
-  eventData->peakNpix = nat;
-  eventData->nPeaks = nat;
-
-  if(nat >= global->hitfinderMinPixCount){
     hit = 1;
   }
   return hit;

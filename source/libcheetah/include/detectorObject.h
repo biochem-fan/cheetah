@@ -288,6 +288,8 @@ public:
 	//float *photonMap;
 	long *cumPhotonMap;
 
+	float *thresholdMap;
+
 	/*
 	 *  Radial stacks for this detector
 	 */

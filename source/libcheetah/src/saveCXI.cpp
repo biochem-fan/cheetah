@@ -1002,8 +1002,9 @@ void loadCXI(cGlobal *global, const char *filename){
     hid_t did = H5Dopen1(gid, buffer);
     hid_t space = H5Dget_space(did);
     H5Sget_simple_extent_dims(space, dims, NULL);
-    if (dims[0] != global->detector[detectorID].pix_nx || dims[1] != global->detector[detectorID].pix_ny) {
+    if (dims[1] != global->detector[detectorID].pix_nx || dims[0] != global->detector[detectorID].pix_ny) {
       printf("Sigma map read from %s doesn differs in size from the detector\n", filename);
+      printf("%d x %d  !=  %d x %d\n", dims[0], dims[1], global->detector[detectorID].pix_nx, global->detector[detectorID].pix_ny);
       printf("Aborting...\n");
       exit(1);
     }
@@ -1015,5 +1016,27 @@ void loadCXI(cGlobal *global, const char *filename){
   H5Gclose(gid_cheetah);
   */
   H5Gclose(gid);
+  H5Fclose(fid);
+}
+
+void loadThresholdMap(cGlobal *global, const char *filename) {
+  hid_t fid = H5Fopen(filename, H5F_ACC_RDONLY, H5P_DEFAULT);
+  char buffer[1000];
+  hsize_t dims[2];
+  
+  for (int detectorID = 0; detectorID < global->nDetectors; detectorID++) {
+    sprintf(buffer, "threshold_detector%d", detectorID);
+    hid_t did = H5Dopen1(fid, buffer);
+    hid_t space = H5Dget_space(did);
+    H5Sget_simple_extent_dims(space, dims, NULL);
+    if (dims[1] != global->detector[detectorID].pix_nx || dims[0] != global->detector[detectorID].pix_ny) {
+      printf("Threshold map read from %s doesn differs in size from the detector\n", filename);
+      printf("%d x %d  !=  %d x %d\n", dims[0], dims[1], global->detector[detectorID].pix_nx, global->detector[detectorID].pix_ny);
+      printf("Aborting...\n");
+      exit(1);
+    }
+    H5Dread(did, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, global->detector[detectorID].thresholdMap);
+    H5Dclose(did);
+  }
   H5Fclose(fid);
 }

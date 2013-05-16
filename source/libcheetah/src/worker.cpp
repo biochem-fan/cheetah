@@ -178,8 +178,9 @@ void *worker(void *threadarg) {
   pnccdOffsetCorrection(eventData, global);
   pnccdFixWiringError(eventData, global);
   
-  if (global->readCXI) {
-    calculateSignificanceMap(eventData, global);
+
+  if (global->thresholdData) {
+    calculatePhotonMap(eventData, global);
   }
   
 	/*
