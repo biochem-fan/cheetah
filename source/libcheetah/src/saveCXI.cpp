@@ -730,8 +730,7 @@ void writeAccumulatedCXI(cGlobal * global){
   printf(">>> Write accumulated CXI\n");
   DETECTOR_LOOP{
     sprintf(buffer,"detector%li_accumulated_photons", detID);
-    float *cumPhotonMap = global->detector[detID].cumPhotonMap;
-    printf(">>> %g %g\n", cumPhotonMap[0], cumPhotonMap[500000]);
+    long *cumPhotonMap = global->detector[detID].cumPhotonMap;
     createAndWriteDataset(buffer, sharedVal.self, cumPhotonMap, global->detector[detID].pix_nx, global->detector[detID].pix_ny);
     //createAndWriteDataset(buffer, sharedVal.self, global->detector[detID].cumPhotonMap, pix_nx, pix_ny);
   }

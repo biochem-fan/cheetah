@@ -286,7 +286,7 @@ public:
 	double *darkSigmaMap;
 	//float *significanceMap;
 	//float *photonMap;
-	float *cumPhotonMap;
+	long *cumPhotonMap;
 
 	/*
 	 *  Radial stacks for this detector

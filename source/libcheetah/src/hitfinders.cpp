@@ -279,8 +279,7 @@ int hitfinder8(cGlobal *global, cEventData *eventData, long detID) {
   float     tat = 0.;
   uint16_t  *mask = eventData->detector[detID].pixelmask;
   float     *data = eventData->detector[detID].corrected_data;
-  double     *sigma = eventData->detector[detID].darkSigmaMap;
-  //double     *sigma = global->detector[detID].darkSigmaMap;
+  double     *sigma = global->detector[detID].darkSigmaMap;
   long	    pix_nn = global->detector[detID].pix_nn;  
   float     ADC_threshold = global->hitfinderADC;
   // Combine pixel options for pixels to be ignored
@@ -288,7 +287,8 @@ int hitfinder8(cGlobal *global, cEventData *eventData, long detID) {
 
   long photonSum = 0;
   for (int i = 0; i<pix_nn; i++) {
-    photonSum += global->detector[detID].photonMap[i];
+    //photonSum += global->detector[detID].photonMap[i];
+    photonSum += eventData->detector[detID].photonMap[i];
   }
 
   if (photonSum > global->totalPhotonsThreshold) {
