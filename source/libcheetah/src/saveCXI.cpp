@@ -25,11 +25,13 @@ cheetahHDF5ErrorHandler(hid_t, void *)
 template <class T>
 hid_t get_datatype(const T * foo){
   hid_t datatype;
-  if(typeid(T) == typeid(short)){
+  if(typeid(T) == typeid(bool) && sizeof(bool) == 1){
+    datatype = H5T_NATIVE_INT8;
+  }else if(typeid(T) == typeid(short)){
     datatype = H5T_NATIVE_INT16;
   }else if(typeid(T) == typeid(unsigned short)){
     datatype = H5T_NATIVE_UINT16;
-  }else if((typeid(T) == typeid(int)) || (typeid(T) == typeid(bool))){
+  }else if((typeid(T) == typeid(int))) {
     datatype = H5T_NATIVE_INT32;
   }else if(typeid(T) == typeid(unsigned int)){
     datatype = H5T_NATIVE_UINT32;
@@ -841,6 +843,13 @@ void writeAccumulatedCXI(cGlobal * global){
     //createAndWriteDataset(buffer, sharedVal.self, global->detector[detID].cumPhotonMap, pix_nx, pix_ny);
   }
 
+  long NEvents = global->hitVector.size();
+  bool * temp = (bool*) calloc(NEvents, sizeof(bool));
+  for (long i=0;i<NEvents;i++){
+    temp[i] = global->hitVector[i];
+  }
+  createAndWriteDataset("hitVector",sharedVal.self,temp,NEvents);
+  free(temp);
 
   DETECTOR_LOOP{
     POWDER_LOOP{
@@ -905,7 +914,8 @@ void writeAccumulatedCXI(cGlobal * global){
       createAndWriteDataset(buffer, sharedVal.self,sigma_corrected,pix_nx,pix_ny);
       sprintf(buffer,"detector%li_class%li_sigma_corrected_angAvg",detID,powID);
       createAndWriteDataset(buffer, sharedVal.self,sigma_corrected_ang,radial_nn);
-            
+
+
       free(sum_corrected_ang);
       free(sum_corrected_angCnt);
       free(sum_correctedSq_ang);
@@ -958,7 +968,6 @@ void writeCXI(cEventData *info, cGlobal *global ){
   uint stackSlice = getStackSlice(cxi);
   info->stackSlice = stackSlice;
   //printf("Writing to CXI file for stack slice number %ld \n", stackSlice);
-  
   double en = info->photonEnergyeV * 1.60217646e-19;
   writeScalarToStack(cxi->entry.instrument.source.energy,stackSlice,en);
   // remove the '.h5' from eventname
@@ -966,6 +975,7 @@ void writeCXI(cEventData *info, cGlobal *global ){
   writeStringToStack(cxi->entry.experimentIdentifier,stackSlice,info->eventname);
   // put it back
   info->eventname[strlen(info->eventname)] = '.';
+
 
   DETECTOR_LOOP {    
     /* Save assembled image under image groups */

@@ -277,6 +277,7 @@ void cGlobal::setup() {
   pthread_mutex_init(&saveCXI_mutex, NULL);  
   pthread_mutex_init(&pixelmask_shared_mutex, NULL);  
   pthread_mutex_init(&cumPhoton_mutex, NULL);
+  pthread_mutex_init(&hitVector_mutex, NULL);  
   threadID = (pthread_t*) calloc(nThreads, sizeof(pthread_t));
 
   /*
@@ -439,6 +440,12 @@ void cGlobal::setup() {
   if (thresholdData) {
     loadThresholdMap(this, thresholdMapFile);
   }
+  /*
+   * Init bool vector for every event: hit or no hit ?
+   */
+  std::vector<bool> hitVector;
+  // would be nice to have a vector of all experiment identifiers as well?!
+
 }
 
 
@@ -718,7 +725,8 @@ int cGlobal::parseConfigTag(char *tag, char *value) {
   }
   else if (!strcmp(tag, "saveassembled")) {
     saveAssembled = atoi(value);
-    assemble2DImage = 1;
+    assemble2DImage = saveAssembled;
+    assemble2DMask = saveAssembled;
   }
   else if (!strcmp(tag, "assembleinterpolation")) {
     assembleInterpolation = atoi(value);
