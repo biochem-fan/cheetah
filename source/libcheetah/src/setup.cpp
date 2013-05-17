@@ -147,6 +147,12 @@ cGlobal::cGlobal(void) {
   sigPhotonThreshold = 0.;
   totalPhotonsThreshold = 0.;
   strcpy(thresholdMapFile, "No_file_specified");
+  /*
+  for (int detID = 0; detID < MAX_DETECTORS; detID++) {
+    cropOutput[detID] = false;
+    cropRadius[detID] = 0;
+  }
+  */
 
   // Visualization
   pythonFile[0] = 0;
@@ -593,7 +599,7 @@ void cGlobal::parseConfigFile(char* filename) {
 	  fail = detector[i].parseConfigTag(tag,value);
 	  break;
 	}
-
+	
       }
 
       if (matched == 0){
@@ -882,6 +888,16 @@ int cGlobal::parseConfigTag(char *tag, char *value) {
   else if (!strcmp(tag, "thresholdmapfile")) {
     strcpy(thresholdMapFile, value);
   }
+  /*
+  else if (!strcmp(tag, "cropradius0")) {
+    cropRadius[0] = atoi(value);
+    if (cropRadius[0] > 0) cropOutput[0] = true;
+  }
+  else if (!strcmp(tag, "cropradius1")) {
+    cropRadius[1] = atoi(value);
+    if (cropRadius[1] > 0) cropOutput[1] = true;
+  }
+  */
   // Unknown tags
   else {
     //printf("\tUnknown tag: %s = %s\n",tag,value);
@@ -1010,6 +1026,10 @@ void cGlobal::writeConfigurationLog(void){
   fprintf(fp, "pythonfile=%s\n", pythonFile);
   fprintf(fp, "thresholdData=%d\n", thresholdData);
   fprintf(fp, "thresholdMapFile=%s\n", thresholdMapFile);
+  /*
+  fprintf(fp, "cropRadius0=%d\n", cropRadius[0]);
+  fprintf(fp, "cropRadius1=%d\n", cropRadius[1]);
+  */
   //fprintf(fp, "selfdarkMemory=%li\n",bgMemory);
   //fprintf(fp, "bgMemory=%li\n",bgMemory);
   //fprintf(fp, "bgRecalc=%ld\n",bgRecalc);

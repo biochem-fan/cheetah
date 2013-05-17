@@ -102,7 +102,7 @@ cPixelDetectorCommon::cPixelDetectorCommon() {
   bgIncludeHits = 0;
   bgNoBeamReset = 0;
   bgFiducialGlitchReset = 0;
-	
+
   // Local background subtraction
   useLocalBackgroundSubtraction = 0;
   localBackgroundRadius = 3;
@@ -130,6 +130,10 @@ cPixelDetectorCommon::cPixelDetectorCommon() {
 
   // No downsampling
   downsampling = 1;
+
+  // Cropping
+  cropOutput = false;
+  cropRadius = 0;
 }
 
 void cPixelDetectorCommon::configure(void) {
@@ -366,7 +370,11 @@ int cPixelDetectorCommon::parseConfigTag(char *tag, char *value) {
   }
   else if (!strcmp(tag, "startframes")) {
     startFrames = atoi(value);
-  } 
+  }
+  else if (!strcmp(tag, "cropradius")) {
+    cropRadius = atoi(value);
+    if (cropRadius > 0) {cropOutput = true;}
+  }
   // Unknown tags
   else {
     fail = 1;

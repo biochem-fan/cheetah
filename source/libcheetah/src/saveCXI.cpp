@@ -216,6 +216,54 @@ static void write2DToStack(hid_t dataset, uint stackSlice, T * data){
   H5Sclose(dataspace);
 }
 
+template <class T>
+static void write2DToStackCropping(hid_t dataset, uint stackSlice, T *data, int crop_radius, int original_width, int original_height) {
+  hid_t hs,w;
+  hsize_t count[3] = {1,1,1};
+  hsize_t offset[3] = {stackSlice,0,0};
+  /* stride is irrelevant in this case */
+  hsize_t stride[3] = {1,1,1};
+  hsize_t block[3];
+  /* dummy */
+  hsize_t mdims[3];
+  /* Use the existing dimensions as block size */
+  hid_t dataspace = H5Dget_space (dataset);
+  if( dataspace<0 ) {ERROR("Cannot get dataspace.\n");}
+  H5Sget_simple_extent_dims(dataspace, block, mdims);
+  /* check if we need to extend the dataset */
+  if(block[0] <= stackSlice){
+    while(block[0] <= stackSlice){
+      block[0] *= 2;
+    }
+    H5Dset_extent (dataset, block);
+    /* get enlarged dataspace */
+    H5Sclose(dataspace);
+    dataspace = H5Dget_space (dataset);
+    if( dataspace<0 ) {ERROR("Cannot get dataspace.\n");}
+  }
+  block[0] = 1;
+  hid_t memspace = H5Screate_simple (3, block, NULL);
+  hid_t type = get_datatype(data);
+
+  hs = H5Sselect_hyperslab (dataspace, H5S_SELECT_SET, offset,stride, count, block);
+  if( hs<0 ) {
+    ERROR("Cannot select hyperslab.\n");
+  }
+  T *cropped_data = (T *)calloc(crop_radius*crop_radius*4, sizeof(T));
+  for (int i = 0; i < 2*crop_radius; i++) {
+    memcpy(&(cropped_data[i*crop_radius*2]), &(data[original_width*(original_height/2-crop_radius+i)+(original_width/2-crop_radius)]),
+	   2*crop_radius*sizeof(T));
+  }
+  
+  w = H5Dwrite (dataset, type, memspace, dataspace, H5P_DEFAULT, cropped_data);
+  if( w<0 ){
+    ERROR("Cannot write to file.\n");
+  }
+  H5Sclose(memspace);
+  H5Sclose(dataspace);
+  free(cropped_data);
+}
+
 template <class T> 
 static void createAndWriteDataset(const char *name, hid_t loc, T *data,int width=1, int height=0, int length=0){
   hid_t datatype,w;
@@ -244,6 +292,33 @@ static void createAndWriteDataset(const char *name, hid_t loc, T *data,int width
   H5Dclose(dataset);
   H5Sclose(dataspace);
 }
+
+
+template <class T> 
+static void createAndWrite2DDatasetCropping(const char *name, hid_t loc, T *data, int cropRadius, int originalWidth, int originalHeight){
+  hid_t datatype,w;
+  hid_t dataspace;
+  hsize_t dims2[2] = {cropRadius*2,cropRadius*2};
+  datatype = get_datatype(data);
+  dataspace = H5Screate_simple(2, dims2, dims2);
+  if( dataspace<0 ) {ERROR("Cannot create dataspace.\n");}
+  hid_t dataset = H5Dcreate(loc, name, datatype, dataspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+
+  T *croppedData = (T *)calloc(cropRadius*cropRadius*4, sizeof(T));
+  for (int i = 0; i < 2*cropRadius; i++) {
+    memcpy(&(croppedData[i*cropRadius*2]), &(data[originalWidth*(originalHeight/2-cropRadius+i)+(originalWidth/2-cropRadius)]),
+	   2*cropRadius*sizeof(T));
+  }
+  
+  w = H5Dwrite(dataset, datatype, H5S_ALL, H5S_ALL, H5P_DEFAULT, croppedData);
+  if( w<0 ){
+    ERROR("Cannot write to file.\n");
+  }
+  H5Dclose(dataset);
+  H5Sclose(dataspace);
+  free(croppedData);
+}
+
 
 static hid_t createStringStack(const char * name, hid_t loc, int maxSize = 128){
   /* FM: This is probably wrong */
@@ -430,7 +505,16 @@ static CXI::File * createCXISkeleton(const char * filename,cGlobal *global){
 	d.mask = create2DStack("mask", d.self, global->detector[detID].pix_nx, global->detector[detID].pix_ny, H5T_NATIVE_UINT16);
       }
       // /entry_1/instrument_1/detector_i/mask_shared
+      /*
+      if (global->detector[detID].cropOutput) {
+	createAndWrite2DDatasetCropping("mask_shared", d.self, global->detector[detID].pixelmask_shared, global->detector[detID].cropRadius,
+					global->detector[detID].pix_nx, global->detector[detID].pix_ny);
+      } else {
+      */
       createAndWriteDataset("mask_shared", d.self, global->detector[detID].pixelmask_shared, global->detector[detID].pix_nx, global->detector[detID].pix_ny);
+      /*
+      }
+      */
       // /entry_1/instrument_1/detector_i/thumbnail
       d.thumbnail = create2DStack("thumbnail", d.self, global->detector[detID].pix_nx/CXI::thumbnailScale, global->detector[detID].pix_ny/CXI::thumbnailScale, H5T_STD_I16LE);
       // /entry_1/instrument_1/detector_i/experiment_identifier -> /entry_1/experiment_identifier
@@ -446,15 +530,31 @@ static CXI::File * createCXISkeleton(const char * filename,cGlobal *global){
       img.self = H5Gcreate(cxi->entry.self, imageName, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
       // /entry_1/image_i/data
       long image_ny = global->detector[detID].image_nn/global->detector[detID].image_nx;
-      img.data = create2DStack("data", img.self, global->detector[detID].image_nx, image_ny, H5T_STD_I16LE);
+      /* test crop */
+      //img.data = create2DStack("data", img.self, global->detector[detID].image_nx, image_ny, H5T_STD_I16LE);
+      if (global->detector[detID].cropOutput) {
+	img.data = create2DStack("data", img.self, 2*global->detector[detID].cropRadius, 2*global->detector[detID].cropRadius, H5T_STD_I16LE);
+      } else {
+	img.data = create2DStack("data", img.self, global->detector[detID].image_nx, image_ny, H5T_STD_I16LE);
+      }
+
       if(global->savePixelmask){
 	// /entry_1/image_i/mask
-	img.mask = create2DStack("mask", img.self, global->detector[detID].image_nx, image_ny, H5T_NATIVE_UINT16);
+	if (global->detector[detID].cropOutput) {
+	  img.mask = create2DStack("mask", img.self, 2*global->detector[detID].cropRadius, 2*global->detector[detID].cropRadius, H5T_NATIVE_UINT16);
+	} else {
+	  img.mask = create2DStack("mask", img.self, global->detector[detID].image_nx, image_ny, H5T_NATIVE_UINT16);
+	}
       }
       // /entry_1/image_i/mask_shared
       uint16_t *image_pixelmask_shared = (uint16_t*) calloc(global->detector[detID].image_nn,sizeof(uint16_t));
       assemble2Dmask(image_pixelmask_shared, global->detector[detID].pixelmask_shared, global->detector[detID].pix_x, global->detector[detID].pix_y, global->detector[detID].pix_nn, global->detector[detID].image_nx, global->detector[detID].image_nn, global->assembleInterpolation);
-      createAndWriteDataset("mask_shared", img.self, image_pixelmask_shared, global->detector[detID].image_nx, image_ny);
+      if (global->detector[detID].cropOutput) {
+	createAndWrite2DDatasetCropping("mask_shared", img.self, image_pixelmask_shared, global->detector[detID].cropRadius,
+					global->detector[detID].image_nx, image_ny);
+      } else {
+	createAndWriteDataset("mask_shared", img.self, image_pixelmask_shared, global->detector[detID].image_nx, image_ny);
+      }
       // /entry_1/image_i/detector_1
       H5Lcreate_soft(detectorPath,img.self,"detector_1",H5P_DEFAULT,H5P_DEFAULT);
       // /entry_1/image_i/source_1
@@ -883,10 +983,22 @@ void writeCXI(cEventData *info, cGlobal *global ){
     writeStringToStack(cxi->entry.instrument.detectors[detID].description,stackSlice,buffer);
     if(global->saveAssembled){
       if (cxi->entry.images[imgID].data<0) {ERROR("No valid dataset.");}
-      write2DToStack(cxi->entry.images[imgID].data,stackSlice,info->detector[detID].image);
+      /* test crop */
+      //write2DToStack(cxi->entry.images[imgID].data,stackSlice,info->detector[detID].image);
+      if (global->detector[detID].cropOutput) {
+	write2DToStackCropping(cxi->entry.images[imgID].data,stackSlice,info->detector[detID].image, global->detector[detID].cropRadius,
+			       global->detector[detID].image_nx, global->detector[detID].image_nx);
+      } else {
+	write2DToStack(cxi->entry.images[imgID].data,stackSlice,info->detector[detID].image);
+      }
       if(global->savePixelmask){
 	if (cxi->entry.images[imgID].mask<0) {ERROR("No valid dataset.");}
-	write2DToStack(cxi->entry.images[imgID].mask,stackSlice,info->detector[detID].image_pixelmask);
+	if (global->detector[detID].cropOutput) {
+	  write2DToStackCropping(cxi->entry.images[imgID].mask,stackSlice,info->detector[detID].image_pixelmask, global->detector[detID].cropRadius,
+				 global->detector[detID].image_nx, global->detector[detID].image_nx);
+	} else {
+	  write2DToStack(cxi->entry.images[imgID].mask,stackSlice,info->detector[detID].image_pixelmask);
+	}
       }
       int16_t * thumbnail = generateThumbnail(info->detector[detID].image,global->detector[detID].image_nx,image_ny,CXI::thumbnailScale);
       if (cxi->entry.images[imgID].thumbnail<0){ERROR("No valid dataset.");}

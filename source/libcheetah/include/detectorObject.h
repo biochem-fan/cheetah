@@ -235,7 +235,9 @@ public:
 	int    startFrames;
 	// correction for PNCCD read out artifacts on back detector
 	int    usePnccdOffsetCorrection;
-	
+
+	bool cropOutput;
+	int cropRadius;
 
 	// Saving options
 	int   saveDetectorCorrectedOnly;

@@ -248,8 +248,11 @@ public:
 
 	float sigPhotonThreshold;
 	float totalPhotonsThreshold;
-	
 
+	/*	
+	bool cropOutput[MAX_DETECTORS];
+	int cropRadius[MAX_DETECTORS];
+	*/
 
 	/** @brief Toggle the verbosity of Cheetah. */
 	int      debugLevel;

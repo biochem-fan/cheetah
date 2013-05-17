@@ -216,6 +216,9 @@ void cheetahDestroyEvent(cEventData *eventData) {
 
 		free(eventData->detector[detID].radialAverage);
 		free(eventData->detector[detID].radialAverageCounter);
+
+		free(eventData->detector[detID].significanceMap);
+		free(eventData->detector[detID].photonMap);
 	}
 	free(eventData->peak_com_index);
 	free(eventData->peak_com_x);
