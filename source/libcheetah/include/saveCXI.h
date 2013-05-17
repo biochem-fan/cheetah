@@ -17,6 +17,7 @@
 #include "median.h"
 
 namespace CXI{
+  const char* ATTR_NAME_NUM_EVENTS = "numEvents";
 
 typedef struct{
     hid_t self;
@@ -116,6 +117,7 @@ typedef struct{
   hid_t lastHaloPixUpdate[MAX_DETECTORS];
   hid_t haloPixCounter[MAX_DETECTORS];
   hid_t cumPhotonMap[MAX_DETECTORS];
+  hid_t hit;
 }SharedValues;
 
 typedef struct{

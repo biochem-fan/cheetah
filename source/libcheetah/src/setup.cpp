@@ -2,7 +2,7 @@
  *  setup.cpp
  *  cheetah
  *
- *  Created by Anton Barty on 7/2/11.
+ *  created by Anton Barty on 7/2/11.
  *  Copyright 2011 CFEL. All rights reserved.
  *
  */
@@ -17,6 +17,7 @@
 #include <fenv.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <vector.h>
 
 #include "data2d.h"
 #include "detectorObject.h"
@@ -446,6 +447,8 @@ void cGlobal::setup() {
   std::vector<bool> hitVector;
   // would be nice to have a vector of all experiment identifiers as well?!
 
+  nCXIEvents = 0;
+  nCXIHits = 0;
 }
 
 
