@@ -4,6 +4,7 @@
  *	Function prototypes
  */
 void *worker(void *);
+void *worker_light(void *);
 
 // detectorCorrection.cpp
 void subtractDarkcal(cEventData*, cGlobal*);

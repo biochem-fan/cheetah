@@ -185,6 +185,7 @@ static hid_t create2DStack(const char *name, hid_t loc, int width, int height, h
 
 template <class T> 
 static void write2DToStack(hid_t dataset, uint stackSlice, T * data){  
+  printf("stackslice = %d\n", stackSlice);
   hid_t hs,w;
   hsize_t count[3] = {1,1,1};
   hsize_t offset[3] = {stackSlice,0,0};
@@ -277,6 +278,7 @@ static void write2DToStackCropping(hid_t dataset, uint stackSlice, T *data, int 
     ERROR("Cannot select hyperslab.\n");
   }
   T *cropped_data = (T *)calloc(crop_radius*crop_radius*4, sizeof(T));
+  //printf("crop_rad = %d, org_height = %d, org_width=%d\n", crop_radius, original_height, original_width);
   for (int i = 0; i < 2*crop_radius; i++) {
     memcpy(&(cropped_data[i*crop_radius*2]), &(data[original_width*(original_height/2-crop_radius+i)+(original_width/2-crop_radius)]),
 	   2*crop_radius*sizeof(T));
@@ -285,6 +287,25 @@ static void write2DToStackCropping(hid_t dataset, uint stackSlice, T *data, int 
   w = H5Dwrite (dataset, type, memspace, dataspace, H5P_DEFAULT, cropped_data);
   if( w<0 ){
     ERROR("Cannot write to file.\n");
+  }
+  hid_t a = H5Aopen(dataset, CXI::ATTR_NAME_NUM_EVENTS, H5P_DEFAULT);
+  // Silently ignore failure to write, this attribute is non-essential
+  if(a>=0) {
+    int oldVal;
+    w = H5Aread(a, H5T_NATIVE_INT32, &oldVal);
+    if (w < 0)
+      {
+	ERROR("Failure to read back size attribute");
+      }
+    if (oldVal < stackSlice + 1) {
+      oldVal = stackSlice + 1;
+    }
+    w = H5Awrite (a, H5T_NATIVE_INT32, &oldVal);
+    if (w < 0)
+      {
+	ERROR("Failure to write size attribute");
+      }
+    H5Aclose(a);
   }
   H5Sclose(memspace);
   H5Sclose(dataspace);
@@ -559,6 +580,10 @@ static CXI::File * createCXISkeleton(const char * filename,cGlobal *global){
       d.thumbnail = create2DStack("thumbnail", d.self, global->detector[detID].pix_nx/CXI::thumbnailScale, global->detector[detID].pix_ny/CXI::thumbnailScale, H5T_STD_I16LE);
       // /entry_1/instrument_1/detector_i/experiment_identifier -> /entry_1/experiment_identifier
       H5Lcreate_soft("/entry_1/experiment_identifier",d.self,"experiment_identifier",H5P_DEFAULT,H5P_DEFAULT);
+
+      /* photon */
+      /* this should be made optional */
+      d.photonMap = create2DStack("photon_map", d.self, global->detector[detID].pix_nx, global->detector[detID].pix_ny, H5T_NATIVE_FLOAT);
     }
     cxi->entry.instrument.detectors.push_back(d);
 
@@ -586,6 +611,7 @@ static CXI::File * createCXISkeleton(const char * filename,cGlobal *global){
 	  img.mask = create2DStack("mask", img.self, global->detector[detID].image_nx, image_ny, H5T_NATIVE_UINT16);
 	}
       }
+
       // /entry_1/image_i/mask_shared
       uint16_t *image_pixelmask_shared = (uint16_t*) calloc(global->detector[detID].image_nn,sizeof(uint16_t));
       assemble2Dmask(image_pixelmask_shared, global->detector[detID].pixelmask_shared, global->detector[detID].pix_x, global->detector[detID].pix_y, global->detector[detID].pix_nn, global->detector[detID].image_nx, global->detector[detID].image_nn, global->assembleInterpolation);
@@ -608,7 +634,7 @@ static CXI::File * createCXISkeleton(const char * filename,cGlobal *global){
       // /entry_1/image_i/experiment_identifier
       H5Lcreate_soft("/entry_1/experiment_identifier",img.self,"experiment_identifier",H5P_DEFAULT,H5P_DEFAULT);
       cxi->entry.images.push_back(img);
-
+      
       if(global->detector[detID].downsampling > 1){
 	// /entry_1/image_j
 	sprintf(imageName,"/entry_1/image_%ld",global->nDetectors+detID+1);
@@ -1015,49 +1041,6 @@ void writeCXI(cEventData *info, cGlobal *global ){
   // put it back
   info->eventname[strlen(info->eventname)] = '.';
   
-  
-  DETECTOR_LOOP {    
-    /* Save assembled image under image groups */
-    writeScalarToStack(cxi->entry.instrument.detectors[detID].distance,stackSlice,global->detector[detID].detectorZ/1000.0);
-    writeScalarToStack(cxi->entry.instrument.detectors[detID].xPixelSize,stackSlice,global->detector[detID].pixelSize);
-    writeScalarToStack(cxi->entry.instrument.detectors[detID].yPixelSize,stackSlice,global->detector[detID].pixelSize);
-
-    long imgID = detID;
-    if (global->detector[detID].downsampling > 1){
-      imgID = detID * 2;
-    }
-    char buffer[1024];
-    long image_ny = global->detector[detID].image_nn/global->detector[detID].image_nx;
-    sprintf(buffer,"%s [%s]",global->detector[detID].detectorType,global->detector[detID].detectorName);
-    writeStringToStack(cxi->entry.instrument.detectors[detID].description,stackSlice,buffer);
-    if(global->saveAssembled){
-      if (cxi->entry.images[imgID].data<0) {ERROR("No valid dataset.");}
-      /* test crop */
-      //write2DToStack(cxi->entry.images[imgID].data,stackSlice,info->detector[detID].image);
-      if (global->detector[detID].cropOutput) {
-	write2DToStackCropping(cxi->entry.images[imgID].data,stackSlice,info->detector[detID].image, global->detector[detID].cropRadius,
-			       global->detector[detID].image_nx, global->detector[detID].image_nx);
-      } else {
-	write2DToStack(cxi->entry.images[imgID].data,stackSlice,info->detector[detID].image);
-      }
-      if(global->savePixelmask){
-	if (cxi->entry.images[imgID].mask<0) {ERROR("No valid dataset.");}
-	if (global->detector[detID].cropOutput) {
-	  write2DToStackCropping(cxi->entry.images[imgID].mask,stackSlice,info->detector[detID].image_pixelmask, global->detector[detID].cropRadius,
-				 global->detector[detID].image_nx, global->detector[detID].image_nx);
-	} else {
-	  write2DToStack(cxi->entry.images[imgID].mask,stackSlice,info->detector[detID].image_pixelmask);
-	}
-      }
-      int16_t * thumbnail = generateThumbnail(info->detector[detID].image,global->detector[detID].image_nx,image_ny,CXI::thumbnailScale);
-      if (cxi->entry.images[imgID].thumbnail<0){ERROR("No valid dataset.");}
-      write2DToStack(cxi->entry.images[imgID].thumbnail,stackSlice,thumbnail);
-      writeStringToStack(cxi->entry.images[imgID].dataType,stackSlice,"intensities");
-      writeStringToStack(cxi->entry.images[imgID].dataSpace,stackSlice,"diffraction");
-      delete [] thumbnail;
-    } // from merge
-  } //from merge
-
   writeScalarToStack(cxi->cheetahVal.sharedVal.hit,global->nCXIEvents,info->hit);
   global->nCXIEvents += 1;
 
@@ -1088,11 +1071,24 @@ void writeCXI(cEventData *info, cGlobal *global ){
       writeStringToStack(cxi->entry.instrument.detectors[detID].description,stackSlice,buffer);
       if(global->saveAssembled){
 	if (cxi->entry.images[imgID].data<0) {ERROR("No valid dataset.");}
-	write2DToStack(cxi->entry.images[imgID].data,stackSlice,info->detector[detID].image);
+	if (global->detector[detID].cropOutput) {
+	  write2DToStackCropping(cxi->entry.images[imgID].data,stackSlice,info->detector[detID].image, global->detector[detID].cropRadius,
+				 global->detector[detID].image_nx, global->detector[detID].image_nx);
+	} else {
+	  write2DToStack(cxi->entry.images[imgID].data,stackSlice,info->detector[detID].image);
+	}
+	//write2DToStack(cxi->entry.images[imgID].data,stackSlice,info->detector[detID].image);
 	if(global->savePixelmask){
 	  if (cxi->entry.images[imgID].mask<0) {ERROR("No valid dataset.");}
-	  write2DToStack(cxi->entry.images[imgID].mask,stackSlice,info->detector[detID].image_pixelmask);
+	  if (global->detector[detID].cropOutput) {
+	    write2DToStackCropping(cxi->entry.images[imgID].mask,stackSlice,info->detector[detID].image_pixelmask, global->detector[detID].cropRadius,
+				   global->detector[detID].image_nx, global->detector[detID].image_nx);
+	  } else {
+	    write2DToStack(cxi->entry.images[imgID].mask,stackSlice,info->detector[detID].image_pixelmask);
+	  }
+	  //write2DToStack(cxi->entry.images[imgID].mask,stackSlice,info->detector[detID].image_pixelmask);
 	}
+
 	int16_t * thumbnail = generateThumbnail(info->detector[detID].image,global->detector[detID].image_nx,image_ny,CXI::thumbnailScale);
 	if (cxi->entry.images[imgID].thumbnail<0){ERROR("No valid dataset.");}
 	write2DToStack(cxi->entry.images[imgID].thumbnail,stackSlice,thumbnail);
@@ -1127,6 +1123,7 @@ void writeCXI(cEventData *info, cGlobal *global ){
 	write2DToStack(cxi->entry.instrument.detectors[detID].thumbnail,stackSlice,thumbnail);
 	delete [] thumbnail;
       }
+	write2DToStack(cxi->entry.instrument.detectors[imgID].photonMap, stackSlice, info->detector[detID].photonMap);
     }
     /*Write LCLS informations*/
     DETECTOR_LOOP{

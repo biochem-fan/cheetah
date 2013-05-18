@@ -225,7 +225,6 @@ void cGlobal::setup() {
     //detector[i].significanceMap = (float *)calloc(detector[i].pix_nn, sizeof(float));
     //detector[i].photonMap = (float *)calloc(detector[i].pix_nn, sizeof(float));
     detector[i].cumPhotonMap = (long *)calloc(detector[i].pix_nn, sizeof(long));
-    for (long j = 0; j < detector[i].pix_nn; j++) {detector[i].cumPhotonMap[j] = 0;}
   }
 	
 

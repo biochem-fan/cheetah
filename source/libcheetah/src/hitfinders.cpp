@@ -77,6 +77,10 @@ int  hitfinder(cEventData *eventData, cGlobal *global){
 	case 8 :
 	  hit = hitfinder8(global, eventData, detID);
 	  break;
+
+	case 9:
+	  hit = hitfinder9(global, eventData, detID);
+	  break;
 			
 	default :
 	  printf("Unknown hit finding algorithm selected: %i\n", global->hitfinderAlgorithm);
@@ -281,25 +285,32 @@ int hitfinder8(cGlobal *global, cEventData *eventData, long detID) {
   int       hit = 0;
   uint16_t  *mask = eventData->detector[detID].pixelmask;
   float     *data = eventData->detector[detID].corrected_data;
-  double     *sigma = global->detector[detID].darkSigmaMap;
   long	    pix_nn = global->detector[detID].pix_nn;  
-  float     ADC_threshold = global->hitfinderADC;
   // Combine pixel options for pixels to be ignored
   uint16_t  pixel_options = PIXEL_IS_IN_PEAKMASK | PIXEL_IS_OUT_OF_RESOLUTION_LIMITS | PIXEL_IS_HOT | PIXEL_IS_BAD | PIXEL_IS_SATURATED | PIXEL_IS_MISSING;
 
   float photonSum = 0.;
   for (int i = 0; i<pix_nn; i++) {
-    photonSum += eventData->detector[detID].photonMap[i];
+    if (isNoneOfBitOptionsSet(mask[i],pixel_options) && (eventData->detector[detID].photonMap[i] > 0.)) {
+      //photonSum += eventData->detector[detID].photonMap[i];
+      photonSum += 1.;
+    }
   }
-
+  
   if (photonSum > global->totalPhotonsThreshold) {
     hit = 1;
   }
   return hit;
 }
 
-/*
-int hitfinder9(cGlobal *global, cEventData *eventData, long detID) {
 
+int hitfinder9(cGlobal *global, cEventData *eventData, long detID) {
+  int hit = 0;
+  uint16_t *mask = eventData->detector[detID].pixelmask;
+  float *data = eventData->detector[detID].corrected_data;
+  long pix_nn = global->detector[detID].pix_nn;
+  uint16_t pixel_options = PIXEL_IS_IN_PEAKMASK | PIXEL_IS_OUT_OF_RESOLUTION_LIMITS | PIXEL_IS_HOT | PIXEL_IS_BAD | PIXEL_IS_SATURATED | PIXEL_IS_MISSING;
+
+  
 }
-*/
+

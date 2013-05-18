@@ -70,7 +70,8 @@ void calculatePhotonMap(cEventData *eventData, cGlobal *global) {
     for (int i = 0; i < pix_nn; i++) {
       if (data[i] > thresholdMap[i]) {
 	// 30 ADU per photon
-	photonMap[i] = data[i] / 30.;
+	//photonMap[i] = data[i] / 30.;
+	photonMap[i] = (data[i] - thresholdMap[i]) / 30.;
 
 #ifdef __GNUC__
 	__sync_fetch_and_add(&(cumPhotonMap[i]),(long)photonMap[i]);

@@ -29,6 +29,7 @@ typedef struct{
     hid_t description;
     hid_t xPixelSize;
     hid_t yPixelSize;
+  hid_t photonMap;
 }Detector;
 
 

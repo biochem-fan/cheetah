@@ -159,9 +159,14 @@ cEventData* cheetahNewEvent(cGlobal	*global) {
 
 		eventData->detector[detID].radialAverage = (float *) calloc(radial_nn, sizeof(float));
 		eventData->detector[detID].radialAverageCounter = (float *) calloc(radial_nn, sizeof(float));
-
+		
+		/*
 		eventData->detector[detID].significanceMap = (float *) calloc(pix_nn, sizeof(float));
 		eventData->detector[detID].photonMap = (float *) calloc(pix_nn, sizeof(float));
+		*/
+		eventData->detector[detID].significanceMap = (float *) malloc(pix_nn*sizeof(float));
+		eventData->detector[detID].photonMap = (float *) malloc(pix_nn*sizeof(float));
+
 	}	
 	
 		
@@ -421,7 +426,8 @@ void cheetahProcessEvent(cGlobal *global, cEventData *eventData){
      *      eventData remains available after the worker exits and must be explicitly freed by the user
      */
     if(eventData->useThreads == 0) {
-        worker((void *)eventData);
+      worker((void *)eventData);
+      //worker_light((void *)eventData);
     }
   	
 	/*
@@ -446,6 +452,7 @@ void cheetahProcessEvent(cGlobal *global, cEventData *eventData){
         // Create a new worker thread for this data frame
         eventData->threadNum = global->threadCounter;
         returnStatus = pthread_create(&thread, &threadAttribute, worker, (void *)eventData);
+	//returnStatus = pthread_create(&thread, &threadAttribute, worker_light, (void *)eventData);
 
 	if (returnStatus == 0) { // creation successful
 	  // Increment threadpool counter
