@@ -29,7 +29,8 @@ typedef struct{
     hid_t description;
     hid_t xPixelSize;
     hid_t yPixelSize;
-  hid_t photonMap;
+    hid_t photonMap;
+    hid_t totalPhotons;
 }Detector;
 
 
@@ -83,6 +84,8 @@ typedef struct{
   std::vector<hid_t> detector_positions;
   std::vector<hid_t> detector_EncoderValues;
   hid_t eventTimeString;
+  hid_t tofTime;
+  hid_t tofVoltage;
 }LCLS;
 
 typedef struct{
@@ -119,6 +122,7 @@ typedef struct{
   hid_t haloPixCounter[MAX_DETECTORS];
   hid_t cumPhotonMap[MAX_DETECTORS];
   hid_t hit;
+  hid_t nPeaks;
 }SharedValues;
 
 typedef struct{

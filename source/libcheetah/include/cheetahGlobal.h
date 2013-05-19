@@ -250,6 +250,9 @@ public:
 	float sigPhotonThreshold;
 	float totalPhotonsThreshold;
 
+	char referenceFile[MAX_FILENAME_LENGTH];
+	
+
 	/*	
 	bool cropOutput[MAX_DETECTORS];
 	int cropRadius[MAX_DETECTORS];

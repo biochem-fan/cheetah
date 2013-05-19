@@ -104,6 +104,12 @@ static hid_t createScalarStack(const char * name, hid_t loc, hid_t dataType){
   H5Awrite(attr,datatype,axis);
   H5Tclose(datatype);
   H5Aclose(attr);
+
+  attr = H5Acreate(dataset,CXI::ATTR_NAME_NUM_EVENTS,H5T_NATIVE_INT32,memspace,H5P_DEFAULT,H5P_DEFAULT);
+  int zero = 0;
+  H5Awrite(attr,H5T_NATIVE_INT32,&zero);
+  H5Aclose(attr);
+
   H5Sclose(memspace);
   H5Sclose(dataspace);
   H5Pclose(cparms);
@@ -146,6 +152,26 @@ static void writeScalarToStack(hid_t dataset, uint stackSlice, T value){
     abort();
   }
 
+  hid_t a = H5Aopen(dataset, CXI::ATTR_NAME_NUM_EVENTS, H5P_DEFAULT);
+  // Silently ignore failure to write, this attribute is non-essential
+  if(a>=0) {
+    int oldVal;
+    w = H5Aread(a, H5T_NATIVE_INT32, &oldVal);
+    if (w < 0)
+      {
+	ERROR("Failure to read back size attribute");
+      }
+    if (oldVal < stackSlice + 1) {
+      oldVal = stackSlice + 1;
+    }
+    w = H5Awrite (a, H5T_NATIVE_INT32, &oldVal);
+    if (w < 0)
+      {
+	ERROR("Failure to write size attribute");
+      }
+    H5Aclose(a);
+  }
+
   H5Sclose(memspace);
   H5Sclose(dataspace);
 }
@@ -185,7 +211,6 @@ static hid_t create2DStack(const char *name, hid_t loc, int width, int height, h
 
 template <class T> 
 static void write2DToStack(hid_t dataset, uint stackSlice, T * data){  
-  printf("stackslice = %d\n", stackSlice);
   hid_t hs,w;
   hsize_t count[3] = {1,1,1};
   hsize_t offset[3] = {stackSlice,0,0};
@@ -402,8 +427,14 @@ static hid_t createStringStack(const char * name, hid_t loc, int maxSize = 128){
   hid_t attr = H5Acreate(dataset,"axes",datatype,memspace,H5P_DEFAULT,H5P_DEFAULT);
   
   H5Awrite(attr,datatype,axis);
+  H5Aclose(attr);
+
+  attr = H5Acreate(dataset,CXI::ATTR_NAME_NUM_EVENTS,H5T_NATIVE_INT32,memspace,H5P_DEFAULT,H5P_DEFAULT);
+  int zero = 0;
+  H5Awrite(attr,H5T_NATIVE_INT32,&zero);
   H5Tclose(datatype);
   H5Aclose(attr);
+
   H5Sclose(memspace);
   H5Sclose(dataspace);
   H5Pclose(cparms);
@@ -448,6 +479,26 @@ static void writeStringToStack(hid_t dataset, uint stackSlice, const char * valu
     abort();
   }
   H5Tclose(type);
+
+  hid_t a = H5Aopen(dataset, CXI::ATTR_NAME_NUM_EVENTS, H5P_DEFAULT);
+  // Silently ignore failure to write, this attribute is non-essential
+  if(a>=0) {
+    int oldVal;
+    w = H5Aread(a, H5T_NATIVE_INT32, &oldVal);
+    if (w < 0)
+      {
+	ERROR("Failure to read back size attribute");
+      }
+    if (oldVal < stackSlice + 1) {
+      oldVal = stackSlice + 1;
+    }
+    w = H5Awrite (a, H5T_NATIVE_INT32, &oldVal);
+    if (w < 0)
+      {
+	ERROR("Failure to write size attribute");
+      }
+    H5Aclose(a);
+  }
   H5Sclose(memspace);
   H5Sclose(dataspace);
 }
@@ -556,6 +607,7 @@ static CXI::File * createCXISkeleton(const char * filename,cGlobal *global){
     d.description = createStringStack("description",d.self);
     d.xPixelSize = createScalarStack("x_pixel_size",d.self,H5T_NATIVE_DOUBLE);
     d.yPixelSize = createScalarStack("y_pixel_size",d.self,H5T_NATIVE_DOUBLE);
+    d.totalPhotons = createScalarStack("total_photon_count",d.self,H5T_NATIVE_FLOAT);
     
     /* Raw images */
     if(global->saveRaw){
@@ -692,6 +744,10 @@ static CXI::File * createCXISkeleton(const char * filename,cGlobal *global){
   cxi->lcls.f_22_ENRC = createScalarStack("f_22_ENRC", cxi->lcls.self,H5T_NATIVE_DOUBLE);
   cxi->lcls.evr41 = createScalarStack("evr41", cxi->lcls.self,H5T_NATIVE_INT);
   cxi->lcls.eventTimeString = createStringStack("eventTimeString", cxi->lcls.self);
+  if(global->TOFPresent){
+    cxi->lcls.tofTime = create2DStack("tofTime", cxi->lcls.self, 1, global->AcqNumSamples, H5T_NATIVE_DOUBLE);
+    cxi->lcls.tofVoltage = create2DStack("tofVoltage", cxi->lcls.self, 1, global->AcqNumSamples, H5T_NATIVE_DOUBLE);
+  }
   H5Lcreate_soft("/LCLS/eventTimeString", cxi->self, "/LCLS/eventTime",H5P_DEFAULT,H5P_DEFAULT);
   H5Lcreate_soft("/entry_1/experiment_identifier",cxi->lcls.self,"experiment_identifier",H5P_DEFAULT,H5P_DEFAULT);
 
@@ -726,6 +782,7 @@ static CXI::File * createCXISkeleton(const char * filename,cGlobal *global){
   
   cxi->cheetahVal.sharedVal.self = H5Gcreate(cxi->cheetahVal.self, "shared", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
   cxi->cheetahVal.sharedVal.hit = createScalarStack("hit", cxi->cheetahVal.sharedVal.self,H5T_NATIVE_INT);
+  cxi->cheetahVal.sharedVal.nPeaks = createScalarStack("nPeaks", cxi->cheetahVal.sharedVal.self,H5T_NATIVE_INT);
 
   CXI::ConfValues confVal;
   cxi->cheetahVal.confVal.self = H5Gcreate(cxi->cheetahVal.self, "configuration", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
@@ -998,11 +1055,16 @@ static void  closeCXI(CXI::File * cxi){
     //H5I_type_t type;
     hsize_t block[3];
     hsize_t mdims[3];
+    hid_t attr_id;
     hid_t dataspace = H5Dget_space (ids[i]);
+    int size;
     if( dataspace<0 ) {ERROR("Cannot get dataspace.\n");}
     H5Sget_simple_extent_dims(dataspace, block, mdims);
     if(mdims[0] == H5S_UNLIMITED){
-      block[0] = cxi->stackCounter;
+      attr_id = H5Aopen_name(ids[i],CXI::ATTR_NAME_NUM_EVENTS);
+      H5Aread(attr_id,H5T_NATIVE_INT32,&size); 
+      H5Aclose(attr_id);
+      block[0] = size;
       H5Dset_extent(ids[i], block);
     }
   }
@@ -1030,21 +1092,19 @@ void closeCXIFiles(cGlobal * global){
 void writeCXI(cEventData *info, cGlobal *global ){
   /* Get the existing CXI file or open a new one */
   CXI::File * cxi = getCXIFileByName(global);
-  uint stackSlice = getStackSlice(cxi);
-  info->stackSlice = stackSlice;
-  //printf("Writing to CXI file for stack slice number %ld \n", stackSlice);
-  double en = info->photonEnergyeV * 1.60217646e-19;
-  writeScalarToStack(cxi->entry.instrument.source.energy,stackSlice,en);
-  // remove the '.h5' from eventname
-  info->eventname[strlen(info->eventname) - 3] = 0;
-  writeStringToStack(cxi->entry.experimentIdentifier,stackSlice,info->eventname);
-  // put it back
-  info->eventname[strlen(info->eventname)] = '.';
-  
+
   writeScalarToStack(cxi->cheetahVal.sharedVal.hit,global->nCXIEvents,info->hit);
+  writeScalarToStack(cxi->cheetahVal.sharedVal.nPeaks,global->nCXIEvents,info->nPeaks);
+  DETECTOR_LOOP{
+    writeScalarToStack(cxi->entry.instrument.detectors[detID].totalPhotons,global->nCXIEvents,info->detector[detID].totalPhotons);
+  }
+
   global->nCXIEvents += 1;
 
   if(info->writeFlag){
+    uint stackSlice = getStackSlice(cxi);
+    info->stackSlice = stackSlice;
+
     global->nCXIHits += 1;
     double en = info->photonEnergyeV * 1.60217646e-19;
     writeScalarToStack(cxi->entry.instrument.source.energy,stackSlice,en);
@@ -1052,14 +1112,15 @@ void writeCXI(cEventData *info, cGlobal *global ){
     info->eventname[strlen(info->eventname) - 3] = 0;
     writeStringToStack(cxi->entry.experimentIdentifier,stackSlice,info->eventname);
     // put it back
-    info->eventname[strlen(info->eventname)] = '.';
 
+    info->eventname[strlen(info->eventname)] = '.';
 
     DETECTOR_LOOP {    
       /* Save assembled image under image groups */
       writeScalarToStack(cxi->entry.instrument.detectors[detID].distance,stackSlice,global->detector[detID].detectorZ/1000.0);
       writeScalarToStack(cxi->entry.instrument.detectors[detID].xPixelSize,stackSlice,global->detector[detID].pixelSize);
       writeScalarToStack(cxi->entry.instrument.detectors[detID].yPixelSize,stackSlice,global->detector[detID].pixelSize);
+
 
       long imgID = detID;
       if (global->detector[detID].downsampling > 1){
@@ -1149,6 +1210,10 @@ void writeCXI(cEventData *info, cGlobal *global ){
     writeScalarToStack(cxi->lcls.f_12_ENRC,stackSlice,info->gmd12);
     writeScalarToStack(cxi->lcls.f_21_ENRC,stackSlice,info->gmd21);
     writeScalarToStack(cxi->lcls.f_22_ENRC,stackSlice,info->gmd22);
+    if(global->TOFPresent){
+      write2DToStack(cxi->lcls.tofVoltage, stackSlice, info->TOFVoltage);
+      write2DToStack(cxi->lcls.tofTime, stackSlice, info->TOFTime);
+    }
     int LaserOnVal = (info->laserEventCodeOn)?1:0;
     writeScalarToStack(cxi->lcls.evr41,stackSlice,LaserOnVal);
     char timestr[26];
@@ -1244,3 +1309,44 @@ void loadThresholdMap(cGlobal *global, const char *filename) {
   }
   H5Fclose(fid);
 }
+
+void loadReferences(cGlobal*global, const char *filename) {
+  hid_t fid = H5Fopen(filename, H5F_ACC_RDONLY, H5P_DEFAULT);
+  char buffer[1000];
+  hsize_t dims[2];
+  
+
+  for (int detectorID = 0; detectorID < global->nDetectors; detectorID++) {
+    sprintf(buffer, "sample_detector%d", detectorID);
+    hid_t did = H5Dopen1(fid, buffer);
+    hid_t space = H5Dget_space(did);
+    H5Sget_simple_extent_dims(space, dims, NULL);
+    if (dims[1] != global->detector[detectorID].pix_nx || dims[0] != global->detector[detectorID].pix_ny) {
+      printf("Reference map read from %s doesn differs in size from the detector\n", filename);
+      printf("%d x %d  !=  %d x %d\n", dims[0], dims[1], global->detector[detectorID].pix_nx, global->detector[detectorID].pix_ny);
+      printf("Aborting...\n");
+      exit(1);
+    }
+    H5Dread(did, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, global->detector[detectorID].sampleReference);
+    H5Dclose(did);
+  }
+
+  for (int detectorID = 0; detectorID < global->nDetectors; detectorID++) {
+    sprintf(buffer, "background_detector%d", detectorID);
+    hid_t did = H5Dopen1(fid, buffer);
+    hid_t space = H5Dget_space(did);
+    H5Sget_simple_extent_dims(space, dims, NULL);
+    if (dims[1] != global->detector[detectorID].pix_nx || dims[0] != global->detector[detectorID].pix_ny) {
+      printf("Reference map read from %s doesn differs in size from the detector\n", filename);
+      printf("%d x %d  !=  %d x %d\n", dims[0], dims[1], global->detector[detectorID].pix_nx, global->detector[detectorID].pix_ny);
+      printf("Aborting...\n");
+      exit(1);
+    }
+    H5Dread(did, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, global->detector[detectorID].backgroundReference);
+    H5Dclose(did);
+  }
+
+
+  H5Fclose(fid);
+}
+

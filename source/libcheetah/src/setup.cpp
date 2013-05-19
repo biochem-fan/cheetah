@@ -104,8 +104,10 @@ cGlobal::cGlobal(void) {
 
   // TOF configuration
   TOFPresent = 0;
-  TOFchannel = 1;
+  TOFchannel = 0;
   strcpy(tofName, "CxiSc1");
+  // Has to be looked up automatically
+  AcqNumSamples = 12288;
   //tofType = Pds::DetInfo::Acqiris;
   //tofPdsDetInfo = Pds::DetInfo::CxiSc1;
 
@@ -148,6 +150,7 @@ cGlobal::cGlobal(void) {
   sigPhotonThreshold = 0.;
   totalPhotonsThreshold = 0.;
   strcpy(thresholdMapFile, "No_file_specified");
+  strcpy(referenceFile, "No_file_specified");
   /*
   for (int detID = 0; detID < MAX_DETECTORS; detID++) {
     cropOutput[detID] = false;
@@ -222,6 +225,8 @@ void cGlobal::setup() {
     detector[i].readWireMask(detector[i].wireMaskFile);
     detector[i].darkSigmaMap = (double *)calloc(detector[i].pix_nn, sizeof(double));
     detector[i].thresholdMap = (float *)calloc(detector[i].pix_nn, sizeof(float));
+    detector[i].sampleReference = (float *)calloc(detector[i].pix_nn, sizeof(float));
+    detector[i].backgroundReference = (float *)calloc(detector[i].pix_nn, sizeof(float));
     //detector[i].significanceMap = (float *)calloc(detector[i].pix_nn, sizeof(float));
     //detector[i].photonMap = (float *)calloc(detector[i].pix_nn, sizeof(float));
     detector[i].cumPhotonMap = (long *)calloc(detector[i].pix_nn, sizeof(long));
@@ -439,6 +444,10 @@ void cGlobal::setup() {
   }
   if (thresholdData) {
     loadThresholdMap(this, thresholdMapFile);
+  }
+
+  if (hitfinderAlgorithm == 9) {
+    loadReferences(this, referenceFile);
   }
   /*
    * Init bool vector for every event: hit or no hit ?
@@ -743,7 +752,10 @@ int cGlobal::parseConfigTag(char *tag, char *value) {
     saveInterval = atoi(value);
   }
   // Time-of-flight
-  else if (!strcmp(tag, "tofname")) {
+  else if (!strcmp(tag, "tofpresent")) {
+    TOFPresent = atoi(value);
+  }
+    else if (!strcmp(tag, "tofname")) {
     strcpy(tofName, value);
   }
   else if (!strcmp(tag, "tofchannel")) {
@@ -898,6 +910,9 @@ int cGlobal::parseConfigTag(char *tag, char *value) {
   else if (!strcmp(tag, "thresholdmapfile")) {
     strcpy(thresholdMapFile, value);
   }
+  else if (!strcmp(tag, "referencefile")) {
+    strcpy(referenceFile, value);
+  }
   /*
   else if (!strcmp(tag, "cropradius0")) {
     cropRadius[0] = atoi(value);
@@ -1036,6 +1051,7 @@ void cGlobal::writeConfigurationLog(void){
   fprintf(fp, "pythonfile=%s\n", pythonFile);
   fprintf(fp, "thresholdData=%d\n", thresholdData);
   fprintf(fp, "thresholdMapFile=%s\n", thresholdMapFile);
+  fprintf(fp, "referenceFile=%s\n", referenceFile);
   /*
   fprintf(fp, "cropRadius0=%d\n", cropRadius[0]);
   fprintf(fp, "cropRadius1=%d\n", cropRadius[1]);

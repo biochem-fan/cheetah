@@ -68,7 +68,8 @@ void calculatePhotonMap(cEventData *eventData, cGlobal *global) {
     uint16_t  pixel_options = PIXEL_IS_IN_PEAKMASK | PIXEL_IS_OUT_OF_RESOLUTION_LIMITS | PIXEL_IS_HOT | PIXEL_IS_BAD | PIXEL_IS_SATURATED | PIXEL_IS_MISSING;
     
     for (int i = 0; i < pix_nn; i++) {
-      if (data[i] > thresholdMap[i]) {
+      //if (data[i] > thresholdMap[i]) {
+      if (isNoneOfBitOptionsSet(mask[i],pixel_options) && (data[i] > thresholdMap[i])) {
 	// 30 ADU per photon
 	//photonMap[i] = data[i] / 30.;
 	photonMap[i] = (data[i] - thresholdMap[i]) / 30.;
@@ -84,6 +85,13 @@ void calculatePhotonMap(cEventData *eventData, cGlobal *global) {
 	//cumPhotonMap[i] += photonMap[i];
       } else {
 	photonMap[i] = 0.;
+      }
+    }
+    eventData->detector[detID].totalPhotons = 0.;
+    for (int i = 0; i < pix_nn; i++) {
+      if (photonMap[i] > 0.) {
+	//eventData->detector[detID].totalPhotons += 1.;
+	eventData->detector[detID].totalPhotons += photonMap[i];
       }
     }
   }

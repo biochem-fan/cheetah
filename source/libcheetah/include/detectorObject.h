@@ -293,6 +293,8 @@ public:
 	long *cumPhotonMap;
 
 	float *thresholdMap;
+	float *sampleReference;
+	float *backgroundReference;
 
 	/*
 	 *  Radial stacks for this detector
@@ -347,6 +349,7 @@ public:
 	double    detectorZ;
 	float     *significanceMap;
 	float     *photonMap;
+	float      totalPhotons;
 
 
 };

@@ -289,6 +289,7 @@ int hitfinder8(cGlobal *global, cEventData *eventData, long detID) {
   // Combine pixel options for pixels to be ignored
   uint16_t  pixel_options = PIXEL_IS_IN_PEAKMASK | PIXEL_IS_OUT_OF_RESOLUTION_LIMITS | PIXEL_IS_HOT | PIXEL_IS_BAD | PIXEL_IS_SATURATED | PIXEL_IS_MISSING;
 
+  /*
   float photonSum = 0.;
   for (int i = 0; i<pix_nn; i++) {
     if (isNoneOfBitOptionsSet(mask[i],pixel_options) && (eventData->detector[detID].photonMap[i] > 0.)) {
@@ -298,6 +299,10 @@ int hitfinder8(cGlobal *global, cEventData *eventData, long detID) {
   }
   
   if (photonSum > global->totalPhotonsThreshold) {
+    hit = 1;
+  }
+  */
+  if (eventData->detector[detID].totalPhotons > global->totalPhotonsThreshold) {
     hit = 1;
   }
   return hit;
@@ -311,6 +316,21 @@ int hitfinder9(cGlobal *global, cEventData *eventData, long detID) {
   long pix_nn = global->detector[detID].pix_nn;
   uint16_t pixel_options = PIXEL_IS_IN_PEAKMASK | PIXEL_IS_OUT_OF_RESOLUTION_LIMITS | PIXEL_IS_HOT | PIXEL_IS_BAD | PIXEL_IS_SATURATED | PIXEL_IS_MISSING;
 
-  
+  float *photonMap = eventData->detector[detID].photonMap;
+  float *sampleReference = global->detector[detID].sampleReference;
+  float *backgroundReference = global->detector[detID].backgroundReference;
+
+  float sampleProjection = 0.;
+  float backgroundProjection = 0.;
+  for (int i = 0; i < pix_nn; i++) {
+    if (isNoneOfBitOptionsSet(mask[i],pixel_options) && (photonMap[i] > 0.)) {
+      sampleProjection += sampleReference[i]*photonMap[i];
+      backgroundProjection += backgroundReference[i]*photonMap[i];
+    }
+  }
+  if (sampleProjection / backgroundProjection > 1.) {
+    hit = 1;
+  }
+  return hit;
 }
 

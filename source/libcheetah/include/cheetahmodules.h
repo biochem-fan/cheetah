@@ -61,6 +61,7 @@ void closeCXIFiles(cGlobal * global);
 herr_t cheetahHDF5ErrorHandler(hid_t, void *unused);
 void loadCXI(cGlobal *global, const char *filename);
 void loadThresholdMap(cGlobal *global, const char *filename);
+void loadReferences(cGlobal *global, const char *filename);
 
 // assemble2DImage.cpp
 void assemble2Dimage(cEventData*, cGlobal*);

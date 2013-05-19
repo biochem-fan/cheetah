@@ -1114,6 +1114,7 @@ void cPixelDetectorCommon::readSigmaMap(char *filename) {
 cPixelDetectorEvent::cPixelDetectorEvent() {
 
   detectorZ=0;
+  totalPhotons=0.;
 
 }
 
