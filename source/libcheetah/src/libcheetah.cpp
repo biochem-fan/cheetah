@@ -35,6 +35,9 @@ void* pythonWorker(void* threadarg)
       fprintf(stderr, "Unable to open Python script %s, error code %d, continuing without Python visualizer.", pythonFile, errno);
     }
   // Note: no call to Py_SetProgramName for now
+  //char buffer [50];
+  //sprintf (buffer, "/reg/neh/home/hantke/software/bin/python");
+  //Py_SetProgramName(buffer);
   Py_Initialize();
   //  PyThreadState* ourThread = Py_NewInterpreter();
   PyRun_SimpleFile(fileHandle, pythonFile);
@@ -67,7 +70,7 @@ void cheetahInit(cGlobal *global) {
 	global->writeConfigurationLog();
 
 	// Set better error handlers for HDF5
-	H5Eset_auto(H5E_DEFAULT, cheetahHDF5ErrorHandler, NULL);
+	H5Eset_auto1(cheetahHDF5ErrorHandler, NULL);
 
 	printf("Cheetah clean initialisation\n");
 	if (global->pythonFile[0]) {

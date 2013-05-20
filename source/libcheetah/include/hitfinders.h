@@ -7,7 +7,9 @@ int hitfinder1(cGlobal *global, cEventData *eventData, long detID);
 int hitfinder2(cGlobal *global, cEventData *eventData, long detID);
 int hitfinder4(cGlobal *global, cEventData *eventData, long detID);
 int hitfinder8(cGlobal *global, cEventData *eventData, long detID);
-int hitfinder9(cGlobal *global, cEventData *eventData, long detID);
-int hitfinder10(cGlobal *global, cEventData *eventData, long detID);
+
+int hitfinder28(cGlobal *global, cEventData *eventData, long detID);
+int hitfinder29(cGlobal *global, cEventData *eventData, long detID);
+int hitfinder30(cGlobal *global, cEventData *eventData, long detID);
 
 #endif

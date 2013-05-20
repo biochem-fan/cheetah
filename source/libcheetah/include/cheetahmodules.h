@@ -58,7 +58,8 @@ void writeSpectrumInfoHDF5(const char*, const void*, const void*, int, int, cons
 void writeCXI(cEventData *info, cGlobal *global);
 void writeAccumulatedCXI(cGlobal * global);
 void closeCXIFiles(cGlobal * global);
-herr_t cheetahHDF5ErrorHandler(hid_t, void *unused);
+herr_t cheetahHDF5ErrorHandler(void *unused);
+//herr_t cheetahHDF5ErrorHandler(hid_t, void *unused);
 void loadCXI(cGlobal *global, const char *filename);
 void loadThresholdMap(cGlobal *global, const char *filename);
 void loadReferences(cGlobal *global, const char *filename);

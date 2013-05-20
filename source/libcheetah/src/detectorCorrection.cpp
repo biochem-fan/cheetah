@@ -623,7 +623,7 @@ void pnccdFixWiringError(float *data) {
 
 void updateHaloBuffer(cEventData *eventData, cGlobal *global,int hit) {
   DETECTOR_LOOP {
-    if(global->detector[detID].useAutoHalopixel && !hit && (eventData->frameNumber > global->detector[detID].bgRecalc)){
+    if(global->detector[detID].useAutoHalopixel /*&& !hit*/ && (eventData->frameNumber > global->detector[detID].bgRecalc)){
       float	*frameData = eventData->detector[detID].corrected_data;
       float     *frameBuffer = global->detector[detID].halopix_buffer;
       long	pix_nn = global->detector[detID].pix_nn;
@@ -638,10 +638,14 @@ void updateHaloBuffer(cEventData *eventData, cGlobal *global,int hit) {
       pthread_mutex_lock(&global->halopixel_mutex);
 
       frameID = (global->detector[detID].halopixCounter)%bufferDepth;
-      memcpy(frameBuffer+pix_nn*frameID, buffer, pix_nn*sizeof(float));
       global->detector[detID].halopixCounter += 1;
 
+      pthread_mutex_lock(&global->detector[detID].halopix_mutexes[frameID]);
       pthread_mutex_unlock(&global->halopixel_mutex);
+
+      memcpy(frameBuffer+pix_nn*frameID, buffer, pix_nn*sizeof(float));
+
+      pthread_mutex_unlock(&global->detector[detID].halopix_mutexes[frameID]);
 
       free(buffer);
     }

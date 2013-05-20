@@ -16,17 +16,18 @@
 
 /*
  *	Various flavours of hitfinder
- *		0  - Everything is a hit
- *		1  - Number of pixels above ADC threshold
- *		2  - Total intensity above ADC threshold
- *		3  - Count Bragg peaks
- *		4  - Use TOF
- *		5  - Depreciated and no longer exists
- *		6  - Experimental - find peaks by SNR criteria
- *              7  - Laser on event code (usually EVR41)
- *              8  - Statistical hit finder
- *              9  - Reference based hitfinder
- *              10 - As 8 but with gmd
+ *		0 - Everything is a hit
+ *		1 - Number of pixels above ADC threshold
+ *		2 - Total intensity above ADC threshold
+ *		3 - Count Bragg peaks
+ *		4 - Use TOF
+ *		5 - Depreciated and no longer exists
+ *		6 - Experimental - find peaks by SNR criteria
+ *              7 - Laser on event code (usually EVR41)
+ *              8 - Use TOF peak
+ *              28  - Statistical hit finder
+ *              29  - Reference based hitfinder
+ *              30 - As 28 but with gmd
  */
 int  hitfinder(cEventData *eventData, cGlobal *global){
 	
@@ -76,16 +77,24 @@ int  hitfinder(cEventData *eventData, cGlobal *global){
 	  eventData->nPeaks = eventData->laserEventCodeOn;
 	  break;
 
-	case 8 :
-	  hit = hitfinder8(global, eventData, detID);
+	case 8 :	// Use TOF signal, maximum peak, to find hits
+	  hit = hitfinder8(global,eventData,detID);
 	  break;
 
-	case 9:
-	  hit = hitfinder9(global, eventData, detID);
+	case 9 :	// Use TOF signal, maximum peak, excluding classical htis
+	  hit = hitfinder8(global,eventData,detID) && !(hitfinder1(global,eventData,detID));
 	  break;
 
-	case 10:
-	  hit = hitfinder10(global, eventData, detID);
+	case 28 :
+	  hit = hitfinder28(global, eventData, detID);
+	  break;
+
+	case 29:
+	  hit = hitfinder29(global, eventData, detID);
+	  break;
+
+	case 30:
+	  hit = hitfinder30(global, eventData, detID);
 	  break;
 			
 	default :
@@ -190,7 +199,7 @@ int hitfinder1(cGlobal *global, cEventData *eventData, long detID){
   long	    pix_nn = global->detector[detID].pix_nn;  
   float     ADC_threshold = global->hitfinderADC;
   // Combine pixel options for pixels to be ignored
-  uint16_t  pixel_options = PIXEL_IS_IN_PEAKMASK | PIXEL_IS_OUT_OF_RESOLUTION_LIMITS | PIXEL_IS_HOT | PIXEL_IS_BAD | PIXEL_IS_SATURATED | PIXEL_IS_MISSING;
+  uint16_t  pixel_options = PIXEL_IS_IN_PEAKMASK | PIXEL_IS_OUT_OF_RESOLUTION_LIMITS | PIXEL_IS_HOT | PIXEL_IS_BAD | PIXEL_IS_SATURATED | PIXEL_IS_MISSING | PIXEL_IS_IN_HALO;
   
   integratePixAboveThreshold(data,mask,pix_nn,ADC_threshold,pixel_options,&nat,&tat);
   eventData->peakTotal = tat;
@@ -286,7 +295,47 @@ int hitfinder4(cGlobal *global,cEventData *eventData,long detID){
   return hit;
 }
 
-int hitfinder8(cGlobal *global, cEventData *eventData, long detID) {
+
+
+int hitfinder8(cGlobal *global,cEventData *eventData,long detID){
+  int hit = 0;
+  long		pix_nn = global->detector[detID].pix_nn;
+  uint16_t      *mask = eventData->detector[detID].pixelmask;
+  long	nat = 0;
+  long	counter;
+  float	total;
+  float	mingrad = global->hitfinderMinGradient*2;
+  mingrad *= mingrad;
+  
+  nat = 0;
+  counter = 0;
+  total = 0.0;
+
+  /*
+   *	Apply masks
+   *	(multiply data by 0 to ignore regions)
+   */
+
+		  
+  if ((eventData->TOFPresent==1)){
+    const int nback = 3;
+    float olddata[nback] = {0};
+    for(int i=global->hitfinderTOFMinSample; i<global->hitfinderTOFMaxSample; i++){
+      olddata[i % nback] = eventData->TOFVoltage[i];
+      double sum = 0;
+      for (int k = 0; k < nback; k++)
+	{
+	  sum += olddata[k];
+	}
+      if (sum < global->hitfinderTOFThresh * nback) hit = 1;
+    }
+  }
+
+
+  return hit;
+}
+
+int hitfinder28(cGlobal *global, cEventData *eventData, long detID) {
   
   int       hit = 0;
   uint16_t  *mask = eventData->detector[detID].pixelmask;
@@ -315,7 +364,7 @@ int hitfinder8(cGlobal *global, cEventData *eventData, long detID) {
 }
 
 
-int hitfinder9(cGlobal *global, cEventData *eventData, long detID) {
+int hitfinder29(cGlobal *global, cEventData *eventData, long detID) {
   int hit = 0;
   uint16_t *mask = eventData->detector[detID].pixelmask;
   float *data = eventData->detector[detID].corrected_data;
@@ -341,20 +390,20 @@ int hitfinder9(cGlobal *global, cEventData *eventData, long detID) {
   return hit;
 }
 
-int hitfinder10(cGlobal *global, cEventData *eventData, long detID) {
+int hitfinder30(cGlobal *global, cEventData *eventData, long detID) {
   int hit = 0;
   
   double gmd11 = eventData->gmd11;
   float totalPhotons = eventData->detector[detID].totalPhotons;
   
   // these numbers only make sense for original detector position
-  float base = -2072.;
-  float slope = 2231.;
-  float sigma = 786.;
+  float base = -8270.;
+  float slope = 6459.;
+  float sigma = 1110.;
   float threshold = 2.5;
   
   float expectedHaloSignal = base + slope*gmd11;
-  if (totalPhotons > expectedHaloSignal + sigma*threshold) {
+  if (gmd11 > 1. && (totalPhotons > expectedHaloSignal + sigma*threshold)) {
     hit = 1;
   }
 
