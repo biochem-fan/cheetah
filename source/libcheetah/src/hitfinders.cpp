@@ -16,15 +16,17 @@
 
 /*
  *	Various flavours of hitfinder
- *		0 - Everything is a hit
- *		1 - Number of pixels above ADC threshold
- *		2 - Total intensity above ADC threshold
- *		3 - Count Bragg peaks
- *		4 - Use TOF
- *		5 - Depreciated and no longer exists
- *		6 - Experimental - find peaks by SNR criteria
- *              7 - Laser on event code (usually EVR41)
- *              8 - Statistical hit finder
+ *		0  - Everything is a hit
+ *		1  - Number of pixels above ADC threshold
+ *		2  - Total intensity above ADC threshold
+ *		3  - Count Bragg peaks
+ *		4  - Use TOF
+ *		5  - Depreciated and no longer exists
+ *		6  - Experimental - find peaks by SNR criteria
+ *              7  - Laser on event code (usually EVR41)
+ *              8  - Statistical hit finder
+ *              9  - Reference based hitfinder
+ *              10 - As 8 but with gmd
  */
 int  hitfinder(cEventData *eventData, cGlobal *global){
 	
@@ -80,6 +82,10 @@ int  hitfinder(cEventData *eventData, cGlobal *global){
 
 	case 9:
 	  hit = hitfinder9(global, eventData, detID);
+	  break;
+
+	case 10:
+	  hit = hitfinder10(global, eventData, detID);
 	  break;
 			
 	default :
@@ -328,9 +334,29 @@ int hitfinder9(cGlobal *global, cEventData *eventData, long detID) {
       backgroundProjection += backgroundReference[i]*photonMap[i];
     }
   }
+  printf(">>> %g = %g / %g\n", sampleProjection / backgroundProjection, sampleProjection, backgroundProjection);
   if (sampleProjection / backgroundProjection > 1.) {
     hit = 1;
   }
   return hit;
 }
 
+int hitfinder10(cGlobal *global, cEventData *eventData, long detID) {
+  int hit = 0;
+  
+  double gmd11 = eventData->gmd11;
+  float totalPhotons = eventData->detector[detID].totalPhotons;
+  
+  // these numbers only make sense for original detector position
+  float base = -2072.;
+  float slope = 2231.;
+  float sigma = 786.;
+  float threshold = 2.5;
+  
+  float expectedHaloSignal = base + slope*gmd11;
+  if (totalPhotons > expectedHaloSignal + sigma*threshold) {
+    hit = 1;
+  }
+
+  return hit;  
+}
