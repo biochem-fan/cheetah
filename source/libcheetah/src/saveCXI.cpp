@@ -590,6 +590,7 @@ static CXI::File * createCXISkeleton(const char * filename,cGlobal *global){
   // /entry_1/instrument_1/experiment_identifier -> /entry_1/experiment_identifier
   H5Lcreate_soft("/entry_1/experiment_identifier",cxi->entry.instrument.source.self,"experiment_identifier",H5P_DEFAULT,H5P_DEFAULT);
 
+
   DETECTOR_LOOP{
     char detectorPath[1024];
     char dataName[1024];
@@ -608,6 +609,7 @@ static CXI::File * createCXISkeleton(const char * filename,cGlobal *global){
     d.xPixelSize = createScalarStack("x_pixel_size",d.self,H5T_NATIVE_DOUBLE);
     d.yPixelSize = createScalarStack("y_pixel_size",d.self,H5T_NATIVE_DOUBLE);
     d.totalPhotons = createScalarStack("total_photon_count",d.self,H5T_NATIVE_FLOAT);
+    d.haloSigma = createScalarStack("halo_sigma",d.self,H5T_NATIVE_FLOAT);
     
     /* Raw images */
     if(global->saveRaw){
@@ -783,6 +785,7 @@ static CXI::File * createCXISkeleton(const char * filename,cGlobal *global){
   cxi->cheetahVal.sharedVal.self = H5Gcreate(cxi->cheetahVal.self, "shared", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
   cxi->cheetahVal.sharedVal.hit = createScalarStack("hit", cxi->cheetahVal.sharedVal.self,H5T_NATIVE_INT);
   cxi->cheetahVal.sharedVal.nPeaks = createScalarStack("nPeaks", cxi->cheetahVal.sharedVal.self,H5T_NATIVE_INT);
+  cxi->cheetahVal.sharedVal.hitIndex = createScalarStack("hitIndex", cxi->cheetahVal.sharedVal.self, H5T_NATIVE_INT);
 
   CXI::ConfValues confVal;
   cxi->cheetahVal.confVal.self = H5Gcreate(cxi->cheetahVal.self, "configuration", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
@@ -1099,9 +1102,11 @@ void writeCXI(cEventData *info, cGlobal *global ){
   writeScalarToStack(cxi->cheetahVal.sharedVal.nPeaks,global->nCXIEvents,info->nPeaks);
   DETECTOR_LOOP{
     writeScalarToStack(cxi->entry.instrument.detectors[detID].totalPhotons,global->nCXIEvents,info->detector[detID].totalPhotons);
+    writeScalarToStack(cxi->entry.instrument.detectors[detID].haloSigma,global->nCXIEvents,info->detector[detID].haloSigma);
   }
 
   global->nCXIEvents += 1;
+
 
   if(info->writeFlag){
     uint stackSlice = getStackSlice(cxi);
@@ -1116,6 +1121,8 @@ void writeCXI(cEventData *info, cGlobal *global ){
     // put it back
 
     info->eventname[strlen(info->eventname)] = '.';
+
+    writeScalarToStack(cxi->cheetahVal.sharedVal.hitIndex,stackSlice,global->nprocessedframes);
 
     DETECTOR_LOOP {    
       /* Save assembled image under image groups */
@@ -1290,27 +1297,55 @@ void loadCXI(cGlobal *global, const char *filename){
   H5Fclose(fid);
 }
 
-void loadThresholdMap(cGlobal *global, const char *filename) {
+void loadMap(cGlobal *global, const char *filename, char *name, float *data_destination, int pix_nx, int pix_ny) {
   hid_t fid = H5Fopen(filename, H5F_ACC_RDONLY, H5P_DEFAULT);
-  char buffer[1000];
+  //char buffer[1000];
   hsize_t dims[2];
   
-  for (int detectorID = 0; detectorID < global->nDetectors; detectorID++) {
-    sprintf(buffer, "threshold_detector%d", detectorID);
-    hid_t did = H5Dopen1(fid, buffer);
-    hid_t space = H5Dget_space(did);
-    H5Sget_simple_extent_dims(space, dims, NULL);
-    if (dims[1] != global->detector[detectorID].pix_nx || dims[0] != global->detector[detectorID].pix_ny) {
-      printf("Threshold map read from %s doesn differs in size from the detector\n", filename);
-      printf("%d x %d  !=  %d x %d\n", dims[0], dims[1], global->detector[detectorID].pix_nx, global->detector[detectorID].pix_ny);
-      printf("Aborting...\n");
-      exit(1);
-    }
-    H5Dread(did, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, global->detector[detectorID].thresholdMap);
-    H5Dclose(did);
+  //for (int detectorID = 0; detectorID < global->nDetectors; detectorID++) {
+    //sprintf(buffer, "threshold_detector%d", detectorID);
+    //hid_t did = H5Dopen1(fid, buffer);
+  hid_t did = H5Dopen1(fid, name);
+  hid_t space = H5Dget_space(did);
+  H5Sget_simple_extent_dims(space, dims, NULL);
+  if (dims[1] != pix_nx || dims[0] != pix_ny) {
+    printf("Map read from %s differs in size from the detector\n", filename);
+    printf("%d x %d  !=  %d x %d\n", dims[0], dims[1], pix_nx, pix_ny);
+    printf("Aborting...\n");
+    exit(1);
   }
+  H5Dread(did, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_destination);
+  H5Dclose(did);
+    //}
   H5Fclose(fid);
 }
+
+void loadThresholdMap(cGlobal *global, const char *filename) {
+  char buffer[1000];
+  for (int detectorID = 0; detectorID < global->nDetectors; detectorID++) {
+    sprintf(buffer, "threshold_detector%d", detectorID);
+    loadMap(global, filename, buffer, global->detector[detectorID].thresholdMap, global->detector[detectorID].pix_nx, global->detector[detectorID].pix_ny);
+    sprintf(buffer, "baseline_detector%d", detectorID);
+    loadMap(global, filename, buffer, global->detector[detectorID].backgroundBaselineMap, global->detector[detectorID].pix_nx, global->detector[detectorID].pix_ny);
+  }
+}
+
+/*
+void loadThresholdMap(cGlobal *global, const char *filename) {
+  loadMap(global, filename, global->detector[detectorID].haloThresholdMap);
+}
+*/
+void loadHaloDistMap(cGlobal *global, const char *filename) {
+  char buffer[1000];
+
+  for (int detectorID = 0; detectorID < global->nDetectors; detectorID++) {
+    sprintf(buffer, "mean_detector%d", detectorID);
+    loadMap(global, filename, buffer, global->detector[detectorID].haloMeanMap, global->detector[detectorID].pix_nx, global->detector[detectorID].pix_ny);
+    sprintf(buffer, "sigma_detector%d", detectorID);
+    loadMap(global, filename, buffer, global->detector[detectorID].haloSigmaMap, global->detector[detectorID].pix_nx, global->detector[detectorID].pix_ny);
+  }
+}
+
 
 void loadReferences(cGlobal*global, const char *filename) {
   hid_t fid = H5Fopen(filename, H5F_ACC_RDONLY, H5P_DEFAULT);

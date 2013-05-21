@@ -57,8 +57,10 @@ void calculatePhotonMap(cEventData *eventData, cGlobal *global) {
 
   for (int detID = 0; detID < global->nDetectors; detID++) {
     uint16_t  *mask = eventData->detector[detID].pixelmask;
-    float     *data = eventData->detector[detID].corrected_data;
+    //float     *data = eventData->detector[detID].corrected_data;
+    int16_t     *data = eventData->detector[detID].corrected_data_int16;
     float    *thresholdMap = global->detector[detID].thresholdMap;
+    float    *backgroundBaselineMap = global->detector[detID].backgroundBaselineMap;
     float *photonMap = eventData->detector[detID].photonMap;
     //float *significanceMap = global->detector[detID].significanceMap;
     //float *photonMap = global->detector[detID].photonMap;
@@ -72,7 +74,7 @@ void calculatePhotonMap(cEventData *eventData, cGlobal *global) {
       if (isNoneOfBitOptionsSet(mask[i],pixel_options) && (data[i] > thresholdMap[i])) {
 	// 30 ADU per photon
 	//photonMap[i] = data[i] / 30.;
-	photonMap[i] = (data[i] - thresholdMap[i]) / 30.;
+	photonMap[i] = (data[i] - backgroundBaselineMap[i]) / 20.; // assume 30 ADU per photon.
 
 #ifdef __GNUC__
 	__sync_fetch_and_add(&(cumPhotonMap[i]),(long)photonMap[i]);

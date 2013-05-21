@@ -294,6 +294,10 @@ public:
 	long *cumPhotonMap;
 
 	float *thresholdMap;
+	float *backgroundBaselineMap;
+	//float *haloThresholdMap;
+	float *haloMeanMap;
+	float *haloSigmaMap;
 	float *sampleReference;
 	float *backgroundReference;
 
@@ -350,7 +354,8 @@ public:
 	double    detectorZ;
 	float     *significanceMap;
 	float     *photonMap;
-	float      totalPhotons;
+	float     totalPhotons;
+	float     haloSigma;
 
 
 };

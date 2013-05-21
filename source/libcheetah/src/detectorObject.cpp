@@ -1119,6 +1119,6 @@ cPixelDetectorEvent::cPixelDetectorEvent() {
 
   detectorZ=0;
   totalPhotons=0.;
-
+  haloSigma=0.;
 }
 

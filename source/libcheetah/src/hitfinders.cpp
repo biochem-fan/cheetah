@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <string.h>
 #include <pthread.h>
@@ -28,6 +27,7 @@
  *              28  - Statistical hit finder
  *              29  - Reference based hitfinder
  *              30 - As 28 but with gmd
+ *              31 - Threshold the photon count with a halo map
  */
 int  hitfinder(cEventData *eventData, cGlobal *global){
 	
@@ -95,6 +95,10 @@ int  hitfinder(cEventData *eventData, cGlobal *global){
 
 	case 30:
 	  hit = hitfinder30(global, eventData, detID);
+	  break;
+
+	case 31:
+	  hit = hitfinder31(global, eventData, detID);
 	  break;
 			
 	default :
@@ -408,4 +412,35 @@ int hitfinder30(cGlobal *global, cEventData *eventData, long detID) {
   }
 
   return hit;  
+}
+
+int hitfinder31(cGlobal *global, cEventData *eventData, long detID) {
+  int hit = 0;
+  int pix_nn = global->detector[detID].pix_nn;
+  uint16_t *mask = eventData->detector[detID].pixelmask;
+  uint16_t pixel_options = PIXEL_IS_IN_PEAKMASK | PIXEL_IS_OUT_OF_RESOLUTION_LIMITS | PIXEL_IS_HOT | PIXEL_IS_BAD | PIXEL_IS_SATURATED | PIXEL_IS_MISSING;
+  float *photonMap = eventData->detector[detID].photonMap;
+  float *haloMeanMap = global->detector[detID].haloMeanMap;
+  float *haloSigmaMap = global->detector[detID].haloSigmaMap;
+  float haloThreshold = global->haloThreshold;
+
+  float sigma;
+  float sigmaSum = 0.;
+  for (int i = 0; i < pix_nn; i++) {
+    if (isNoneOfBitOptionsSet(mask[i], pixel_options) && haloSigmaMap[i] > 0.){
+      //printf("mean=%g, sigma=%g\n", haloMeanMap[i], haloSigmaMap[i]);
+      sigma = (photonMap[i] - haloMeanMap[i]) / haloSigmaMap[i];
+      /* do we add the sigmas or threshold on the sigmas? */
+      /* try adding for now */
+      /* try adding the squares to make it a log probability */
+      sigmaSum+=pow(sigma,2);
+    }
+  }
+  sigmaSum = sqrt(sigmaSum);
+  eventData->detector[detID].haloSigma = sigmaSum;
+  //printf("sigma sum = %g\n", sigmaSum);
+  if (sigmaSum > haloThreshold) {
+    hit = 1;
+  }
+  return hit;
 }

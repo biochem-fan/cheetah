@@ -150,6 +150,9 @@ cGlobal::cGlobal(void) {
   sigPhotonThreshold = 0.;
   totalPhotonsThreshold = 0.;
   strcpy(thresholdMapFile, "No_file_specified");
+  //strcpy(haloThresholdMapFile, "No_file_specified");
+  strcpy(haloDistMapFile, "No_file_specified");
+  haloThreshold = 0.;
   strcpy(referenceFile, "No_file_specified");
   /*
   for (int detID = 0; detID < MAX_DETECTORS; detID++) {
@@ -225,6 +228,10 @@ void cGlobal::setup() {
     detector[i].readWireMask(detector[i].wireMaskFile);
     detector[i].darkSigmaMap = (double *)calloc(detector[i].pix_nn, sizeof(double));
     detector[i].thresholdMap = (float *)calloc(detector[i].pix_nn, sizeof(float));
+    detector[i].backgroundBaselineMap = (float *)calloc(detector[i].pix_nn, sizeof(float));
+    //detector[i].haloThresholdMap = (float *)calloc(detector[i].pix_nn, sizeof(float));
+    detector[i].haloMeanMap = (float *)calloc(detector[i].pix_nn, sizeof(float));
+    detector[i].haloSigmaMap = (float *)calloc(detector[i].pix_nn, sizeof(float));
     detector[i].sampleReference = (float *)calloc(detector[i].pix_nn, sizeof(float));
     detector[i].backgroundReference = (float *)calloc(detector[i].pix_nn, sizeof(float));
     //detector[i].significanceMap = (float *)calloc(detector[i].pix_nn, sizeof(float));
@@ -448,6 +455,10 @@ void cGlobal::setup() {
 
   if (hitfinderAlgorithm == 29) {
     loadReferences(this, referenceFile);
+  }
+
+  if (hitfinderAlgorithm == 31) {
+    loadHaloDistMap(this, haloDistMapFile);
   }
   /*
    * Init bool vector for every event: hit or no hit ?
@@ -910,6 +921,17 @@ int cGlobal::parseConfigTag(char *tag, char *value) {
   else if (!strcmp(tag, "thresholdmapfile")) {
     strcpy(thresholdMapFile, value);
   }
+  /*
+  else if (!strcmp(tag, "halothresholdmapfile")) {
+    strcpy(haloThresholdMapFile, value);
+  }
+  */
+  else if (!strcmp(tag, "halodistmapfile")) {
+    strcpy(haloDistMapFile, value);
+  }
+  else if (!strcmp(tag, "halothreshold")) {
+    haloThreshold = atof(value);
+  }
   else if (!strcmp(tag, "referencefile")) {
     strcpy(referenceFile, value);
   }
@@ -1051,6 +1073,9 @@ void cGlobal::writeConfigurationLog(void){
   fprintf(fp, "pythonfile=%s\n", pythonFile);
   fprintf(fp, "thresholdData=%d\n", thresholdData);
   fprintf(fp, "thresholdMapFile=%s\n", thresholdMapFile);
+  //fprintf(fp, "haloThresholdMapFile=%s\n", thresholdMapFile);
+  fprintf(fp, "haloDistMapFile=%s\n", haloDistMapFile);
+  fprintf(fp, "haloThreshold=%f\n", haloThreshold);
   fprintf(fp, "referenceFile=%s\n", referenceFile);
   /*
   fprintf(fp, "cropRadius0=%d\n", cropRadius[0]);

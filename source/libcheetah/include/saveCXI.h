@@ -31,6 +31,7 @@ typedef struct{
     hid_t yPixelSize;
     hid_t photonMap;
     hid_t totalPhotons;
+    hid_t haloSigma;
 }Detector;
 
 
@@ -123,6 +124,7 @@ typedef struct{
   hid_t cumPhotonMap[MAX_DETECTORS];
   hid_t hit;
   hid_t nPeaks;
+  hid_t hitIndex;
 }SharedValues;
 
 typedef struct{

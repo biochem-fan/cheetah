@@ -62,6 +62,7 @@ herr_t cheetahHDF5ErrorHandler(void *unused);
 //herr_t cheetahHDF5ErrorHandler(hid_t, void *unused);
 void loadCXI(cGlobal *global, const char *filename);
 void loadThresholdMap(cGlobal *global, const char *filename);
+void loadHaloDistMap(cGlobal *global, const char *filename);
 void loadReferences(cGlobal *global, const char *filename);
 
 // assemble2DImage.cpp

@@ -247,6 +247,10 @@ public:
 	bool thresholdData;
 	char thresholdMapFile[MAX_FILENAME_LENGTH];
 
+	//char haloThresholdMapFile[MAX_FILENAME_LENGTH];
+	char haloDistMapFile[MAX_FILENAME_LENGTH];
+	float haloThreshold;
+
 	float sigPhotonThreshold;
 	float totalPhotonsThreshold;
 
@@ -342,9 +346,9 @@ public:
 	long     nhits;
 	long     nrecentprocessedframes;
 	long     nrecenthits;
-    long     nespechits;
-    long nCXIEvents;
-    long nCXIHits;
+	long     nespechits;
+	long nCXIEvents;
+	long nCXIHits;
     
 	// variable to hold the updating run integrated spectrum
 	double  *espectrumRun;
