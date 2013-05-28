@@ -82,7 +82,13 @@ int  hitfinder(cEventData *eventData, cGlobal *global){
 	  break;
 
 	case 9 :	// Use TOF signal, maximum peak, excluding classical htis
-	  hit = hitfinder8(global,eventData,detID) && !(hitfinder1(global,eventData,detID));
+	  hit = hitfinder8(global,eventData,detID);
+	  if (hit)
+	    {
+	      int nPeaks = eventData->nPeaks;
+	      hit = !(hitfinder1(global,eventData,detID));
+	      eventData->nPeaks = nPeaks;
+	    }
 	  break;
 
 	case 28 :
@@ -322,12 +328,13 @@ int hitfinder8(cGlobal *global,cEventData *eventData,long detID){
 
   if ((eventData->TOFPresent==1)){
     /*
-    const int nback = 3;
+    const int nback = global->hitfinderTOFWindow;
     float olddata[nback];
     for (int k = 0; k < nback; k++)
       {
 	olddata[k] = NAN;
       }
+    int count = 0;
     for(int i=global->hitfinderTOFMinSample; i<global->hitfinderTOFMaxSample; i++){
       olddata[i % nback] = eventData->TOFVoltage[i];
       double sum = 0;
@@ -335,11 +342,11 @@ int hitfinder8(cGlobal *global,cEventData *eventData,long detID){
 	{
 	  sum += olddata[k];
 	}
-      if (sum < global->hitfinderTOFThresh * nback) hit = 1;
+      if (sum < global->hitfinderTOFThresh * nback) count++;
     }
     */
     float minSignal = 1.e-30;
-    const int nback = 3;
+    const int nback = global->hitfinderTOFWindow;
     float olddata[nback];
     for (int k = 0; k < nback; k++)
       {
@@ -359,6 +366,9 @@ int hitfinder8(cGlobal *global,cEventData *eventData,long detID){
     eventData->tofIntegratedSignal = minSignal/(float)nback;
   } else {
     eventData->tofIntegratedSignal = 0.;
+    //hit = (count >= global->hitfinderTOFMinCount);
+    hit = 0;
+    //eventData->nPeaks = count;
   }
   return hit;
 }

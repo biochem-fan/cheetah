@@ -101,6 +101,8 @@ cGlobal::cGlobal(void) {
   hitfinderTOFMinSample = 0;
   hitfinderTOFMaxSample = 1000;
   hitfinderTOFThresh = 100;
+  hitfinderTOFMinCount = 1;
+  hitfinderTOFWindow = 3;
 
   // TOF configuration
   TOFPresent = 0;
@@ -783,6 +785,12 @@ int cGlobal::parseConfigTag(char *tag, char *value) {
   }
   else if (!strcmp(tag, "hitfindertofthresh")) {
     hitfinderTOFThresh = atof(value);
+  }
+  else if (!strcmp(tag, "hitfindertofmincount")) {
+    hitfinderTOFMinCount = atoi(value);
+  }
+  else if (!strcmp(tag, "hitfindertofwindow")) {
+    hitfinderTOFWindow = atoi(value);
   }
 
   // Energy spectrum parameters
