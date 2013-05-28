@@ -117,6 +117,9 @@ public:
 	double		phaseCavityCharge1;
 	double		phaseCavityCharge2;
 
+	//TOF data
+	double tofIntegratedSignal;
+
 	// Thread management
 	int	threadID;
 	int     useThreads;

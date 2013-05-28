@@ -590,7 +590,6 @@ static CXI::File * createCXISkeleton(const char * filename,cGlobal *global){
   // /entry_1/instrument_1/experiment_identifier -> /entry_1/experiment_identifier
   H5Lcreate_soft("/entry_1/experiment_identifier",cxi->entry.instrument.source.self,"experiment_identifier",H5P_DEFAULT,H5P_DEFAULT);
 
-
   DETECTOR_LOOP{
     char detectorPath[1024];
     char dataName[1024];
@@ -786,6 +785,7 @@ static CXI::File * createCXISkeleton(const char * filename,cGlobal *global){
   cxi->cheetahVal.sharedVal.hit = createScalarStack("hit", cxi->cheetahVal.sharedVal.self,H5T_NATIVE_INT);
   cxi->cheetahVal.sharedVal.nPeaks = createScalarStack("nPeaks", cxi->cheetahVal.sharedVal.self,H5T_NATIVE_INT);
   cxi->cheetahVal.sharedVal.hitIndex = createScalarStack("hitIndex", cxi->cheetahVal.sharedVal.self, H5T_NATIVE_INT);
+  cxi->cheetahVal.sharedVal.tofIntegratedSignal = createScalarStack("TOF_integrated_signal",cxi->cheetahVal.sharedVal.self,H5T_NATIVE_FLOAT);
 
   CXI::ConfValues confVal;
   cxi->cheetahVal.confVal.self = H5Gcreate(cxi->cheetahVal.self, "configuration", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
@@ -1100,6 +1100,7 @@ void writeCXI(cEventData *info, cGlobal *global ){
 
   writeScalarToStack(cxi->cheetahVal.sharedVal.hit,global->nCXIEvents,info->hit);
   writeScalarToStack(cxi->cheetahVal.sharedVal.nPeaks,global->nCXIEvents,info->nPeaks);
+  writeScalarToStack(cxi->cheetahVal.sharedVal.tofIntegratedSignal,global->nCXIEvents,info->tofIntegratedSignal);
   DETECTOR_LOOP{
     writeScalarToStack(cxi->entry.instrument.detectors[detID].totalPhotons,global->nCXIEvents,info->detector[detID].totalPhotons);
     writeScalarToStack(cxi->entry.instrument.detectors[detID].haloSigma,global->nCXIEvents,info->detector[detID].haloSigma);

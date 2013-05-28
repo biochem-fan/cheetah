@@ -320,8 +320,8 @@ int hitfinder8(cGlobal *global,cEventData *eventData,long detID){
    *	(multiply data by 0 to ignore regions)
    */
 
-		  
   if ((eventData->TOFPresent==1)){
+    /*
     const int nback = 3;
     float olddata[nback];
     for (int k = 0; k < nback; k++)
@@ -337,9 +337,29 @@ int hitfinder8(cGlobal *global,cEventData *eventData,long detID){
 	}
       if (sum < global->hitfinderTOFThresh * nback) hit = 1;
     }
+    */
+    float minSignal = 1.e-30;
+    const int nback = 3;
+    float olddata[nback];
+    for (int k = 0; k < nback; k++)
+      {
+	olddata[k] = NAN;
+      }
+    for(int i=global->hitfinderTOFMinSample; i<global->hitfinderTOFMaxSample; i++){
+      olddata[i % nback] = eventData->TOFVoltage[i];
+      double sum = 0;
+      for (int k = 0; k < nback; k++)
+	{
+	  sum += olddata[k];
+	}
+      if (sum < minSignal) minSignal=sum;
+      //if (sum < global->hitfinderTOFThresh * nback) hit = 1;
+    }
+    if (minSignal < global->hitfinderTOFThresh * nback) hit = 1;
+    eventData->tofIntegratedSignal = minSignal/(float)nback;
+  } else {
+    eventData->tofIntegratedSignal = 0.;
   }
-
-
   return hit;
 }
 

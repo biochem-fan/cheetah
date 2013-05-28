@@ -125,6 +125,7 @@ typedef struct{
   hid_t hit;
   hid_t nPeaks;
   hid_t hitIndex;
+  hid_t tofIntegratedSignal;
 }SharedValues;
 
 typedef struct{
