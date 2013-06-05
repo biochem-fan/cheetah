@@ -250,6 +250,7 @@ public:
 
 	bool thresholdData;
 	char thresholdMapFile[MAX_FILENAME_LENGTH];
+	float aduPerPhoton;
 
 	//char haloThresholdMapFile[MAX_FILENAME_LENGTH];
 	char haloDistMapFile[MAX_FILENAME_LENGTH];

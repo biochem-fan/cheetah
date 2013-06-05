@@ -34,7 +34,7 @@ void calculateSignificanceMap(cEventData *eventData, cGlobal *global) {
     for (int i = 0; i < pix_nn; i++) {
       if (significanceMap[i] > global->sigPhotonThreshold) {
 	// 30 ADU per photon
-	photonMap[i] = data[i] / 30.;
+	photonMap[i] = data[i] / global->aduPerPhoton;
 
 #ifdef __GNUC__
 	__sync_fetch_and_add(&(cumPhotonMap[i]),(long)photonMap[i]);
@@ -67,14 +67,14 @@ void calculatePhotonMap(cEventData *eventData, cGlobal *global) {
     long *cumPhotonMap = global->detector[detID].cumPhotonMap;
     long      pix_nn = global->detector[detID].pix_nn;
     // Combine pixel options for pixels to be ignored
-    uint16_t  pixel_options = PIXEL_IS_IN_PEAKMASK | PIXEL_IS_OUT_OF_RESOLUTION_LIMITS | PIXEL_IS_HOT | PIXEL_IS_BAD | PIXEL_IS_SATURATED | PIXEL_IS_MISSING;
+    uint16_t  pixel_options = PIXEL_IS_IN_PEAKMASK | PIXEL_IS_HOT | PIXEL_IS_BAD | PIXEL_IS_SATURATED | PIXEL_IS_MISSING;
     
     for (int i = 0; i < pix_nn; i++) {
-      //if (data[i] > thresholdMap[i]) {
-      if (isNoneOfBitOptionsSet(mask[i],pixel_options) && (data[i] > thresholdMap[i])) {
+      if (data[i] > thresholdMap[i]) {
+      //if (isNoneOfBitOptionsSet(mask[i],pixel_options) && (data[i] > thresholdMap[i])) {
 	// 30 ADU per photon
 	//photonMap[i] = data[i] / 30.;
-	photonMap[i] = (data[i] - backgroundBaselineMap[i]) / 20.; // assume 30 ADU per photon.
+	photonMap[i] = (data[i] - backgroundBaselineMap[i]) / global->aduPerPhoton; // assume 30 ADU per photon.
 
 #ifdef __GNUC__
 	__sync_fetch_and_add(&(cumPhotonMap[i]),(long)photonMap[i]);

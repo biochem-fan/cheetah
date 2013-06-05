@@ -151,6 +151,8 @@ cGlobal::cGlobal(void) {
   readCXI = 0;
   sigPhotonThreshold = 0.;
   totalPhotonsThreshold = 0.;
+  thresholdData = 0;
+  aduPerPhoton = 20.;
   strcpy(thresholdMapFile, "No_file_specified");
   //strcpy(haloThresholdMapFile, "No_file_specified");
   strcpy(haloDistMapFile, "No_file_specified");
@@ -926,6 +928,9 @@ int cGlobal::parseConfigTag(char *tag, char *value) {
   else if (!strcmp(tag, "thresholddata")) {
     thresholdData = atoi(value);
   }
+  else if (!strcmp(tag, "aduperphoton")) {
+    aduPerPhoton = atof(value);
+  }
   else if (!strcmp(tag, "thresholdmapfile")) {
     strcpy(thresholdMapFile, value);
   }
@@ -1080,6 +1085,7 @@ void cGlobal::writeConfigurationLog(void){
   fprintf(fp, "totalPhotonsThreshold=%g\n",totalPhotonsThreshold);
   fprintf(fp, "pythonfile=%s\n", pythonFile);
   fprintf(fp, "thresholdData=%d\n", thresholdData);
+  fprintf(fp, "aduPerPhoton=%g\n", aduPerPhoton);
   fprintf(fp, "thresholdMapFile=%s\n", thresholdMapFile);
   //fprintf(fp, "haloThresholdMapFile=%s\n", thresholdMapFile);
   fprintf(fp, "haloDistMapFile=%s\n", haloDistMapFile);

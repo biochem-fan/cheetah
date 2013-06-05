@@ -4,6 +4,7 @@
 #include <math.h>
 #include <hdf5.h>
 #include <stdlib.h>
+#include <boost/math/special_functions/gamma.hpp>
 
 #include "detectorObject.h"
 #include "cheetahGlobal.h"
@@ -478,3 +479,4 @@ int hitfinder31(cGlobal *global, cEventData *eventData, long detID) {
   }
   return hit;
 }
+
