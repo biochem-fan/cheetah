@@ -358,8 +358,9 @@ hitknown:
 	addFEEspectrumToStack(eventData, global, hit);
 	
 	// Time tool stack
-	addTimeToolToStack(eventData, global, hit);
-	
+	if (global->useTimeTool) {
+		addTimeToolToStack(eventData, global, hit);
+	}
 	
 	// If this is a hit, write out peak info to peak list file	
 	if(hit && global->savePeakInfo) {
@@ -412,7 +413,9 @@ cleanup:
 			saveRunningSums(global);
 			saveHistograms(global);
 			saveSpectrumStacks(global);
-			saveTimeToolStacks(global);
+			if (global->useTimeTool) {
+				saveTimeToolStacks(global);
+			}
 		}
 		global->updateLogfile();
 		global->writeStatus("Not finished");
