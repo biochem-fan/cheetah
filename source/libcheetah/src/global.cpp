@@ -179,6 +179,7 @@ cGlobal::cGlobal(void) {
 	
     // Use .cxi format rather than one HDF5 per image
 	saveCXI = 1;
+	saveSACLA = 0;
 	saveByPowderClass = false;
 	
 	// Flush after every image by default
@@ -1198,6 +1199,9 @@ int cGlobal::parseConfigTag(char *tag, char *value) {
 	else if (!strcmp(tag, "savecxi")) {
 		saveCXI = atoi(value);
 	}
+	else if (!strcmp(tag, "savesacla")) {
+		saveSACLA = atoi(value);
+	}
 	else if (!strcmp(tag, "savebypowderclass")) {
 		saveByPowderClass = atoi(value);
 	}
@@ -1264,8 +1268,10 @@ int cGlobal::validateConfiguration(void){
         fail = 1;
     };
     
-    
-
+    if (saveCXI != 0 && saveSACLA != 0) {
+		ERROR("You cannot output in CXIDB format (saveCXI = 1) and SACLA format (saveSACLA = 1) simultaneously.");
+		fail = 1;
+	}
     
 	return fail;
 }
@@ -1335,6 +1341,7 @@ void cGlobal::writeConfigurationLog(void){
     fprintf(fp, "saveModular=%d\n",saveModular);
     fprintf(fp, "assembleInterpolation=%d\n",assembleInterpolation);
     fprintf(fp, "saveCXI=%d\n",saveCXI);
+    fprintf(fp, "saveSACLA=%d\n",saveSACLA);
     fprintf(fp, "hdf5dump=%d\n",hdf5dump);
     fprintf(fp, "pythonfile=%s\n",pythonFile);
     fprintf(fp, "debugLevel=%d\n",debugLevel);

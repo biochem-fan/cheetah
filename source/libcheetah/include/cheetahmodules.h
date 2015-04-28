@@ -74,6 +74,9 @@ void writeSimpleHDF5(const char*, const void*, long, long, int);
 void writeSimpleHDF5(const char*, const void*, long, long, int, const char*,long);
 void writeSpectrumInfoHDF5(const char*, const void*, const void*, int, int, const void*, int, int);
 
+// sacla.cpp
+void writeSACLA(cEventData*, cGlobal*);
+
 // saveCXI.cpp
 void writeCXI(cEventData*, cGlobal*);
 void writeCXIHitstats(cEventData*, cGlobal*);

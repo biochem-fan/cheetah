@@ -27,6 +27,7 @@ LIST(APPEND sources "src/tofDetector.cpp" "src/modularDetector.cpp")
 LIST(APPEND sources "src/log.cpp" "src/peakDetect.cpp")
 LIST(APPEND sources "src/gmd.cpp")
 LIST(APPEND sources "src/worker.cpp")
+LIST(APPEND sources "src/sacla.cpp")
 
 include_directories("include")
 include_directories(${HDF5_INCLUDE_DIR})
