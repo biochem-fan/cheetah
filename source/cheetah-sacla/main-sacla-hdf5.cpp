@@ -2,9 +2,11 @@
 //  main.cpp
 //  cheetah-sacla-hdf5
 //
-//  Created by Anton Barty on 20/1/14.
+//  Originally created by Anton Barty on 20/1/14.
 //  Copyright (c) 2014 Anton Barty. All rights reserved.
 //
+//  Modified by Takanori Nakane to correct relative gains
+//  and work in 0.1 photon units
 
 #include <iostream>
 #include <hdf5.h>
@@ -14,39 +16,32 @@
 #include <stdio.h>
 #include <math.h>
 
-
 #include "cheetah.h"
 #include "sacla-hdf5-reader.h"
 
-
-
-
-
 int main(int argc, const char * argv[])
-{
-	
-    
-	printf("Simple SACLA HDF5 file parser\n");
+{	
+   	printf("Simple SACLA HDF5 file parser\n");
 	printf("Anton Barty, 21 January 2014\n");
+	printf("Takanori Nakane, 2014-2015\n");
 	
 	// Input data file and Cheetah configuration file
 	char	filename[1024];
 	char	cheetahini[1024];
+
+	if (argc != 3) {
+		printf("Usage: %s input.h5 setting.ini\n", argv[0]);
+		return -1;
+	}
+
 	// Take configuration from command line arguments
 	strcpy(filename,argv[1]);
 	strcpy(cheetahini,argv[2]);
-    
-	// Hard code for testing
-	//strcpy(filename,"/data/scratch/sacla/141945_each.h5");
-	//strcpy(cheetahini,"lys.ini");
     
     // Also for testing
     printf("Program name: %s\n",argv[0]);
     printf("Input data file: %s\n", filename);
     printf("Cheetah .ini file: %s\n", cheetahini);
-    
-    
-	
 	
 	/*
 	 *	Initialise Cheetah
@@ -54,25 +49,21 @@ int main(int argc, const char * argv[])
 	printf("Setting up Cheetah...\n");
 	static uint32_t ntriggers = 0;
 	static long frameNumber = 0;
-    long    runNumber = 0;
+    long runNumber = 0;
 	static cGlobal cheetahGlobal;
 	static time_t startT = 0;
 	time(&startT);
     strcpy(cheetahGlobal.configFile, cheetahini);
+	strncpy(cheetahGlobal.cxiFilename, "output.h5", MAX_FILENAME_LENGTH);
 	cheetahInit(&cheetahGlobal);
-	
-	
     
     /*
 	 *	Open SACLA HDF5 file
 	 *	Read file header and information
 	 */
-    SACLA_h5_info_t SACLA_header;
+    SACLA_h5_info_t SACLA_header = {};
     SACLA_HDF5_ReadHeader(filename, &SACLA_header);
     
-    
-    
-	
     /*
      * Create a buffer for holding the detector image data from all 8 panels
      */
@@ -87,8 +78,6 @@ int main(int argc, const char * argv[])
     dims[0] = ss;
     dims[1] = fs;
     
-    
-    
     // Loop through runs in this HDF5 file
     for(long runID=0; runID<SACLA_header.nruns; runID++) {
         printf("Processing run: %s\n", SACLA_header.run_string[runID]);
@@ -96,15 +85,14 @@ int main(int argc, const char * argv[])
         
         // Gather detector fields and event tags for this run
         SACLA_HDF5_Read2dDetectorFields(&SACLA_header, runID);
-        SACLA_HDF5_ReadEventTags(&SACLA_header, runID);
-        
+        SACLA_HDF5_ReadRunInfo(&SACLA_header, runID);
         
         // Loop through all events found in this run
         for(long eventID=0; eventID<SACLA_header.nevents; eventID++) {
-            printf("Processing event: %s\n", SACLA_header.event_name[eventID]);
+            int tagID = atoi(SACLA_header.event_name[eventID] + 4); // "tag_######"
+            printf("Processing event: tag = %d energy = %f eV\n", tagID, SACLA_header.actual_photon_energy_in_eV[eventID]);
 			frameNumber++;
             
-			
 			/*
 			 *  Cheetah: Calculate time beteeen processing of data frames
 			 */
@@ -120,6 +108,12 @@ int main(int argc, const char * argv[])
 				cheetahGlobal.datarate = datarate;
 			}
             
+			/*
+			 *	SACLA: Read next image
+			 */
+            if (SACLA_HDF5_ReadImageRaw(&SACLA_header, runID, eventID, buffer, nn_one) < 0) {
+				continue;
+			}
 			
 			/*
 			 *	Cheetah: Create a new eventData structure in which to place all information
@@ -132,22 +126,15 @@ int main(int argc, const char * argv[])
             /*
              *  Cheetah: Populate event structure with meta-data
              */
-            eventData->frameNumber = frameNumber;
+            eventData->frameNumber = tagID;
             eventData->runNumber = runNumber;
             eventData->nPeaks = 0;
             eventData->pumpLaserCode = 0;
             eventData->pumpLaserDelay = 0;
-            eventData->photonEnergyeV = SACLA_header.photon_energy_in_eV[runID];        // in eV
-            eventData->wavelengthA = SACLA_header.photon_wavelength_in_nm[runID];       // in Angstrom
+            eventData->photonEnergyeV = SACLA_header.actual_photon_energy_in_eV[eventID];        // in eV
+			eventData->wavelengthA = 12398 / eventData->photonEnergyeV; // 4.1357E-15 * 2.9979E8 * 1E10 / eV (A)
             eventData->pGlobal = &cheetahGlobal;
-            
-            
-			
-			/*
-			 *	SACLA: Read next image
-			 */
-            SACLA_HDF5_ReadImageRaw(&SACLA_header, runID, eventID, buffer, nn_one);
-            
+			eventData->fiducial = tagID; // must be unique
             
             
             /*
@@ -156,15 +143,11 @@ int main(int argc, const char * argv[])
              */
             long    detID = 0;
             long    pix_nn = cheetahGlobal.detector[detID].pix_nn;
-            long    asic_nx = cheetahGlobal.detector[detID].asic_nx;
-            long    asic_ny = cheetahGlobal.detector[detID].asic_ny;
-            eventData->detector[detID].raw_data = (uint16_t*) calloc(pix_nn, sizeof(uint16_t));
+            eventData->detector[detID].data_raw16 = (uint16_t*) calloc(pix_nn, sizeof(uint16_t));
             
             for(long ii=0; ii<pix_nn; ii++) {
-                eventData->detector[detID].raw_data[ii] = (uint16_t) lrint(buffer[ii]);
+                eventData->detector[detID].data_raw16[ii] = (uint16_t) lrint(buffer[ii]);
             }
-            
-            
             
 			/*
 			 *	Cheetah: Process this event
@@ -188,16 +171,10 @@ int main(int argc, const char * argv[])
         }
     }
     
-    
-    
-    
-	
 	
 	// Clean up stale IDs and exit
     SACLA_HDF5_cleanup(&SACLA_header);
     
-    
-	
 	/*
 	 *	Cheetah: Cleanly exit by closing all files, releasing memory, etc.
 	 */
@@ -207,7 +184,6 @@ int main(int argc, const char * argv[])
 	time(&endT);
 	double dif = difftime(endT,startT);
 	std::cout << "time taken: " << dif << " seconds\n";
-    
 	
 	// Clean exit
 	std::cout << "Clean exit\n";

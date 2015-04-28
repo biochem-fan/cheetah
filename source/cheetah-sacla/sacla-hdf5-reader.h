@@ -31,31 +31,29 @@ typedef struct {
     int64_t *run_number;
     int64_t *start_tag_number;
     int64_t *end_tag_number;
-    float   *photon_energy_in_eV;
+    float   *photon_energy_in_eV; // value requested by experimenter
     float   *photon_wavelength_in_nm;
     
     
     // Device objects within a run
     long    ndetectors;
     char    **detector_name;
-    
+	float   *detector_gain;    
     
     // Detector event tags within a run
     long    nevents;
     char    **event_name;
+	float   *actual_photon_energy_in_eV; // actual values of each shot
     
 } SACLA_h5_info_t;
-
 
 /*
  *  Prototypes for functions written to read SACLA HDF5 data
  */
 int SACLA_HDF5_ReadHeader(const char*, SACLA_h5_info_t*);
 int SACLA_HDF5_Read2dDetectorFields(SACLA_h5_info_t*, long);
-int SACLA_HDF5_ReadEventTags(SACLA_h5_info_t*, long);
+int SACLA_HDF5_ReadRunInfo(SACLA_h5_info_t*, long);
 int SACLA_HDF5_ReadImageRaw(SACLA_h5_info_t*, long, long, float*, long);
 int SACLA_HDF5_cleanup(SACLA_h5_info_t*);
-
-
 
 #endif /* defined(__cheetah_ab__sacla_hdf5_reader__) */

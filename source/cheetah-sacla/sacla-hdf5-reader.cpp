@@ -54,6 +54,7 @@ int SACLA_HDF5_ReadHeader(const char *filename, SACLA_h5_info_t *result) {
     
 	// Determine how many runs are contained in this HDF5 file
     // (So far I have only seen one run per file, but there appears to be scope for more than one run per HDF5 file..??)
+    //  -> Yes. 
 	int     ndims;
     int     nruns;
 	hsize_t dims[3];
@@ -83,7 +84,6 @@ int SACLA_HDF5_ReadHeader(const char *filename, SACLA_h5_info_t *result) {
         result->run_string[i] = (char*) calloc(1024, sizeof(char));
 		sprintf(result->run_string[i], "run_%lli",result->run_number[i]);
 	}
-    
     
     // Collect start and end tag numbers for each run
 	for(long i=0; i<nruns; i++) {
@@ -155,36 +155,47 @@ int SACLA_HDF5_Read2dDetectorFields(SACLA_h5_info_t *result, long run_index) {
 	
     result->ndetectors = counter;
     printf("Number of unique 2D detectors: %li\n", result->ndetectors);
+
+	if (result->detector_gain != NULL) {
+		free(result->detector_gain);
+	}
+    result->detector_gain = (float*) calloc(result->ndetectors, sizeof(float)); 
+	for(long i=0; i< result->ndetectors; i++) {
+		sprintf(h5field, "%s/%s/detector_info", result->run_string[run_index], result->detector_name[i]);
+		printf("Absolute detector gain for %s = ", result->detector_name[i]);
+		group = H5Gopen( result->file_id, h5field, NULL );
+		H5LTread_dataset_float(group, "absolute_gain", result->detector_gain + i);
+		H5Gclose(group);
+		printf("%f\n", result->detector_gain[i]);
+	}
     
     return 1;
 }
 
-
 /*
- *  Function for reading event names in SACLA HDF5 file
+ *  Function to update event names and photone energy for a run in SACLA HDF5 file
  */
-int SACLA_HDF5_ReadEventTags(SACLA_h5_info_t *result, long run_index) {
-    
+int SACLA_HDF5_ReadRunInfo(SACLA_h5_info_t *result, long run_index) {   
     char    h5field[1024];
     char    tempstr[1024];
-    long    counter = 0;
-    
+    long    counter = 0;    
     
 	hid_t   group;
 	hsize_t	nfields;
 	sprintf(h5field, "%s/detector_2d_1",result->run_string[run_index]);
-	group = H5Gopen( result->file_id, h5field, NULL );
-    
-    
+	group = H5Gopen(result->file_id, h5field, NULL);
+       
 	H5Gget_num_objs(group, &nfields);
 	printf("Number of fields in %s: %llu\n", h5field, nfields);
-    result->event_name = (char**) calloc(nfields, sizeof(char*));
-    
-    
+	if (result->event_name != NULL) {
+		free(result->event_name);
+	}
+    result->event_name = (char**) calloc(nfields, sizeof(char*)); 
+
     printf("Finding event names\n");
 	for(long i=0; i< nfields; i++) {
 		ssize_t r;
- 		r = H5Gget_objname_by_idx( group, i, tempstr, 1024);
+ 		r = H5Gget_objname_by_idx(group, i, tempstr, 1024);
 		printf("%li : %s", i, tempstr);
         
         if(strncmp(tempstr,"tag", 3)) {
@@ -199,26 +210,26 @@ int SACLA_HDF5_ReadEventTags(SACLA_h5_info_t *result, long run_index) {
 		herr_t result;
 		result = H5LTfind_dataset ( group, tempstr );
 		if(result==1) printf("(H5LTfind_dataset=true)\n"); else printf("(H5LTfind_dataset=false)\n");
-        
-        //int	nd;
-        //strcat(tempstr, "/detector_data");
-        //result = H5LTget_dataset_ndims( group, tempstr, &nd);
-        //printf("ndims=%i\n", nd);
-        
-        //hsize_t         dims[3];
-        //H5T_class_t     h5_class;
-        //size_t          size;
-        //result = H5LTget_dataset_info( group, tempstr, dims, &h5_class, &size);
-        //for(long k=0; k<=nd; k++)
-        //    printf("%lli\t",dims[k]);
-        //printf("\n");
-        
 	}
+	H5Gclose(group);
+
+    // get photon energy for all events
+	if (result->actual_photon_energy_in_eV != NULL) {
+		free(result->actual_photon_energy_in_eV);
+	}
+    //  TODO: FIXME: Dirty hack! Because some tags are incomplete (i.e., contain
+    //  data for some panels alone), len(detector_2d_1) != len(tags) != len(photon_energy).
+    //  This happens in runs cancelled midway. + 100 seems enough.
+    //  Probably we should look at run_XXX/run_info/tag_number_list.
+    result->actual_photon_energy_in_eV = (float*) calloc(nfields + 100, sizeof(float)); 
+
+	sprintf(h5field, "%s/event_info/bl_3/oh_2",result->run_string[run_index]);
+	group = H5Gopen(result->file_id, h5field, NULL );
+	H5LTread_dataset_float(group, "photon_energy_in_eV", result->actual_photon_energy_in_eV);
 	H5Gclose(group);
 	
     result->nevents = counter;
-    printf("Number of unique events: %li\n", result->nevents);
-    
+    printf("Number of unique events: %li\n", result->nevents);   
     
     return 1;
 }
@@ -233,43 +244,56 @@ int SACLA_HDF5_ReadImageRaw(SACLA_h5_info_t *header, long runID, long eventID, f
 	hid_t   group;
     
     printf("Reading event: %s\n",header->event_name[eventID]);
-    
-    
+
     for(long moduleID=0; moduleID < header->ndetectors; moduleID++) {
         // Open the run group
         sprintf(h5group, "%s/%s/%s",header->run_string[runID],header->detector_name[moduleID], header->event_name[eventID]);
-        group = H5Gopen( header->file_id, h5group, NULL );
-        
-        
+        group = H5Gopen(header->file_id, h5group, NULL);
+		if (group < 0) {
+			printf("%s : H5Gopen failed\n",h5group);
+			return -1;
+		}
+                
         // Name for this part of the data
         sprintf(h5field, "detector_data");
         
         // Error check: does this group/field even exist (before we try to read it)?
         herr_t herr;
-		herr = H5LTfind_dataset ( group, h5field );
-        if(herr!=1) {
+		
+		herr = H5LTfind_dataset (group, h5field);
+		if(herr!=1) {
             printf("%s/%s : H5LTfind_dataset=false\n",h5group, h5field);
             H5Gclose(group);
-            continue;
-        }
-        
-        
-        // Check dimensions of this data set
-        //int	nd;
-        //hsize_t         dims[3];
-        //H5T_class_t     h5_class;
-        //size_t          size;
-        //strcat(tempstr, "/detector_data");
-        //result = H5LTget_dataset_ndims( group, tempstr, &nd);
-        //result = H5LTget_dataset_info( group, tempstr, dims, &h5_class, &size);
-        //printf("ndims=%i\n", nd);
-        //for(long k=0; k<=nd; k++)
-        //    printf("%lli\t",dims[k]);
-        //printf("\n");
-        
+            return -1;
+		}
+		          
         // Read the data set
-        H5LTread_dataset_float( group, h5field, buffer + offset*moduleID);
+        herr = H5LTread_dataset_float(group, h5field, buffer + offset * moduleID);
+		if (herr < 0) {
+            printf("%s/%s : H5LTread_dataset=false\n",h5group, h5field);
+            H5Gclose(group);
+            return -1;
+		}
+
+		// Correct gains
+		float gain = header->detector_gain[moduleID] / header->detector_gain[0];
+
+		// Keitaro's 0.1 photon discretization. Comment out to disable.
+		gain *= header->detector_gain[0] * 3.65 / 0.1 / header->actual_photon_energy_in_eV[eventID];
+
+		for (int i = 0; i < offset; i++) {
+			buffer[offset * moduleID + i] *= gain;
+		}
         H5Gclose(group);
+
+		// DEBUG: mark origin
+		if (false) {
+			for (int i = 0; i < 10; i++) {
+				for (int j = 0; j < 10; j++) {
+					buffer[offset * moduleID + i * 512 + j] = moduleID * 500;
+				}
+			}
+		}		
     }
     
     return 1;
