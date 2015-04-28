@@ -98,6 +98,8 @@ cEventData* cheetahNewEvent(cGlobal	*global) {
 	eventData->pulnixFail=1;
 	eventData->specFail=1;
 	eventData->FEEspec_present=0;
+
+	eventData->TimeTool_present = 0;
 		
 	// Return
 	return eventData;
