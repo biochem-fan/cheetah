@@ -1,3 +1,35 @@
+# Warning!
+
+This is a personal **unofficial** repository of Cheetah.
+The official Website is http://www.desy.de/~barty/cheetah/,
+and the repository is https://github.com/antonbarty/cheetah/.
+
+Here, features specific for SACLA are being developed. When matured,
+they will hopefully be merged to the official distribution.
+
+# New features
+
+-  saveSACLA option
+
+   This is a multi-event HDF5 similar to CXIDB format but more primitive.
+   The biggest difference is that we do not use 3D or 4D arrays to store
+   multiple images. Instead, we make a group *tag-XXXXX* for each frame.
+
+-  SACLA API integration (cheetah-sacla-api)
+
+   This is similar to cheetah-sacla, but reads images from SACLA Data Access
+   User API (beta) instead of a HDF5 file created by DataConvert3. It also supports
+   filtering by low-level filter (LLF) and photodiode values (for time-resolved
+   experiments).
+
+-  SACLA online API integration (cheetah-sacla-online)
+
+   This is intended for online realtime image filtering. Under development.
+
+-----------------------------
+
+The original README follows.
+
 # Cheetah Installation Instructions
 
 ### Preparing for the build
