@@ -62,7 +62,7 @@ void writeSACLA(cEventData *eventData, cGlobal *global) {
 	int16_t* corrected_data_int16 = (int16_t*)calloc(global->detector[detIndex].pix_nn, sizeof(int16_t));
 			
 	for(long i=0;i<global->detector[0].pix_nn;i++){
-		long tmp = lrint(eventData->detector[detIndex].image_detPhotCorr[i]);
+		long tmp = lrint(eventData->detector[detIndex].data_detPhotCorr[i]);
 		if (tmp < 0) {
 			tmp = 0; 
 		} else if (tmp > SHRT_MAX) {
