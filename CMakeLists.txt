@@ -47,6 +47,12 @@ OPTION(BUILD_CHEETAH_ANA_MOD "If ON build cheetah_ana_mod. Otherwise skip it." O
 OPTION(BUILD_PSANA "If ON build psana. Otherwise skip it." OFF )
 OPTION(BUILD_CHEETAH_MYANA "If ON build cheetah_myana. Otherwise skip it." OFF )
 OPTION(BUILD_CHEETAH_SACLA "If ON build cheetah-sacla. Otherwise skip it." OFF )
+OPTION(BUILD_CHEETAH_SACLA_API "If ON build cheetah-sacla-api. Otherwise skip it." OFF )
+if(BUILD_CHEETAH_SACLA_API)
+   SET(SACLA_API_INCLUDE_DIR "" CACHE STRING "Directory that contains libSaclaDataAccessUserAPI.h")
+   SET(SACLA_API_LIB "" CACHE STRING "Path to libSaclaDataAccessUserAPI.so")
+   SET(MYSQL_LIB "" CACHE STRING "Path to libmysql.so")
+endif(BUILD_CHEETAH_SACLA_API)
 
 SET(CHEETAH_INCLUDES ${CMAKE_SOURCE_DIR}/source/libcheetah/include CACHE PATH "libcheetah include directory")
 MARK_AS_ADVANCED(CHEETAH_INCLUDES)

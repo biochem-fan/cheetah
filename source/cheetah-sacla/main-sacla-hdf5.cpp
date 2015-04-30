@@ -143,7 +143,6 @@ int main(int argc, const char * argv[])
              */
             long    detID = 0;
             long    pix_nn = cheetahGlobal.detector[detID].pix_nn;
-            eventData->detector[detID].data_raw16 = (uint16_t*) calloc(pix_nn, sizeof(uint16_t));
             
             for(long ii=0; ii<pix_nn; ii++) {
                 eventData->detector[detID].data_raw16[ii] = (uint16_t) lrint(buffer[ii]);
