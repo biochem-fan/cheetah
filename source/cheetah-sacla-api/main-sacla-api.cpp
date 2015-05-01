@@ -21,7 +21,6 @@
 #include "cheetah.h"
 #include "SaclaDataAccessUserAPI.h"
 #include "hdf5.h"
-//#include "sacla-hdf5-reader.h"
 
 const int parallel_size = 3; // MUST match dispatcher
 const int bl = 3;

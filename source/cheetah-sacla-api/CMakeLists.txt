@@ -1,6 +1,6 @@
 find_package(HDF5 REQUIRED)
 
-LIST(APPEND sources "main-sacla-hdf5.cpp")
+LIST(APPEND sources "main-sacla-api.cpp")
 
 include_directories("include")
 include_directories(${CHEETAH_INCLUDES})
