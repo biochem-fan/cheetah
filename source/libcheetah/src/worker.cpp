@@ -279,7 +279,7 @@ hitknown:
 
 	// Assemble, downsample and radially average current frame
 	assemble2D(eventData, global);
-	downsample(eventData, global);
+//	downsample(eventData, global);
   
 	// Powder
 	// Maintain a running sum of data (powder patterns)
@@ -398,7 +398,6 @@ cleanup:
 	// Update counters
     global->nprocessedframes += 1;
 	global->nrecentprocessedframes += 1;
-	
 	
 	
 	// Save some types of information from time to time (for example, powder patterns get updated while running)
