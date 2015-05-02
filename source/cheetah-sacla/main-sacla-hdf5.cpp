@@ -7,6 +7,8 @@
 //
 //  Modified by Takanori Nakane to correct relative gains
 //  and work in 0.1 photon units
+//
+//  gaincal file was not used for the sake of CPU cache efficiency.
 
 #include <iostream>
 #include <hdf5.h>
