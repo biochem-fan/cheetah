@@ -43,7 +43,7 @@ int cheetahInit(cGlobal *global) {
 			fprintf(stderr,"***         Using a psana version not compiled with cheetah!                            ***\n");
 		}
 		fprintf(stderr,    "*******************************************************************************************\n");
-		sleep(10);
+//		sleep(10);
 	}
 	setenv("LIBCHEETAH_GIT_SHA",GIT_SHA1,0);
 
