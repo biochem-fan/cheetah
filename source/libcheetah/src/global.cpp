@@ -36,6 +36,12 @@
  */
 cGlobal::cGlobal(void) {
 
+	// initialize pointers
+
+	framefp = NULL;
+	cleanedfp = NULL;
+	peaksfp = NULL;
+
 	// ini file to use
 	strcpy(configFile, "cheetah.ini");
 	strcpy(configOutFile, "cheetah.out");
@@ -1465,7 +1471,7 @@ void cGlobal::writeConfigurationLog(void){
 /*
  *	Write initial log file
  */
-void cGlobal::writeInitialLog(void){
+void cGlobal::writeInitialLog(bool withRunNumber){
 
 	FILE *fp;
 	// Start time
@@ -1480,7 +1486,7 @@ void cGlobal::writeInitialLog(void){
 	// Logfile name
 	printf("Writing log file: %s\n", logfile);
 
-	fp = fopen(logfile,"w");
+	fp = fopen(logfile,"a");
 	if(fp == NULL) {
 		printf("Error: Can not open %s for writing\n",logfile);
 		printf("Aborting...");
@@ -1491,12 +1497,17 @@ void cGlobal::writeInitialLog(void){
 	fprintf(fp, ">-------- Start of job --------<\n");
 	fclose (fp);
 
-
+	
 	
 	// Open a new frame file at the same time
 	pthread_mutex_lock(&framefp_mutex);
 
-	sprintf(framefile,"frames.txt");
+	if (!withRunNumber) {
+		sprintf(framefile,"frames.txt");
+	} else {
+		sprintf(framefile,"frames-run%d.txt", runNumber);
+	}
+	if (framefp != NULL) fclose(framefp);
 	framefp = fopen (framefile,"w");
 	if(framefp == NULL) {
 		printf("Error: Can not open %s for writing\n",framefile);
@@ -1506,7 +1517,12 @@ void cGlobal::writeInitialLog(void){
 
 	fprintf(framefp, "# eventData->Filename, eventData->frameNumber, eventData->threadNum, eventData->hit, eventData->powderClass, eventData->photonEnergyeV, eventData->wavelengthA, eventData->gmd1, eventData->gmd2, eventData->detector[0].detectorZ, eventData->energySpectrumExist,  eventData->nPeaks, eventData->peakNpix, eventData->peakTotal, eventData->peakResolution, eventData->peakDensity, eventData->pumpLaserCode, eventData->pumpLaserDelay, eventData->pumpLaserOn\n");
 
-	sprintf(cleanedfile,"cleaned.txt");
+	if (!withRunNumber) {
+		sprintf(cleanedfile,"cleaned.txt");
+	} else {
+		sprintf(cleanedfile,"cleaned-run%d.txt",runNumber);
+	}
+	if (cleanedfp != NULL) fclose(cleanedfp);
 	cleanedfp = fopen (cleanedfile,"w");
 	if(cleanedfp == NULL) {
 		printf("Error: Can not open %s for writing\n",cleanedfile);
@@ -1517,7 +1533,12 @@ void cGlobal::writeInitialLog(void){
 	pthread_mutex_unlock(&framefp_mutex);
 
 	pthread_mutex_lock(&peaksfp_mutex);
-	sprintf(peaksfile,"peaks.txt");
+	if (!withRunNumber) {
+		sprintf(peaksfile,"peaks.txt");
+	} else {
+		sprintf(peaksfile,"peaks-run%d.txt", runNumber);
+	}
+	if (peaksfp != NULL)fclose(peaksfp);
 	peaksfp = fopen (peaksfile,"w");
 	if(peaksfp == NULL) {
 		printf("Error: Can not open %s for writing\n",peaksfile);
