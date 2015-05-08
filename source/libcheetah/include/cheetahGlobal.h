@@ -472,7 +472,7 @@ public:
 	int validateConfiguration(void);
 
 	void writeHitClasses(FILE* to);
-	void writeInitialLog(void);
+	void writeInitialLog(bool withRunNumber = false);
 	void updateLogfile(void);
     void writeStatus(const char *);
 	void writeFinalLog(void);

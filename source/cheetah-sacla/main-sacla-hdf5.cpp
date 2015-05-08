@@ -90,11 +90,11 @@ int main(int argc, const char * argv[])
         SACLA_HDF5_ReadRunInfo(&SACLA_header, runID);
         
         // Loop through all events found in this run
-        for(long eventID=200; eventID<SACLA_header.nevents; eventID++) { // DEBUG!
+        for(long eventID=0; eventID<SACLA_header.nevents; eventID++) {
             int tagID = atoi(SACLA_header.event_name[eventID] + 4); // "tag_######"
             printf("Processing event: tag = %d energy = %f eV\n", tagID, SACLA_header.actual_photon_energy_in_eV[eventID]);
 			frameNumber++;
-            
+
 			/*
 			 *  Cheetah: Calculate time beteeen processing of data frames
 			 */
