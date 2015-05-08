@@ -96,6 +96,12 @@ int ol_collectDetData(int sockID, int tag, char *pDataStBuf, int dataStSize, cha
 		*pTag = tag;
 	}
 	printf("API: ol_collectDetData sockID = %d, tag = %d, actual tag = %d\n", sockID, tag, *pTag);
+	if (*pTag >= SACLA_header.nevents) return -1;
+
+	if (*pTag >= 100) { // DEBUG
+		printf("API: on_collectDetData intentioanlly failing for DEBUG PURPOSE!\n");
+		return -1;
+	}
 
     float *buf = (float*)malloc(512 * 8192 * sizeof(float));
 

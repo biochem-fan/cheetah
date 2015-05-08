@@ -17,10 +17,78 @@
 #include <math.h>
 #include <vector>
 
+#include <pthread.h>
+#include <time.h>
+#include <map>
+
 #include "cheetah.h"
 #include "OnlineUserAPI.h"
 
 void ol_initialize_dummy(char* filename);
+
+#define NDET 8
+#define IMGSIZE (512 * 1024 * 8)
+
+typedef struct {
+  unsigned short buf[IMGSIZE];
+  int error;
+} Image_Data;
+
+typedef struct {
+  int detid;
+} Thread_Data;
+
+int acc = 0;
+pthread_mutex_t mutex_map;
+std::map <int, Image_Data*> images;
+int cur_tags[NDET] = {}; // tag to look at NEXT
+struct timespec small_wait = {0, 5E8}; // 1E6
+struct timespec large_wait = {1, 0}; // 1E6
+
+void* thread(void *thread_data) {
+  int det_id = ((Thread_Data*)thread_data)->detid;
+  free(thread_data);
+
+  printf("Child thread %d: Created\n", det_id);
+
+  while (1) {
+    std::map<int, Image_Data*>::const_iterator it;
+    Image_Data *img = NULL;
+    int tag = cur_tags[det_id];
+
+    while (1) {
+      pthread_mutex_lock(&mutex_map);
+      it = images.find(tag);
+      if (it == images.end()) {
+	if (det_id == 0) {
+	  // Only thread 0 can allocate new buffer
+	  img = (Image_Data*)calloc(1, sizeof(Image_Data));
+	  images[tag] = img;
+	  printf("Child thread %d: Allocated image %d\n", det_id, tag);
+	}
+      } else {
+	img = it->second;
+      }
+      pthread_mutex_unlock(&mutex_map);
+
+      if (img == NULL) {
+	// wait till buffer is allocated
+	nanosleep(&small_wait, NULL);
+	printf("Child thread %d: Waiting\n", det_id);
+      } else {
+	break;
+      }
+    }
+   
+    // TODO: retrieve an image
+
+    printf("Child thread %d: Got image %d\n", det_id, tag);
+    cur_tags[det_id]++;
+    nanosleep(&small_wait, NULL);
+  }
+
+  printf("Child thread %d: Finished\n", det_id);
+}
 
 int main(int argc, const char * argv[])
 {	
@@ -70,8 +138,8 @@ int main(int argc, const char * argv[])
 	ol_readDetIDList(&detIDList);
 	printf("API: ol_readDetIDList returned %d detectors.\n", detIDList.size());
 	
-	int sockIDs[8] = {};
-	for (int detID = 0; detID < 8; detID++) {
+	int sockIDs[NDET] = {};
+	for (int detID = 0; detID < detIDList.size(); detID++) {
 		ol_connect(detIDList[detID].c_str(), &sockIDs[detID]);
 		printf("API: ol_connect for det %s returned sockID %d\n", detIDList[detID].c_str(), sockIDs[detID]);
 	}
@@ -80,8 +148,8 @@ int main(int argc, const char * argv[])
 	ol_getDataSize(sockIDs[0], &datasize, &worksize);
 	printf("API: ol_getDataSize returned dataSize = %d, workSize = %d\n", datasize, worksize);
 
-	char *pDataStBufs[8] = {}, *pWorkBufs[8] = {};
-	for (int detID = 0; detID < 8; detID++) {
+	char *pDataStBufs[NDET] = {}, *pWorkBufs[NDET] = {};
+	for (int detID = 0; detID < detIDList.size(); detID++) {
 		pDataStBufs[detID] = (char*)malloc(datasize);
 		pWorkBufs[detID] = (char*)malloc(worksize);
 	}
@@ -95,18 +163,23 @@ int main(int argc, const char * argv[])
     long    fs = fs_one;
     long    ss = 8*ss_one;
     long    nn = fs*ss;
-    float  *buffer = (float*) calloc(nn, sizeof(float));
+    float  *buffer = (float*)malloc(nn * sizeof(float));
     hsize_t dims[2];
     dims[0] = ss;
     dims[1] = fs;
     
 	int runID = 0;
+	bool failed = false;
 
-	for (int tag_loop = 0; tag_loop < 500; tag_loop++) {
+	while (!failed) {
 		int tagID;
 
-		for (int detID = 0; detID < 8; detID++) {
-			ol_collectDetData(sockIDs[detID], -1, pDataStBufs[detID], datasize, pWorkBufs[detID], worksize, &tagID);
+		for (int detID = 0; detID < detIDList.size(); detID++) {
+			int err = ol_collectDetData(sockIDs[detID], -1, pDataStBufs[detID], datasize, pWorkBufs[detID], worksize, &tagID);
+			if (err < 0) {
+				failed = true;
+				break;
+			}
 			float *detData;
 			ol_readDetData(pDataStBufs[detID], &detData);
 //			ol_readRunNum(pDataStBuf, &run);
@@ -118,6 +191,8 @@ int main(int argc, const char * argv[])
 				buffer[offset + i] = detData[i];
 			}
 		}
+
+		if (failed) break;
 		
 		printf("Processing event: tag = %d energy = %f eV\n", tagID, 7000.0);
 		frameNumber++;
@@ -178,6 +253,12 @@ int main(int argc, const char * argv[])
 	 *	Cheetah: Cleanly exit by closing all files, releasing memory, etc.
 	 */
 	cheetahExit(&cheetahGlobal);
+
+	free(buffer);
+	for (int detID = 0; detID < detIDList.size(); detID++) {
+		free(pDataStBufs[detID]);
+		free(pWorkBufs[detID]);
+	}
 	
 	time_t endT;
 	time(&endT);
