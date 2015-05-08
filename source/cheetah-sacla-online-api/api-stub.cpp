@@ -95,10 +95,10 @@ int ol_collectDetData(int sockID, int tag, char *pDataStBuf, int dataStSize, cha
 	} else {
 		*pTag = tag;
 	}
-	printf("API: ol_collectDetData sockID = %d, tag = %d, actual tag = %d\n", sockID, tag, *pTag);
+//	printf("API: ol_collectDetData sockID = %d, tag = %d, actual tag = %d\n", sockID, tag, *pTag);
 	if (*pTag >= SACLA_header.nevents) return -1;
 
-	if (*pTag >= 100) { // DEBUG
+	if (*pTag >= 100 && false) { // DEBUG
 		printf("API: on_collectDetData intentioanlly failing for DEBUG PURPOSE!\n");
 		return -1;
 	}
@@ -108,9 +108,7 @@ int ol_collectDetData(int sockID, int tag, char *pDataStBuf, int dataStSize, cha
     SACLA_HDF5_ReadImageRaw(&SACLA_header, runID, *pTag, buf, 512 * 1024);
 	int offset = 512 * 1024 * sockID;
 
-	for (int i = 0; i < 512 * 1024; i++) {
-		((DataStructure*)pDataStBuf)->buf[i] = buf[offset + i];
-	}
+	memcpy(((DataStructure*)pDataStBuf)->buf, buf + offset, sizeof(float) * 512 * 1024);
 
 	free(buf);
 	return 0;
