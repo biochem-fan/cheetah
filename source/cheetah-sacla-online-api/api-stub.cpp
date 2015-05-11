@@ -21,6 +21,7 @@ std::string ol_getAPIVersion() {
 
 SACLA_h5_info_t SACLA_header = {};
 int SACLA_currentTag[8] = {};
+float SACLA_buffer[8][512 * 8192] = {};
 
 void ol_initialize_dummy(char* filename) {
     SACLA_HDF5_ReadHeader(filename, &SACLA_header);
@@ -103,20 +104,17 @@ int ol_collectDetData(int sockID, int tag, char *pDataStBuf, int dataStSize, cha
 		return -1;
 	}
 
-    float *buf = (float*)malloc(512 * 8192 * sizeof(float));
-
-    SACLA_HDF5_ReadImageRaw(&SACLA_header, runID, *pTag, buf, 512 * 1024);
+    SACLA_HDF5_ReadImageRaw(&SACLA_header, runID, *pTag, SACLA_buffer[sockID], 512 * 1024);
 	int offset = 512 * 1024 * sockID;
 
-	memcpy(((DataStructure*)pDataStBuf)->buf, buf + offset, sizeof(float) * 512 * 1024);
+	memcpy(((DataStructure*)pDataStBuf)->buf, SACLA_buffer[sockID] + offset, sizeof(float) * 512 * 1024);
 
-	free(buf);
 	return 0;
 }
 
 /**
 * read address of detector data.
-5B* @param[in] pDataStBuf address of detector data structure
+* @param[in] pDataStBuf address of detector data structure
 * @param[out] pData address of detector data
 * @param[in] idx index of detector data (normally specify 0)
 */
