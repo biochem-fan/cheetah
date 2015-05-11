@@ -30,8 +30,8 @@ void ol_initialize_dummy(char* filename);
 #define IMGSIZE (512 * 1024 * 8)
 #define SINGLE_THREAD false
 
-const struct timespec SMALL_WAIT = {0, 10E6}; // 10 msec
-const struct timespec LONG_WAIT = {0, 30E6}; // 30 msec
+const struct timespec SHORT_WAIT = {0, 1E6}; // 1E6 = msec
+const struct timespec LONG_WAIT = {0, 25E6};
 
 typedef struct {
 	float buf[IMGSIZE];
@@ -88,8 +88,8 @@ void* thread(void *thread_data) {
 			
 			if (img == NULL) {
 				// wait till buffer is allocated
-				nanosleep(&SMALL_WAIT, NULL);
-				printf("Child%d: Waiting\n", det_id);
+				nanosleep(&SHORT_WAIT, NULL);
+                // printf("Child%d: Waiting for %d\n", det_id, tag);
 			} else {
 				break;
 			}
@@ -103,16 +103,15 @@ void* thread(void *thread_data) {
 			if (err < 0 || actual_tag != tag) {
 				printf("Child%d: could not get tag %d. skipped.\n", det_id, tag);
 				img->error = true;
+				// TODO: wait for image if not ready!
 			} else {
-				printf("Child%d: Got image %d\n", det_id, tag);
+//				printf("Child%d: Got image %d\n", det_id, tag);
 				
 				float *detData;
 				ol_readDetData(pDataStBuf, &detData);
 				
 				int offset = 512 * 1024 * det_id;
-				for (int i = 0; i < 512 * 1024; i++) {
-					img->buf[offset + i] = detData[i];
-				}
+				memcpy(img->buf + offset, detData, sizeof(float) * 512 * 1024);
 			}
 		}
 
@@ -234,20 +233,20 @@ int main(int argc, const char * argv[])
 		std::map<int, Image_Data*>::const_iterator it;
 
 		if (!SINGLE_THREAD) {
-			printf("Main thread: Waiting image %d\n", tagID);
+//			printf("Main thread: Waiting image %d\n", tagID);
 			
 			// wait till an image become ready
 			while (!image_ready) {
 				image_ready = true;
 				for (int i = 0; i < detIDList.size(); i++) {
 					if (cur_tags[i] <= tagID) {
-						nanosleep(&SMALL_WAIT, NULL);
+						nanosleep(&SHORT_WAIT, NULL);
 						image_ready = false;
 						break;
 					}
 				}
 			}
-			printf("Main thread: Image %d is ready\n", tagID);
+//			printf("Main thread: Image %d is ready\n", tagID);
 
 			pthread_mutex_lock(&mutex_map);
 			it = images.find(tagID);
@@ -268,11 +267,14 @@ int main(int argc, const char * argv[])
 			}
 			
 			if (!skip) {
-				memcpy(buffer, img->buf, sizeof(float) * IMGSIZE);
+				memcpy(buffer, img->buf, sizeof(float) * 512 * 8192);
 				printf("Main thread: Removed image %d\n", tagID);
+				free(img);
 			}
 
 			tagID++;
+
+			// if (tagID > 1000) failed = true; // DEBUG
 		} else { // SINGLE THREAD
 			for (int detID = 0; detID < detIDList.size(); detID++) {
 				int err = ol_collectDetData(sockIDs[detID], -1, pDataStBufs[detID], datasize, pWorkBufs[detID], worksize, &tagID);
@@ -285,11 +287,9 @@ int main(int argc, const char * argv[])
 //   			ol_readRunNum(pDataStBuf, &run);
 //              ol_readTagNum(pDataStBuf, &tag);
 //              ol_readAbsGain(pDataStBuf, &gain)
-				int offset = 512 * 1024 * detID;
-				
-				for (int i = 0; i < 512 * 1024; i++) {
-					buffer[offset + i] = detData[i];
-				}
+
+				int offset = 512 * 1024 * detID;				
+				memcpy(buffer + offset, detData, sizeof(float) * 512 * 1024);				
 			}
 		}
 		
@@ -340,7 +340,7 @@ int main(int argc, const char * argv[])
 		 */
 		long    detID = 0;
 		long    pix_nn = cheetahGlobal.detector[detID].pix_nn;
-            
+           
 		for(long ii=0; ii<pix_nn; ii++) {
 			eventData->detector[detID].data_raw16[ii] = (uint16_t) lrint(buffer[ii]);
 		}
@@ -351,7 +351,7 @@ int main(int argc, const char * argv[])
 		cheetahProcessEventMultithreaded(&cheetahGlobal, eventData);
 
 		if (!SINGLE_THREAD) {
-			nanosleep(&SMALL_WAIT, NULL);
+//			nanosleep(&SHORT_WAIT, NULL);
 		}
 	}
     	
