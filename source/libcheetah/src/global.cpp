@@ -1516,6 +1516,7 @@ void cGlobal::writeInitialLog(bool withRunNumber){
 	}
 
 	fprintf(framefp, "# eventData->Filename, eventData->frameNumber, eventData->threadNum, eventData->hit, eventData->powderClass, eventData->photonEnergyeV, eventData->wavelengthA, eventData->gmd1, eventData->gmd2, eventData->detector[0].detectorZ, eventData->energySpectrumExist,  eventData->nPeaks, eventData->peakNpix, eventData->peakTotal, eventData->peakResolution, eventData->peakDensity, eventData->pumpLaserCode, eventData->pumpLaserDelay, eventData->pumpLaserOn\n");
+	fflush(framefp);
 
 	if (!withRunNumber) {
 		sprintf(cleanedfile,"cleaned.txt");
@@ -1530,6 +1531,7 @@ void cGlobal::writeInitialLog(bool withRunNumber){
 		exit(1);
 	}
 	fprintf(cleanedfp, "# Filename, frameNumber, nPeaks, nPixels, totalIntensity, peakResolution, peakResolutionA, peakDensity\n");
+	fflush(cleanedfp);
 	pthread_mutex_unlock(&framefp_mutex);
 
 	pthread_mutex_lock(&peaksfp_mutex);
@@ -1546,6 +1548,7 @@ void cGlobal::writeInitialLog(bool withRunNumber){
 		exit(1);
 	}
 	fprintf(peaksfp, "# frameNumber, eventName, photonEnergyEv, wavelengthA, GMD, peak_index, peak_x_raw, peak_y_raw, peak_r_assembled, peak_q, peak_resA, nPixels, totalIntensity, maxIntensity, sigmaBG, SNR\n");
+	fflush(peaksfp);
 	pthread_mutex_unlock(&peaksfp_mutex);
 
 }

@@ -426,6 +426,10 @@ cleanup:
 		if(global->saveCXI) {
 			flushCXIFiles(global);
 		}
+
+		fflush(global->framefp);
+		fflush(global->cleanedfp);
+		fflush(global->peaksfp);
 	}
 	
 	
