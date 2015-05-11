@@ -108,6 +108,7 @@ int ol_collectDetData(int sockID, int tag, char *pDataStBuf, int dataStSize, cha
 	int offset = 512 * 1024 * sockID;
 
 	memcpy(((DataStructure*)pDataStBuf)->buf, SACLA_buffer[sockID] + offset, sizeof(float) * 512 * 1024);
+	((DataStructure*)pDataStBuf)->run = SACLA_header.run_number[runID];
 
 	return 0;
 }
