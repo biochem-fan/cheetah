@@ -404,9 +404,9 @@ cleanup:
 	if(global->saveInterval!=0 && (global->nprocessedframes%global->saveInterval)==0 && (global->nprocessedframes > global->detector[0].startFrames+50) ){
 		DEBUG3("Save data.");
 		// Assemble, downsample and radially average powder
-		assemble2DPowder(global);
-		downsamplePowder(global);
-		calculateRadialAveragePowder(global);
+//		assemble2DPowder(global);
+//		downsamplePowder(global);
+//		calculateRadialAveragePowder(global);
 		// Save accumulated data
 		if(global->saveCXI){
 			writeAccumulatedCXI(global);
