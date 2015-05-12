@@ -104,11 +104,13 @@ int ol_collectDetData(int sockID, int tag, char *pDataStBuf, int dataStSize, cha
 		return -1;
 	}
 
-    SACLA_HDF5_ReadImageRaw(&SACLA_header, runID, *pTag, SACLA_buffer[sockID], 512 * 1024);
+	((DataStructure*)pDataStBuf)->gain = 17.5;
+	SACLA_HDF5_ReadImageRaw(&SACLA_header, runID, *pTag, SACLA_buffer[sockID], 512 * 1024);
 	int offset = 512 * 1024 * sockID;
 
 	memcpy(((DataStructure*)pDataStBuf)->buf, SACLA_buffer[sockID] + offset, sizeof(float) * 512 * 1024);
 	((DataStructure*)pDataStBuf)->run = SACLA_header.run_number[runID];
+	((DataStructure*)pDataStBuf)->gain = SACLA_header.detector_gain[runID];
 
 	return 0;
 }

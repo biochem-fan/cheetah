@@ -144,9 +144,16 @@ void* thread(void *thread_data) {
 				}
 
 				float *detData;
-				ol_readDetData(pDataStBuf, &detData);				
+				ol_readDetData(pDataStBuf, &detData);
+				float gain;
+				ol_readAbsGain(pDataStBuf, &gain);
+				gain *= 3.65 / 0.1 / photon_energy;
 				int offset = 512 * 1024 * det_id;
-				memcpy(img->buf + offset, detData, sizeof(float) * 512 * 1024);
+//				memcpy(img->buf + offset, detData, sizeof(float) * 512 * 1024);
+				float *dest = img->buf + offset;
+				for (int i = 512 * 1024; i > 0; i--) {
+					*(dest++) = *(detData++) * gain;
+				}
 			}
 		}
 
@@ -330,10 +337,16 @@ int main(int argc, const char * argv[])
 				}
 				float *detData;
 				ol_readDetData(pDataStBufs[detID], &detData);
-//              ol_readAbsGain(pDataStBuf, &gain)
 
-				int offset = 512 * 1024 * detID;				
-				memcpy(buffer + offset, detData, sizeof(float) * 512 * 1024);				
+				float gain;
+				ol_readAbsGain(pDataStBufs[detID], &gain);
+				gain *= 3.65 / 0.1 / cheetahGlobal.defaultPhotonEnergyeV;
+		
+				int offset = 512 * 1024 * detID;
+//				memcpy(buffer + offset, detData, sizeof(float) * 512 * 1024);
+				for (int i = 0; i < 512 * 1024; i++) {
+					buffer[offset + i] = detData[i] * gain;
+				}
 			}
 
 			ol_readRunNum(pDataStBufs[0], &runNumber);
