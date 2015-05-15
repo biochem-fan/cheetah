@@ -213,7 +213,8 @@ int main(int argc, const char * argv[])
     strcpy(cheetahGlobal.configFile, cheetahini);
 	strncpy(cheetahGlobal.cxiFilename, "output.h5", MAX_FILENAME_LENGTH);
 	cheetahInit(&cheetahGlobal);
-    
+	cheetahGlobal.runNumber = -1;    
+
     /*
 	 *	Initialize API
 	 */
@@ -286,7 +287,7 @@ int main(int argc, const char * argv[])
     
 	bool failed = false;
 	int tagID = -1;
-    int runNumber = -1;
+    int runNumber;
 
 	while (tagID < 0) {
 		tagID = cur_tags[PRIMARY_DET] - TAG_INCREMENT; 
