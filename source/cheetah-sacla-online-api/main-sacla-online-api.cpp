@@ -35,7 +35,7 @@ void ol_initialize_dummy(char* filename);
 #define SINGLE_THREAD false
 
 #define NDET 20 // Normally 8
-#define PRIMARY_DET 4 // Normally 0. 4 for xu-bl2-st3-opcon2
+#define PRIMARY_DET 3 // Normally 0. 4 for xu-bl2-st3-opcon2
 #define TAG_INCREMENT 2 // 2 for 30 Hz, 1 for API stub or 60 Hz
 
 const struct timespec SHORT_WAIT = {0, 1E6}; // 1E6 = msec
@@ -145,7 +145,6 @@ void* thread(void *thread_data) {
 				printf("Child%d: could not get tag %d. skipped. error code %d\n", det_id, wanted_tag, err);
 				img->error = true;
 				// This happens, for example, if we come too late (TAGDATAGONE -10000)
-				// TODO: What happens if we call this too early?
 			} else {
 				printf("Child%d: Got image %d\n", det_id, wanted_tag);
 				if (det_id == PRIMARY_DET) {
@@ -289,7 +288,7 @@ int main(int argc, const char * argv[])
 	int tagID = -1;
     int runNumber;
 
-	while (tagID < 0) {
+	while (tagID < 0 && !SINGLE_THREAD) {
 		tagID = cur_tags[PRIMARY_DET] - TAG_INCREMENT; 
 		printf("MainThread: Waiting for the first image.\n");
 		nanosleep(&SHORT_WAIT, NULL);
@@ -318,7 +317,7 @@ int main(int argc, const char * argv[])
 					}
 				}
 			}
-			 printf("MainThread: Image %d is ready\n", wanted_tag);
+			printf("MainThread: Image %d is ready. Delay = %d frame(s).\n", wanted_tag, cur_tags[PRIMARY_DET] - wanted_tag);
 
 			pthread_mutex_lock(&mutex_map);
 			it = images.find(wanted_tag);
@@ -350,8 +349,13 @@ int main(int argc, const char * argv[])
 			if (img != NULL) {
 				free(img);
 			}
+			tagID = wanted_tag;
+
 		} else { // SINGLE THREAD
 			for (int detID = 0; detID < ndet; detID++) {
+				if (detID != PRIMARY_DET) continue; // DEBUG:
+
+				if (tagID == -1) wanted_tag = -1; // first image
 				int err = ol_collectDetData(sockIDs[detID], wanted_tag, pDataStBufs[detID], datasize, pWorkBufs[detID], worksize, &tagID);
 				if (err < 0) {
 					printf("ERROR: Couldn't get image data for tag %d.\n", wanted_tag);
@@ -373,7 +377,6 @@ int main(int argc, const char * argv[])
 
 			ol_readRunNum(pDataStBufs[0], &runNumber);
 		}
-		tagID = wanted_tag;
 		
 		if (skip) continue;
 		if (failed) break;
