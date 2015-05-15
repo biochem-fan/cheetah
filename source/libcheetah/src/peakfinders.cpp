@@ -153,15 +153,6 @@ int peakfinder(cGlobal *global, cEventData *eventData, int detIndex) {
 		peaklist->nPeaks = peaklist->nPeaks_max;
 	}
 
-	
-	/*
-	 *	eliminate closely spaced peaks
-	 */
-	if(hitfinderMinPeakSeparation > 0 )
-		nPeaks = killNearbyPeaks(peaklist, hitfinderMinPeakSeparation);
-	
-
-
 	/*
 	 *	Find physical position of peaks on assembled detector
 	 */
@@ -177,10 +168,15 @@ int peakfinder(cGlobal *global, cEventData *eventData, int detIndex) {
 		peaklist->peak_com_y_assembled[k] = global->detector[detIndex].pix_y[e];
 		peaklist->peak_com_r_assembled[k] = global->detector[detIndex].pix_r[e];
 	}
-	
+		
+	/*
+	 *	eliminate closely spaced peaks
+	 */
+	if(hitfinderMinPeakSeparation > 0 )
+		nPeaks = killNearbyPeaks(peaklist, hitfinderMinPeakSeparation);
 	
 	/*
-	 *	Find radius whcih encircles the peaks
+	 *	Find radius which encircles the peaks
 	 *	Radius in pixels (bigger is better)
 	 */
 	float	resolution, resolutionA;
@@ -258,7 +254,7 @@ int killNearbyPeaks(tPeakList *peaklist, float hitfinderMinPeakSeparation){
 	
 	if ( n > peaklist->nPeaks_max )
 		n = peaklist->nPeaks_max;
-	
+//	printf("killNearByPeaks before %d \n", n);
 	for ( p1=0; p1 < n; p1++) {
 		x1 = peaklist->peak_com_x_assembled[p1];
 		y1 = peaklist->peak_com_y_assembled[p1];
@@ -267,7 +263,7 @@ int killNearbyPeaks(tPeakList *peaklist, float hitfinderMinPeakSeparation){
 			y2 = peaklist->peak_com_y_assembled[p2];
 			
 			d2 = (x1-x2)*(x1-x2) + (y1-y2)*(y1-y2);
-			
+
 			if ( d2 <= min_dsq ) {
 				if ( peaklist->peak_maxintensity[p1] > peaklist->peak_maxintensity[p2]) {
 					killpeak[p1] = 0;
@@ -302,7 +298,7 @@ int killNearbyPeaks(tPeakList *peaklist, float hitfinderMinPeakSeparation){
 		}
 	}
 	free(killpeak);
-	
+//	printf(" after %d \n", c);
 	peaklist->nPeaks = c;
 	return c;
 }
@@ -1757,6 +1753,7 @@ int peakfinder6(tPeakList *peaklist, float *data, char *mask, long asic_nx, long
 						dist = pow(fs - peaklist->peak_com_x[p],2) +
 							pow(ss - peaklist->peak_com_y[p], 2);
 						if ( dist <= minPeakSepSq ) {
+
 							if ( snr > peaklist->peak_snr[p]) {
 								/* This peak will overtake its neighbor */
 								newpeak = 0;
@@ -1786,17 +1783,18 @@ int peakfinder6(tPeakList *peaklist, float *data, char *mask, long asic_nx, long
 					// Remember peak information
 					if (counter < hitfinderNpeaksMax) {
 						
-						peaklist->peakNpix += 1;
+						peaklist->peakNpix += nat;
 						peaklist->peakTotal += itot;
 						
-						peaklist->peak_totalintensity[counter] = itot;
-						peaklist->peak_npix[counter] = 1;
-						peaklist->peak_com_x[counter] = ftot/itot;
-						peaklist->peak_com_y[counter] = stot/itot;
-						peaklist->peak_maxintensity[counter] = maxI;
-						peaklist->peak_snr[counter] =snr;
-						peaklist->peak_com_index[counter] = e;
+						peaklist->peak_totalintensity[peakindex] = itot;
+						peaklist->peak_npix[peakindex] = nat;
+						peaklist->peak_com_x[peakindex] = ftot/itot;
+						peaklist->peak_com_y[peakindex] = stot/itot;
+						peaklist->peak_maxintensity[peakindex] = maxI;
+						peaklist->peak_snr[peakindex] =snr;
+						peaklist->peak_com_index[peakindex] = e;
 						peaklist->nPeaks = counter+1;
+
 						//peaklist->peak_com_x_assembled[counter] = global->detector[detIndex].pix_x[e];
 						//peaklist->peak_com_y_assembled[counter] = global->detector[detIndex].pix_y[e];
 						//peaklist->peak_com_r_assembled[counter] = global->detector[detIndex].pix_r[e];
@@ -1826,7 +1824,7 @@ nohit:
 	free(natmask);
 	free(temp);
 	free(killpeak);
-	
+
     return(peaklist->nPeaks);
 }
 
