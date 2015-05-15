@@ -28,13 +28,15 @@
 
 void ol_initialize_dummy(char* filename);
 
-#define NDET 8
 #define IMGSIZE (512 * 1024 * 8)
 #define SINGLE_THREAD false
-#define TAG_INCREMENT 1 // 30 Hz
+
+#define NDET 20 // Normally 8
+#define PRIMARY_DET 4 // Normally 0. 4 for xu-bl2-st3-opcon2
+#define TAG_INCREMENT 2 // 2 for 30 Hz, 1 for API stub or 60 Hz
 
 const struct timespec SHORT_WAIT = {0, 1E6}; // 1E6 = msec
-const struct timespec LONG_WAIT = {0, 25E6};
+const struct timespec LONG_WAIT = {0, 10E6}; // 25E6 for testing
 
 typedef struct {
 	float buf[IMGSIZE];
@@ -66,24 +68,27 @@ void* thread(void *thread_data) {
 	
 	int datasize, worksize;
 	ol_getDataSize(socket_id, &datasize, &worksize);
-	printf("API: ol_getDataSize returned dataSize = %d, workSize = %d\n", datasize, worksize);
+	printf("API: ol_getDataSize for %d returned dataSize = %d, workSize = %d\n", det_id, datasize, worksize);
 	
 	char *pDataStBuf = (char*)malloc(datasize);
 	char *pWorkBuf = (char*)malloc(worksize);
 
 	// Get the tag to start at
 	
-	if (det_id == 0) {
+	if (det_id == PRIMARY_DET) {
 		int actual_tag = -1;
 		int err = ol_collectDetData(socket_id, -1, pDataStBuf, datasize, pWorkBuf, worksize, &actual_tag);
 		if (err < 0) {
 			printf("ERROR: Failed to read the first image.\n");
 			exit(-1);
 		}
+		printf("Start tag = %d\n", actual_tag);
 
 		while (actual_tag % TAG_INCREMENT != 0) {
 			actual_tag++;
 		}
+
+		printf("Start tag after adjustment = %d\n", actual_tag);
 		
 		for (int i = 0; i < NDET; i++) {
 			cur_tags[i] = actual_tag;
@@ -93,7 +98,7 @@ void* thread(void *thread_data) {
 			nanosleep(&SHORT_WAIT, NULL);
 		}
 	}
-	
+
 	// Main loop
 	while (true) {
 		std::map<int, Image_Data*>::const_iterator it;
@@ -104,7 +109,7 @@ void* thread(void *thread_data) {
 			pthread_mutex_lock(mutex_map);
 			it = images->find(wanted_tag);
 			if (it == images->end()) {
-				if (det_id == 0) {
+				if (det_id == PRIMARY_DET) {
 					// - Only thread 0 allocates new buffer
 					// - New buffer is allocated regardless of the tag status
 					// This ensures that ALL even tags are enumerated.
@@ -137,9 +142,10 @@ void* thread(void *thread_data) {
 				printf("Child%d: could not get tag %d. skipped. error code %d\n", det_id, wanted_tag, err);
 				img->error = true;
 				// This happens, for example, if we come too late (TAGDATAGONE -10000)
+				// TODO: What happens if we call this too early?
 			} else {
-				// printf("Child%d: Got image %d\n", det_id, tag);
-				if (det_id == 0) {
+				printf("Child%d: Got image %d\n", det_id, wanted_tag);
+				if (det_id == PRIMARY_DET) {
 					ol_readRunNum(pDataStBuf, &img->run);
 				}
 
@@ -148,9 +154,10 @@ void* thread(void *thread_data) {
 				float gain;
 				ol_readAbsGain(pDataStBuf, &gain);
 				gain *= 3.65 / 0.1 / photon_energy;
+				gain = 1; // gain is already corrected for STUB API! TODO:
 				int offset = 512 * 1024 * det_id;
-//				memcpy(img->buf + offset, detData, sizeof(float) * 512 * 1024);
 				float *dest = img->buf + offset;
+
 				for (int i = 512 * 1024; i > 0; i--) {
 					*(dest++) = *(detData++) * gain;
 				}
@@ -158,6 +165,7 @@ void* thread(void *thread_data) {
 		}
 
 		cur_tags[det_id] += TAG_INCREMENT;
+		printf("cur_tags[%d] = %d\n", det_id, cur_tags[det_id]);
 		nanosleep(&LONG_WAIT, NULL);
 	}
 
@@ -206,7 +214,7 @@ int main(int argc, const char * argv[])
     /*
 	 *	Initialize API
 	 */
-	ol_initialize_dummy(filename);
+//	ol_initialize_dummy(filename);
     
     std::vector<std::string> detIDList;
 	
@@ -216,16 +224,17 @@ int main(int argc, const char * argv[])
 	
 	int sockIDs[NDET] = {};
 	for (int detID = 0; detID < ndet; detID++) {
+		if (detID != PRIMARY_DET) continue; // DEBUG
 		ol_connect(detIDList[detID].c_str(), &sockIDs[detID]);
-		printf("API: ol_connect for det %s returned sockID %d\n", detIDList[detID].c_str(), sockIDs[detID]);
+		printf("API: ol_connect for det %s (id %d) returned sockID %d\n", detIDList[detID].c_str(), detID, sockIDs[detID]);
 	}
 
 	int datasize, worksize;
-	ol_getDataSize(sockIDs[0], &datasize, &worksize);
-	printf("API: ol_getDataSize returned dataSize = %d, workSize = %d\n", datasize, worksize);
-
 	char *pDataStBufs[NDET] = {}, *pWorkBufs[NDET] = {};
 	for (int detID = 0; SINGLE_THREAD && detID < ndet; detID++) {
+		ol_getDataSize(sockIDs[detID], &datasize, &worksize);
+		printf("API: ol_getDataSize for %d returned dataSize = %d, workSize = %d\n", detID, datasize, worksize);
+
 		pDataStBufs[detID] = (char*)malloc(datasize);
 		pWorkBufs[detID] = (char*)malloc(worksize);
 	}
@@ -240,9 +249,13 @@ int main(int argc, const char * argv[])
 	int cur_tags[NDET];
 	pthread_mutex_init(&mutex_map, NULL);
 
+	for (int i = 0; i < ndet; i++) {
+		cur_tags[i] = -1;
+	}
+
 	if (!SINGLE_THREAD) {
-		for (int i = 0; i < ndet; i++) {
-			cur_tags[i] = -1;
+//		for (int i = 0; i < ndet; i++) {
+		for (int i = PRIMARY_DET; i == PRIMARY_DET; i++) {
 
 			Thread_Data *td = (Thread_Data*)malloc(sizeof(Thread_Data));
 			td->detID = i;
@@ -269,8 +282,15 @@ int main(int argc, const char * argv[])
     dims[1] = fs;
     
 	bool failed = false;
-	int tagID = -1; // TODO: how to initialize?
-    int runNumber = 0;
+	int tagID = -1;
+    int runNumber = -1;
+
+	while (tagID < 0) {
+		tagID = cur_tags[PRIMARY_DET] - TAG_INCREMENT; 
+		printf("MainThread: Waiting for the first image.\n");
+		nanosleep(&SHORT_WAIT, NULL);
+	}
+	printf("MainThread: First image to process = %d\n", tagID);
 
 	while (!failed) {
 		bool image_ready = false;
@@ -280,12 +300,13 @@ int main(int argc, const char * argv[])
 		int wanted_tag = tagID + TAG_INCREMENT;
 
 		if (!SINGLE_THREAD) {
-			// printf("Main thread: Waiting image %d\n", wanted_tag);
+			 printf("MainThread: Waiting image %d\n", wanted_tag);
 			
 			// wait till an image become ready
 			while (!image_ready) {
 				image_ready = true;
 				for (int i = 0; i < detIDList.size(); i++) {
+					if (i != PRIMARY_DET) continue; // DEBUG:
 					if (cur_tags[i] <= wanted_tag) {
 						nanosleep(&SHORT_WAIT, NULL);
 						image_ready = false;
@@ -293,7 +314,7 @@ int main(int argc, const char * argv[])
 					}
 				}
 			}
-			// printf("Main thread: Image %d is ready\n", wanted_tag);
+			 printf("MainThread: Image %d is ready\n", wanted_tag);
 
 			pthread_mutex_lock(&mutex_map);
 			it = images.find(wanted_tag);
@@ -310,7 +331,7 @@ int main(int argc, const char * argv[])
 				images.erase(wanted_tag);
 				pthread_mutex_unlock(&mutex_map);
 
-				if (cur_tags[0] > wanted_tag + 600) { // delay of 20 sec
+				if (cur_tags[PRIMARY_DET] > wanted_tag + 600) { // delay of 20 sec
 					printf("ERROR: Image %d came too late. skipped.\n", wanted_tag);
 					skip = true;
 				}
@@ -319,14 +340,12 @@ int main(int argc, const char * argv[])
 			if (!skip) {
 				memcpy(buffer, img->buf, sizeof(float) * 512 * 8192);
 				runNumber = img->run;
-				printf("Main thread: Removed image %d\n", wanted_tag);
+				printf("MainThread: Removed image %d\n", wanted_tag);
 			}
 
 			if (img != NULL) {
 				free(img);
 			}
-
-			// if (tagID > 1000) failed = true; // DEBUG
 		} else { // SINGLE THREAD
 			for (int detID = 0; detID < ndet; detID++) {
 				int err = ol_collectDetData(sockIDs[detID], wanted_tag, pDataStBufs[detID], datasize, pWorkBufs[detID], worksize, &tagID);
