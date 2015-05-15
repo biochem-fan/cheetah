@@ -28,7 +28,10 @@
 
 void ol_initialize_dummy(char* filename);
 
-#define IMGSIZE (512 * 1024 * 8)
+#define XSIZE 512
+#define YSIZE 1024
+#define PANELSIZE (XSIZE * YSIZE)
+#define IMGSIZE (PANELSIZE * 8)
 #define SINGLE_THREAD false
 
 #define NDET 20 // Normally 8
@@ -155,10 +158,10 @@ void* thread(void *thread_data) {
 				ol_readAbsGain(pDataStBuf, &gain);
 				gain *= 3.65 / 0.1 / photon_energy;
 				gain = 1; // gain is already corrected for STUB API! TODO:
-				int offset = 512 * 1024 * det_id;
+				int offset = PANELSIZE * det_id;
 				float *dest = img->buf + offset;
 
-				for (int i = 512 * 1024; i > 0; i--) {
+				for (int i = PANELSIZE; i > 0; i--) {
 					*(dest++) = *(detData++) * gain;
 				}
 			}
@@ -271,10 +274,10 @@ int main(int argc, const char * argv[])
     /*
      * Create a buffer for holding the detector image data from all 8 panels
      */
-    long    fs_one = 512;
-    long    ss_one = 1024;
+    long    fs_one = XSIZE;
+    long    ss_one = YSIZE;
     long    fs = fs_one;
-    long    ss = 8*ss_one;
+    long    ss = 8 * ss_one;
     long    nn = fs*ss;
     float  *buffer = (float*)malloc(nn * sizeof(float));
     hsize_t dims[2];
@@ -338,7 +341,7 @@ int main(int argc, const char * argv[])
 			}
 
 			if (!skip) {
-				memcpy(buffer, img->buf, sizeof(float) * 512 * 8192);
+				memcpy(buffer, img->buf, sizeof(float) * IMGSIZE);
 				runNumber = img->run;
 				printf("MainThread: Removed image %d\n", wanted_tag);
 			}
@@ -361,9 +364,8 @@ int main(int argc, const char * argv[])
 				ol_readAbsGain(pDataStBufs[detID], &gain);
 				gain *= 3.65 / 0.1 / cheetahGlobal.defaultPhotonEnergyeV;
 		
-				int offset = 512 * 1024 * detID;
-//				memcpy(buffer + offset, detData, sizeof(float) * 512 * 1024);
-				for (int i = 0; i < 512 * 1024; i++) {
+				int offset = PANELSIZE * detID;
+				for (int i = 0; i < PANELSIZE; i++) {
 					buffer[offset + i] = detData[i] * gain;
 				}
 			}
