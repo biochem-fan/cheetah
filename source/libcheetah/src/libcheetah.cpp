@@ -19,11 +19,13 @@
 #include <fenv.h>
 #include <unistd.h>
 #include <vector>
+#include <time.h>
+#include <semaphore.h>
 
 #include "cheetah.h"
 
-void spawnPython(char*);
-void* pythonWorker(void*);
+//void spawnPython(char*);
+//void* pythonWorker(void*);
 
 
 /*
@@ -66,7 +68,7 @@ int cheetahInit(cGlobal *global) {
 
 	if (global->pythonFile[0]) {
 		printf("Initialising embedded Python visualisation now\n");
-		spawnPython(global->pythonFile);
+//		spawnPython(global->pythonFile);
 	}
 
 
@@ -470,6 +472,7 @@ void cheetahError(const char *filename, int line, const char *format, ...){
 /* Very crude embedding of a Python interpreter for shared memory visualization */
 /* Note that this code implicitly assumes to be the only Python interpreter within the process */
 /* No synchronization at all, not even proper signal handling */
+/*
 void* pythonWorker(void* threadarg)
 {
 	char* pythonFile = (char*) threadarg;
@@ -502,7 +505,6 @@ void spawnPython(char* pythonFile)
 		ERROR("Failed to create python thread!");
 	}
 }
-
-
+*/
 
 
