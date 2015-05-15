@@ -1704,6 +1704,7 @@ int peakfinder6(tPeakList *peaklist, float *data, char *mask, long asic_nx, long
 					nexte[0] = e;
 					ce = 0;
 					itot = temp[e] - bg;
+					maxI = 0;
 					cf = e % stride;
 					cs = e / stride;
 					ftot = itot*(float)cf;
