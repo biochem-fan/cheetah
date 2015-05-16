@@ -1508,7 +1508,7 @@ void cGlobal::writeInitialLog(bool withRunNumber){
 		sprintf(framefile,"frames-run%d.txt", runNumber);
 	}
 	if (framefp != NULL) fclose(framefp);
-	framefp = fopen (framefile,"w");
+	framefp = fopen (framefile,"a");
 	if(framefp == NULL) {
 		printf("Error: Can not open %s for writing\n",framefile);
 		printf("Aborting...");
@@ -1524,7 +1524,7 @@ void cGlobal::writeInitialLog(bool withRunNumber){
 		sprintf(cleanedfile,"cleaned-run%d.txt",runNumber);
 	}
 	if (cleanedfp != NULL) fclose(cleanedfp);
-	cleanedfp = fopen (cleanedfile,"w");
+	cleanedfp = fopen (cleanedfile,"a");
 	if(cleanedfp == NULL) {
 		printf("Error: Can not open %s for writing\n",cleanedfile);
 		printf("Aborting...");
@@ -1541,7 +1541,7 @@ void cGlobal::writeInitialLog(bool withRunNumber){
 		sprintf(peaksfile,"peaks-run%d.txt", runNumber);
 	}
 	if (peaksfp != NULL)fclose(peaksfp);
-	peaksfp = fopen (peaksfile,"w");
+	peaksfp = fopen (peaksfile,"a");
 	if(peaksfp == NULL) {
 		printf("Error: Can not open %s for writing\n",peaksfile);
 		printf("Aborting...");
