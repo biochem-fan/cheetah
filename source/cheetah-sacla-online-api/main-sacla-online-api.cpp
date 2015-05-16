@@ -34,12 +34,12 @@ void ol_initialize_dummy(char* filename);
 #define IMGSIZE (PANELSIZE * 8)
 #define SINGLE_THREAD false
 
-#define NDET 20 // Normally 8
-#define PRIMARY_DET 3 // Normally 0. 4 for xu-bl2-st3-opcon2
+#define NDET 9 // Normally 8
+#define PRIMARY_DET 0 // Normally 0. 4 for xu-bl2-st3-opcon2
 #define TAG_INCREMENT 2 // 2 for 30 Hz, 1 for API stub or 60 Hz
 
 const struct timespec SHORT_WAIT = {0, 1E6}; // 1E6 = msec
-const struct timespec LONG_WAIT = {0, 10E6}; // 25E6 for testing
+const struct timespec LONG_WAIT = {0, 5E6}; // 25E6 for testing
 
 typedef struct {
 	float buf[IMGSIZE];
@@ -108,7 +108,7 @@ void* thread(void *thread_data) {
 		Image_Data *img = NULL;
 		int wanted_tag = cur_tags[det_id];
 
-		for (int ntry = 0; ntry < 30; ntry++) { // TODO: Check if this is enough
+		for (int ntry = 0; ntry < 200; ntry++) { // TODO: Check if this is enough
 			pthread_mutex_lock(mutex_map);
 			it = images->find(wanted_tag);
 			if (it == images->end()) {
@@ -156,7 +156,7 @@ void* thread(void *thread_data) {
 				float gain;
 				ol_readAbsGain(pDataStBuf, &gain);
 				gain *= 3.65 / 0.1 / photon_energy;
-				gain = 1; // gain is already corrected for STUB API! TODO:
+//				gain = 1; // gain is already corrected for STUB API! TODO:
 				int offset = PANELSIZE * det_id;
 				float *dest = img->buf + offset;
 
@@ -227,7 +227,6 @@ int main(int argc, const char * argv[])
 	
 	int sockIDs[NDET] = {};
 	for (int detID = 0; detID < ndet; detID++) {
-		if (detID != PRIMARY_DET) continue; // DEBUG
 		ol_connect(detIDList[detID].c_str(), &sockIDs[detID]);
 		printf("API: ol_connect for det %s (id %d) returned sockID %d\n", detIDList[detID].c_str(), detID, sockIDs[detID]);
 	}
@@ -257,11 +256,11 @@ int main(int argc, const char * argv[])
 	}
 
 	if (!SINGLE_THREAD) {
-//		for (int i = 0; i < ndet; i++) {
-		for (int i = PRIMARY_DET; i == PRIMARY_DET; i++) {
+		for (int i = 0; i < ndet; i++) {
+			if (i == 0) continue; // 15MAY BT specific
 
 			Thread_Data *td = (Thread_Data*)malloc(sizeof(Thread_Data));
-			td->detID = i;
+			td->detID = i - 1; // 15MAY BT specific
 			td->socketID = sockIDs[i];
 			td->mutex_map = &mutex_map;
 			td->images = &images;
@@ -289,7 +288,7 @@ int main(int argc, const char * argv[])
     int runNumber;
 
 	while (tagID < 0 && !SINGLE_THREAD) {
-		tagID = cur_tags[PRIMARY_DET] - TAG_INCREMENT; 
+		tagID = cur_tags[PRIMARY_DET];// TODO? - TAG_INCREMENT; 
 		printf("MainThread: Waiting for the first image.\n");
 		nanosleep(&SHORT_WAIT, NULL);
 	}
@@ -309,7 +308,7 @@ int main(int argc, const char * argv[])
 			while (!image_ready) {
 				image_ready = true;
 				for (int i = 0; i < detIDList.size(); i++) {
-					if (i != PRIMARY_DET) continue; // DEBUG:
+					if (i == 8) continue; // 15MAY BT specific
 					if (cur_tags[i] <= wanted_tag) {
 						nanosleep(&SHORT_WAIT, NULL);
 						image_ready = false;
@@ -353,7 +352,7 @@ int main(int argc, const char * argv[])
 
 		} else { // SINGLE THREAD
 			for (int detID = 0; detID < ndet; detID++) {
-				if (detID != PRIMARY_DET) continue; // DEBUG:
+				if (detID == 8) continue; // 15MAY BT specific
 
 				if (tagID == -1) wanted_tag = -1; // first image
 				int err = ol_collectDetData(sockIDs[detID], wanted_tag, pDataStBufs[detID], datasize, pWorkBufs[detID], worksize, &tagID);
@@ -434,7 +433,15 @@ int main(int argc, const char * argv[])
 		long    pix_nn = cheetahGlobal.detector[detID].pix_nn;
            
 		for(long ii=0; ii<pix_nn; ii++) {
-			eventData->detector[detID].data_raw16[ii] = (uint16_t) lrint(buffer[ii]);
+			long tmp = lrint(buffer[ii]);
+			if (tmp < 0) {
+//				underflow++; printf("%ld ", tmp);
+				tmp = 0; 
+			} else if (tmp > USHRT_MAX) {
+//				overflow++;
+				tmp = USHRT_MAX; 
+			}
+			eventData->detector[detID].data_raw16[ii] = (uint16_t)tmp;
 		}
             
 		/*
