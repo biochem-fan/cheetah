@@ -34,7 +34,7 @@ void ol_initialize_dummy(char* filename);
 #define IMGSIZE (PANELSIZE * 8)
 #define SINGLE_THREAD false
 
-#define NDET 9 // Normally 8
+#define NDET 10 // Normally 8
 #define PRIMARY_DET 0 // Normally 0. 4 for xu-bl2-st3-opcon2
 #define TAG_INCREMENT 2 // 2 for 30 Hz, 1 for API stub or 60 Hz
 
@@ -146,7 +146,7 @@ void* thread(void *thread_data) {
 				img->error = true;
 				// This happens, for example, if we come too late (TAGDATAGONE -10000)
 			} else {
-				printf("Child%d: Got image %d\n", det_id, wanted_tag);
+//				printf("Child%d: Got image %d\n", det_id, wanted_tag);
 				if (det_id == PRIMARY_DET) {
 					ol_readRunNum(pDataStBuf, &img->run);
 				}
@@ -167,7 +167,7 @@ void* thread(void *thread_data) {
 		}
 
 		cur_tags[det_id] += TAG_INCREMENT;
-		printf("cur_tags[%d] = %d\n", det_id, cur_tags[det_id]);
+//		printf("cur_tags[%d] = %d\n", det_id, cur_tags[det_id]);
 		nanosleep(&LONG_WAIT, NULL);
 	}
 
@@ -219,11 +219,22 @@ int main(int argc, const char * argv[])
 	 */
 //	ol_initialize_dummy(filename);
     
-    std::vector<std::string> detIDList;
-	
-	ol_readDetIDList(&detIDList);
+    std::vector<std::string> detIDList, detIDListAll;
+
+ 	ol_readDetIDList(&detIDListAll);
+	printf("API: ol_readDetIDList returned %d detectors.\n", (int)detIDListAll.size());
+	for (int j = 0; j < detIDListAll.size(); j++) {
+		printf("detID %d is %s\n", j, detIDListAll[j].c_str());
+	}
+
+	for (int j = 0; j < detIDListAll.size(); j++) {
+		if (strncmp(detIDListAll[j].c_str(), "MPCCD-8", 7) == 0) {
+			detIDList.push_back(detIDListAll[j]);
+		}
+	}
+	   
 	int ndet = detIDList.size();
-	printf("API: ol_readDetIDList returned %d detectors.\n", ndet);
+	printf("Found %d MPCCD panels.\n", ndet);
 	
 	int sockIDs[NDET] = {};
 	for (int detID = 0; detID < ndet; detID++) {
@@ -257,10 +268,8 @@ int main(int argc, const char * argv[])
 
 	if (!SINGLE_THREAD) {
 		for (int i = 0; i < ndet; i++) {
-			if (i == 0) continue; // 15MAY BT specific
-
 			Thread_Data *td = (Thread_Data*)malloc(sizeof(Thread_Data));
-			td->detID = i - 1; // 15MAY BT specific
+			td->detID = i;
 			td->socketID = sockIDs[i];
 			td->mutex_map = &mutex_map;
 			td->images = &images;
@@ -302,13 +311,12 @@ int main(int argc, const char * argv[])
 		int wanted_tag = tagID + TAG_INCREMENT;
 
 		if (!SINGLE_THREAD) {
-			 printf("MainThread: Waiting image %d\n", wanted_tag);
+//			 printf("MainThread: Waiting image %d\n", wanted_tag);
 			
 			// wait till an image become ready
 			while (!image_ready) {
 				image_ready = true;
 				for (int i = 0; i < detIDList.size(); i++) {
-					if (i == 8) continue; // 15MAY BT specific
 					if (cur_tags[i] <= wanted_tag) {
 						nanosleep(&SHORT_WAIT, NULL);
 						image_ready = false;
@@ -333,7 +341,7 @@ int main(int argc, const char * argv[])
 				images.erase(wanted_tag);
 				pthread_mutex_unlock(&mutex_map);
 
-				if (cur_tags[PRIMARY_DET] > wanted_tag + 600) { // delay of 20 sec
+				if (cur_tags[PRIMARY_DET] > wanted_tag + 3000) { // delay of 100 sec
 					printf("ERROR: Image %d came too late. skipped.\n", wanted_tag);
 					skip = true;
 				}
@@ -342,7 +350,7 @@ int main(int argc, const char * argv[])
 			if (!skip) {
 				memcpy(buffer, img->buf, sizeof(float) * IMGSIZE);
 				runNumber = img->run;
-				printf("MainThread: Removed image %d\n", wanted_tag);
+//				printf("MainThread: Removed image %d\n", wanted_tag);
 			}
 
 			if (img != NULL) {
@@ -352,8 +360,6 @@ int main(int argc, const char * argv[])
 
 		} else { // SINGLE THREAD
 			for (int detID = 0; detID < ndet; detID++) {
-				if (detID == 8) continue; // 15MAY BT specific
-
 				if (tagID == -1) wanted_tag = -1; // first image
 				int err = ol_collectDetData(sockIDs[detID], wanted_tag, pDataStBufs[detID], datasize, pWorkBufs[detID], worksize, &tagID);
 				if (err < 0) {
