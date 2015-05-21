@@ -273,13 +273,21 @@ int main(int argc, char *argv[]) {
 	ReadStatisticsOfDetLLF(&maxIs, LLF_ID, bl, tag_hi, tagList);
 	
 	std::vector<std::string> pulse_energies;
-	retno = ReadSyncDataList(&pulse_energies, "xfel_bl_3_tc_spec_1/energy", tag_hi, tagList);
-	if (retno != 0) {
-		printf("Failed to get photon_energy. Exiting...\n");
-		cheetahExit(&cheetahGlobal);
-		snprintf(message, 512, "Status=Error-PhotonEnergy");
-		cheetahGlobal.writeStatus(message);
-		return -1;
+    if (runNumber >=333661 && runNumber <= 333682) {
+		// 19 May 2015: spectrometer broken! use config value instead
+		printf("Using 7000 eV to fill in missing photon energies due to DB failure during run 333661-333682\n");
+		for (int i = 0; i < tagList.size(); i++) {
+			pulse_energies.push_back("7.0");
+		}
+	} else {
+		retno = ReadSyncDataList(&pulse_energies, "xfel_bl_3_tc_spec_1/energy", tag_hi, tagList);
+		if (retno != 0) {
+			printf("Failed to get photon_energy. Exiting...\n");
+			cheetahExit(&cheetahGlobal);
+			snprintf(message, 512, "Status=Error-PhotonEnergy");
+			cheetahGlobal.writeStatus(message);
+			return -1;
+		}
 	}
 
 	std::vector<std::string> pd_laser, pd_user2;
@@ -299,6 +307,7 @@ int main(int argc, char *argv[]) {
 		double pd_laser_val = atof(pd_laser[j].c_str());
 		double pd_user2_val = atof(pd_user2[j].c_str());
 		double photon_energy; // in eV
+		photon_energy = 1000 * atof(pulse_energies[j].c_str());
 
 		bool light = true;
 		if (pd1_threshold != 0 && 
@@ -309,7 +318,7 @@ int main(int argc, char *argv[]) {
 			!(pd2_threshold < 0 && -pd2_threshold > pd_user2_val)) light = false;
 		if (light) frame_after_light = 0;
 		else frame_after_light++;
-		printf("Event %d: frame_after_light %d pd_user2_val %f\n", tagID, frame_after_light, pd_user2_val);
+		printf("Event %d: energy %f frame_after_light %d pd_user2_val %f\n", tagID, photon_energy, frame_after_light, pd_user2_val);
 		if ((light_dark == PD_DARK1 && frame_after_light != 1) ||
 			(light_dark == PD_DARK2 && frame_after_light != 2) ||
 			(light_dark == PD_LIGHT && frame_after_light != 0)) continue;
@@ -326,8 +335,6 @@ int main(int argc, char *argv[]) {
 		}
 		LLFpassed++;
 
-//		ReadConfigOfPhotonEnergy(photon_energy, bl, tag_hi, tagID); // returned in keV
-		photon_energy = 1000 * atof(pulse_energies[j].c_str());
 		if (!get_image(buffer, runNumber, tag_hi, tagID, photon_energy)) {
 			continue; // image not available
 		}
