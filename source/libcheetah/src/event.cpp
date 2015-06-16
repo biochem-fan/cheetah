@@ -33,6 +33,9 @@ cEventData* cheetahNewEvent(cGlobal	*global) {
 	eventData->peakTotal=0.;
 	eventData->stackSlice=0;
 
+	eventData->gmd = eventData->gmd1 = eventData->gmd2 =
+		eventData->gmd11 = eventData->gmd12 = eventData->gmd21 = eventData->gmd22 = 0;
+
 	//long		pix_nn1 = global->detector[0].pix_nn;
 	//long		asic_nx = global->detector[0].asic_nx;
 	//long		asic_ny = global->detector[0].asic_ny;	
