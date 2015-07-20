@@ -106,6 +106,7 @@ int main(int argc, char *argv[]) {
 	
 	char outputH5[4096] = {};
 	char station = 4;
+	char *tagList_file = NULL;
 
 	const struct option longopts[] = {
 		{"ini", 1, NULL, 'i'},
@@ -118,6 +119,7 @@ int main(int argc, char *argv[]) {
 		{"pd1_thresh", 1, NULL, 13},
 		{"pd2_thresh", 1, NULL, 14},
 		{"type", 1, NULL, 15},
+		{"list", 1, NULL, 16},
 		{0, 0, NULL, 0}
 	};
 
@@ -171,6 +173,14 @@ int main(int argc, char *argv[]) {
 				}
 			}
 			break;
+		case 16: // list
+			if (tagList_file != NULL) {
+				printf("ERROR: you cannot specify more than one tag list.\n");
+				return -1;
+			}
+			tagList_file = strdup(optarg);
+			printf("A tag list file was specified. maxI check was disabled.\n");
+			maxI_threshold = -1;
 		}
 	}
 	if (strnlen(outputH5, 4096) == 0) {
@@ -197,7 +207,6 @@ int main(int argc, char *argv[]) {
 	printf(" PD2 threshold (--pd2_thresh): %.3f (default = 0; ignore.)\n", pd2_threshold);
 	printf(" nFrame after light:           %d (default = -1; any)\n", light_dark);
 	printf(" parallel_block:               %d (default = -1; no parallelization)\n", parallel_block);
-
 
 	if (runNumber < 0 || strlen(cheetahIni) == 0) {
 		printf("Wrong argument! \nUsage: cheetah-sacla-api -i cheetah.ini -r runNumber [-m maxI]\n");
@@ -252,13 +261,39 @@ int main(int argc, char *argv[]) {
 	}
 	
 	start += startAt;
-	std::vector<int> tagList;
 	int parallel_cnt = 0;
-	for (int i = start; i <= end; i+= stride) {
-		parallel_cnt++;
-		if (parallel_block == -1 || // no parallelization
-			parallel_cnt % parallel_size == parallel_block)
-			tagList.push_back(i);
+	std::vector<int> tagList;
+	if (tagList_file == NULL) {
+		for (int i = start; i <= end; i+= stride) {
+			parallel_cnt++;
+			if (parallel_block == -1 || // no parallelization
+				parallel_cnt % parallel_size == parallel_block) {
+				tagList.push_back(i);
+			}
+		}
+	} else {
+		FILE *fh = fopen(tagList_file, "r");
+		free(tagList_file);
+
+		if (fh == NULL) {
+			printf("ERROR: Unable to open tagList.\n");
+			return -1;
+		}
+		int i = 0;
+		while (!feof(fh)) {
+			fscanf(fh, "%d\n", &i);
+			if (i < start || i > end) {
+				printf("WARNING: tag %d does not belong to run %d. skipped.\n", i, runNumber);
+				continue;
+			}
+ 
+			parallel_cnt++; // TODO: refactor and merge above
+			if (parallel_block == -1 || // no parallelization
+				parallel_cnt % parallel_size == parallel_block) {
+				tagList.push_back(i);
+			}
+		}
+		fclose(fh);
 	}
 //		tagList.clear(); tagList.push_back(121943650); // for debugging
 	
