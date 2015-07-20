@@ -295,9 +295,9 @@ int main(int argc, char *argv[]) {
 	if (retno != 0) {
 		printf("WARNING: Failed to get xfel_bl_3_st_4_pd_laser_fitting_peak/voltage.\n");
 	}
-	retno = ReadSyncDataList(&pd_user2, "xfel_bl_3_st_4_pd_user_2_fitting_peak/voltage", tag_hi, tagList);
+	retno = ReadSyncDataList(&pd_user2, "xfel_bl_3_st_4_pd_user_10_fitting_peak/voltage", tag_hi, tagList);
 	if (retno != 0) {
-		printf("WARNING: Failed to get xfel_bl_3_st_4_pd_user_2_fitting_peak/voltage.\n");
+		printf("WARNING: Failed to get xfel_bl_3_st_4_pd_user_10_fitting_peak/voltage.\n");
 	}
 
 	int processedTags = 0, LLFpassed = 0, tagSize = tagList.size(), frame_after_light = 0;
