@@ -39,7 +39,8 @@ enum OnlineAPI_ErrorCode{
 	OL_ERR_EVENTDATAALLOC		= -10204,
 	OL_ERR_BUFALLOC				= -10205,
 	OL_ERR_NOCALIBMATHOD		= -10300,
-	OL_ERR_USERAPI_CHECK		= -500000
+	OL_ERR_TAGINVALID			= -50000,
+	OL_ERR_USERAPI_CHECK		= -50010,
 };
 
 /**
@@ -73,12 +74,13 @@ int ol_getDataSize(int sockID, int *pDataStSize, int *pWorkSize);
 * @param[in] sockID socket ID to connect to data handling server
 * @param[in] tag tag number of detector data to acquire. latest tag : -1
 * @param[out] pDataStBuf destination address of detector data structure
-* @param[int] dataStSize buffer size for detector data structure
+* @param[in] dataStSize buffer size for detector data structure
 * @param[out] pWorkBuf destination address of working buffer
-* @param[int] workSize working buffer size
+* @param[in] workSize working buffer size
 * @param[out] pTag tag number acquired
+* @param[in] calibflag calibration flag : 1=background, 2=crosstalk, 3=background & crosstalk
 */
-int ol_collectDetData(int sockID, int tag, char *pDataStBuf, int dataStSize, char *pWorkBuf, int workSize, int *pTag);
+int ol_collectDetData(int sockID, int tag, char *pDataStBuf, int dataStSize, char *pWorkBuf, int workSize, int *pTag, int calibflag = 3);
 
 /**
 * read address of detector data.
