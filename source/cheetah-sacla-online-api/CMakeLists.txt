@@ -1,6 +1,6 @@
 find_package(HDF5 REQUIRED)
 
-LIST(APPEND sources "api-stub.cpp")
+#LIST(APPEND sources "api-stub.cpp")
 LIST(APPEND sources "../cheetah-sacla/sacla-hdf5-reader.cpp")
 LIST(APPEND sources "main-sacla-online-api.cpp")
 
@@ -17,6 +17,7 @@ add_dependencies(cheetah-sacla-online-api cheetah)
 target_link_libraries(cheetah-sacla-online-api ${CHEETAH_LIBRARY})
 target_link_libraries(cheetah-sacla-online-api ${SACLA_API_LIB})
 target_link_libraries(cheetah-sacla-online-api ${MYSQL_LIB})
+target_link_libraries(cheetah-sacla-online-api "/home/nureki/nakane/DAILIES/0.0.5/lib_gcc/libOnlineUserAPI.a")
 
 install(TARGETS cheetah-sacla-online-api
   RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
