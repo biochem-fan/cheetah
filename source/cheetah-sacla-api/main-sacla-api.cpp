@@ -305,7 +305,7 @@ int main(int argc, char *argv[]) {
 		cheetahGlobal.writeStatus(message);
 		return -1;
 	}
-	ReadStatisticsOfDetLLF(&maxIs, LLF_ID, bl, tag_hi, tagList);
+	ReadStatisticsOfDetLLF(&maxIs, LLF_ID, bl, tag_hi, tagList); // 15Jul20 FIXME
 	
 	std::vector<std::string> pulse_energies;
     if (runNumber >=333661 && runNumber <= 333682) {
@@ -338,7 +338,8 @@ int main(int argc, char *argv[]) {
 	int processedTags = 0, LLFpassed = 0, tagSize = tagList.size(), frame_after_light = 0;
 	for (int j = 0; j < tagSize; j++) {
 		int tagID = tagList[j];
-		int maxI = atoi(maxIs[j].c_str());
+		int maxI = 100;
+		maxI = atoi(maxIs[j].c_str()); // FIXME 15Jul20 TEMPORARY FIX
 		double pd_laser_val = atof(pd_laser[j].c_str());
 		double pd_user2_val = atof(pd_user2[j].c_str());
 		double photon_energy; // in eV
