@@ -305,7 +305,12 @@ int main(int argc, char *argv[]) {
 		cheetahGlobal.writeStatus(message);
 		return -1;
 	}
-	ReadStatisticsOfDetLLF(&maxIs, LLF_ID, bl, tag_hi, tagList); // 15Jul20 FIXME
+	if (runNumber >= 355387 && runNumber <=355403) {
+		// Broken runs in 2015-Jul Beamtime
+		printf("WARNING: LLF ignored as the database is broken!\n");
+	} else {
+		ReadStatisticsOfDetLLF(&maxIs, LLF_ID, bl, tag_hi, tagList);
+	}
 	
 	std::vector<std::string> pulse_energies;
     if (runNumber >=333661 && runNumber <= 333682) {
@@ -338,8 +343,12 @@ int main(int argc, char *argv[]) {
 	int processedTags = 0, LLFpassed = 0, tagSize = tagList.size(), frame_after_light = 0;
 	for (int j = 0; j < tagSize; j++) {
 		int tagID = tagList[j];
-		int maxI = 100;
-		maxI = atoi(maxIs[j].c_str()); // FIXME 15Jul20 TEMPORARY FIX
+		int maxI = 0;
+		if (runNumber >= 355387 && runNumber <=355403) {
+			maxI = 100000; // Accept all
+		} else {
+			maxI = atoi(maxIs[j].c_str());
+		}
 		double pd_laser_val = atof(pd_laser[j].c_str());
 		double pd_user2_val = atof(pd_user2[j].c_str());
 		double photon_energy; // in eV
