@@ -17,7 +17,7 @@ add_dependencies(cheetah-sacla-online-api cheetah)
 target_link_libraries(cheetah-sacla-online-api ${CHEETAH_LIBRARY})
 target_link_libraries(cheetah-sacla-online-api ${SACLA_API_LIB})
 target_link_libraries(cheetah-sacla-online-api ${MYSQL_LIB})
-target_link_libraries(cheetah-sacla-online-api "/home/nureki/nakane/DAILIES/0.0.5/lib_gcc/libOnlineUserAPI.a")
+target_link_libraries(cheetah-sacla-online-api ${SACLA_ONLINE_API_LIB})
 
 install(TARGETS cheetah-sacla-online-api
   RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
