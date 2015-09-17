@@ -55,8 +55,16 @@ void writeSACLA(cEventData *eventData, cGlobal *global) {
 
 	dataspace_id = H5Screate_simple(2, dims, NULL);
 	snprintf(dataset_name, 256, "%s/data", group_name);
-	// was H5T_NATIVE_USHORT
-	dataset_id = H5Dcreate2(file_id, dataset_name, H5T_STD_I16LE, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+        
+        hid_t dcpl = H5P_DEFAULT;
+        if (global->h5compress != 0) {
+                dcpl = H5Pcreate(H5P_DATASET_CREATE);
+                //printf("global->h5compress = %d\n", global->h5compress);
+                H5Pset_deflate(dcpl, global->h5compress);
+                H5Pset_chunk(dcpl, 2, dims);
+        }
+        // was H5T_NATIVE_USHORT
+	dataset_id = H5Dcreate2(file_id, dataset_name, H5T_STD_I16LE, dataspace_id, H5P_DEFAULT, dcpl, H5P_DEFAULT);
 
 	// from saveFrame.cpp
 	int16_t* corrected_data_int16 = (int16_t*)calloc(global->detector[detIndex].pix_nn, sizeof(int16_t));
@@ -74,6 +82,7 @@ void writeSACLA(cEventData *eventData, cGlobal *global) {
 	H5Dwrite(dataset_id, H5T_STD_I16LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, corrected_data_int16);
 	free(corrected_data_int16);
 
+        H5Pclose(dcpl);
 	H5Sclose(dataspace_id);
 	H5Gclose(group_id);
 	H5Dclose(dataset_id);
