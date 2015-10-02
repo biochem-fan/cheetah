@@ -294,10 +294,21 @@ int main(int argc, char *argv[]) {
 	int parallel_cnt = 0;
 	std::vector<int> tagList;
 	if (tagList_file == NULL) {
+		int blockstart = start, blockend = end; // inclusive
+		if (parallel_block != -1) { // block division
+			int width = (end - start + 1) / parallel_size;
+			blockstart = start + width * parallel_block;
+			blockend = start + width * (parallel_block + 1) - 1;
+			if (parallel_block == parallel_size - 1) { // last block
+				blockend = end;
+			}
+		}
+		printf("parallel: start %d end %d blockstart %d blockend %d\n", start, end, blockstart, blockend);
 		for (int i = start; i <= end; i+= stride) {
 			parallel_cnt++;
-			if (parallel_block == -1 || // no parallelization
-				parallel_cnt % parallel_size == parallel_block) {
+//			if (parallel_block == -1 || // no parallelization
+//				parallel_cnt % parallel_size == parallel_block) {
+			if (blockstart <= i && i <= blockend) {
 				tagList.push_back(i);
 			}
 		}
