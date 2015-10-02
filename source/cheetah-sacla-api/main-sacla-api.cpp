@@ -47,7 +47,7 @@ float gains[9] = {};
 static bool get_image(double *buffer, int run, int taghi, int tag, double photon_energy) {
   int retno = 0;
   float buf_panel[xsize * ydatasize];
-  float gain, gain_panel1;
+  float gain;
   char det_name[256];
 
   if (gains[0] == 0) { // Caching didn't improve performance
@@ -89,8 +89,9 @@ static bool get_image(double *buffer, int run, int taghi, int tag, double photon
 }
 
 int main(int argc, char *argv[]) {
-	printf("Cheetah using SACLA API by Takanori Nakane\n");
-	printf("This program is based on cheetah-sacla by Anton Barty\n");
+	printf("Cheetah for SACLA old offline API -- version 151002\n");
+	printf(" by Takanori Nakane\n");
+	printf(" This program is based on cheetah-sacla by Anton Barty.\n");
 
 	int c, retno;
 	
@@ -316,7 +317,7 @@ int main(int argc, char *argv[]) {
     if (runNumber >=333661 && runNumber <= 333682) {
 		// 19 May 2015: spectrometer broken! use config value instead
 		printf("Using 7000 eV to fill in missing photon energies due to DB failure during run 333661-333682\n");
-		for (int i = 0; i < tagList.size(); i++) {
+		for (unsigned int i = 0; i < tagList.size(); i++) {
 			pulse_energies.push_back("7.0");
 		}
 	} else {
