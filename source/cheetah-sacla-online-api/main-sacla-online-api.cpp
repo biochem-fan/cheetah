@@ -144,7 +144,10 @@ void* thread(void *thread_data) {
 			if (err < 0 || actual_tag != wanted_tag) {
 				printf("Child%d: could not get tag %d. skipped. error code %d\n", det_id, wanted_tag, err);
 				img->error = true;
-				// This happens, for example, if we come too late (TAGDATAGONE -10000)
+				exit(-1);
+				// 151005: Exit right away; probably MPCCD server has been restarted.
+				// Of course this might happen on our side, for example, if we are running too slow (TAGDATAGONE -10000).
+				// In any case, it is worth restarting. 
 			} else {
 //				printf("Child%d: Got image %d\n", det_id, wanted_tag);
 				if (det_id == PRIMARY_DET) {

@@ -18,6 +18,6 @@ ADD_SUBDIRECTORY(cheetah-sacla)
 endif(BUILD_CHEETAH_SACLA)
 
 if(BUILD_CHEETAH_SACLA_API)
-ADD_SUBDIRECTORY(cheetah-sacla-api)
 ADD_SUBDIRECTORY(cheetah-sacla-online-api)
+ADD_SUBDIRECTORY(cheetah-sacla-api2)
 endif(BUILD_CHEETAH_SACLA_API)

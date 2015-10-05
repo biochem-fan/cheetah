@@ -54,6 +54,8 @@ if(BUILD_CHEETAH_SACLA_API)
    SET(SACLA_API_LIB "" CACHE STRING "Path to libSaclaDataAccessUserAPI.so")
    SET(SACLA_ONLINE_API_LIB "" CACHE STRING "Path to libOnlineUserAPI.so")
    SET(MYSQL_LIB "" CACHE STRING "Path to libmysql.so")
+   SET(SACLA_API2_INCLUDE_DIR "" CACHE STRING "Directory that contains DataAccessUserAPI.h")
+   SET(SACLA_API2_LIB "" CACHE STRING "Path to libDataAccessUserAPI.so")
 endif(BUILD_CHEETAH_SACLA_API)
 
 SET(CHEETAH_INCLUDES ${CMAKE_SOURCE_DIR}/source/libcheetah/include CACHE PATH "libcheetah include directory")
