@@ -73,7 +73,7 @@ static bool get_image(double *buffer, int tag, double photon_energy) {
 
   for (int det_id = 0; det_id < 8; det_id++) {
     uint32_t tagid = tag; // tagid will be overwritten
-    retno = st_collect_data(databufs[det_id], streaders[det_id], &tagid, 0x03);
+    retno = st_collect_data(databufs[det_id], streaders[det_id], &tagid);
     if (retno != 0 || tagid != (uint32_t)tag) {
       printf("WARNING: Failed to collect tag %d for detector #%det_id (0-indexed)\n", tag, det_id);
       return 0;
@@ -358,7 +358,7 @@ int main(int argc, char *argv[]) {
 			return -1;
 		}
 		uint32_t tagid = start;
-		retno = st_collect_data(databufs[det_id], streaders[det_id], &tagid, 0x03); // CHECKME: calib frag?
+		retno = st_collect_data(databufs[det_id], streaders[det_id], &tagid);
 		if (retno != 0) {
 			printf("Failed to collect data for %s.\n", det_name);
 			return -1;
