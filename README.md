@@ -15,12 +15,14 @@ they will hopefully be merged to the official distribution.
    The biggest difference is that we do not use 3D or 4D arrays to store
    multiple images. Instead, we make a group *tag-XXXXX* for each frame.
 
--  SACLA API integration (cheetah-sacla-api)
+-  SACLA API integration (cheetah-sacla-api2)
 
    This is similar to cheetah-sacla, but reads images from SACLA Data Access
-   User API (beta) instead of a HDF5 file created by DataConvert3. It also supports
-   filtering by low-level filter (LLF) and photodiode values (for time-resolved
-   experiments).
+   User API (Joti et al., 2015, J. Synchrotron Radiat.) instead of a HDF5 file 
+   created by DataConvert3/4. It also supports filtering by low-level filter (LLF) 
+   and photodiode values (for time-resolved experiments).
+   
+   cheetah-sacla-api is obsolete, only for backward-compatibility (to access old datasets).
 
 -  SACLA online API integration (cheetah-sacla-online)
 
