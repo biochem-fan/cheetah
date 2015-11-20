@@ -51,7 +51,7 @@ int run(int runid) {
 
   printf("SACLA geometry & dark average exporter\n");
   printf(" By Takanori Nakane \n\n");
-  printf(" version 20151002 with old API\n\n");
+  printf(" version 20151116 with old API\n\n");
  
   // get tag_hi and start
   ReadStartTagNumber(tag_hi, start, bl, runid);
