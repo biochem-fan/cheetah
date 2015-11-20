@@ -418,7 +418,7 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	std::vector<std::string> pd_laser, pd_user2;
+	std::vector<std::string> pd_laser, pd_user2, shutter;
 	retno = myReadSyncDataList(&pd_laser, "xfel_bl_3_st_4_pd_laser_fitting_peak/voltage", tag_hi, tagList.size(), tagList_array);
 	if (retno != 0) {
 		printf("WARNING: Failed to get xfel_bl_3_st_4_pd_laser_fitting_peak/voltage.\n");
@@ -427,6 +427,11 @@ int main(int argc, char *argv[]) {
 	if (retno != 0) {
 		printf("WARNING: Failed to get xfel_bl_3_st_4_pd_user_10_fitting_peak/voltage.\n");
 	}
+	retno = myReadSyncDataList(&shutter, "xfel_bl_3_shutter_1_open_valid/status", tag_hi, tagList.size(), tagList_array);
+	if (retno != 0) {
+		printf("WARNING: Failed to get xfel_bl_3_shutter_1_open_valid/status.\n");
+	}
+
 
 	int processedTags = 0, LLFpassed = 0, tagSize = tagList.size(), frame_after_light = 0;
 	for (int j = 0; j < tagSize; j++) {
@@ -437,6 +442,16 @@ int main(int argc, char *argv[]) {
 		} else {
 			maxI = atoi(maxIs[j].c_str());
 		}
+
+		printf("tag %d shutter = %s\n", tagID, shutter[j].c_str());
+		if (runNumber >= 358814 && runNumber <=358842) {
+			// 2015 Oct: new run control GUI produces gaps in tag number
+			if (atoi(shutter[j].c_str()) != 1) {
+				printf("SHUTTER: tag %d rejected. shutter = %s\n", tagID, shutter[j].c_str());
+				continue;
+			}
+		}
+
 		double pd_laser_val = atof(pd_laser[j].c_str());
 		double pd_user2_val = atof(pd_user2[j].c_str());
 		double photon_energy; // in eV
