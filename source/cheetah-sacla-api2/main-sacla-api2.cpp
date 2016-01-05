@@ -120,6 +120,8 @@ int main(int argc, char *argv[]) {
 	int startAt = 300;
 	int stride = 2; // 30Hz mode (60 / 30)
 	double pd1_threshold = 0, pd2_threshold = 0;
+	char *pd1_sensor_name = "xfel_bl_3_st_4_pd_laser_fitting_peak/voltage";
+	char *pd2_sensor_name = "xfel_bl_3_st_4_pd_user_10_fitting_peak/voltage";
 	int parallel_block = -1;
 	int light_dark = PD_ANY;
 	
@@ -139,6 +141,8 @@ int main(int argc, char *argv[]) {
 		{"pd2_thresh", 1, NULL, 14},
 		{"type", 1, NULL, 15},
 		{"list", 1, NULL, 16},
+		{"pd1_name", 1, NULL, 17},
+		{"pd2_name", 1, NULL, 18},
 		{0, 0, NULL, 0}
 	};
 
@@ -200,6 +204,13 @@ int main(int argc, char *argv[]) {
 			tagList_file = strdup(optarg);
 			printf("A tag list file was specified. maxI check was disabled.\n");
 			maxI_threshold = -1;
+			break;
+		case 17: // pd1_name
+			pd1_sensor_name = strdup(optarg); // small leak.
+			break;
+		case 18: // pd2_name
+			pd2_sensor_name = strdup(optarg); // small leak.
+			break;
 		}
 	}
 	if (strnlen(outputH5, 4096) == 0) {
@@ -224,6 +235,8 @@ int main(int argc, char *argv[]) {
 	printf(" station (--station):          %d (default = 4)\n", station);
 	printf(" PD1 threshold (--pd1_thresh): %.3f (default = 0; ignore.)\n", pd1_threshold);
 	printf(" PD2 threshold (--pd2_thresh): %.3f (default = 0; ignore.)\n", pd2_threshold);
+	printf(" PD1 sensor name (--pd1_name): %s\n)", pd1_sensor_name);
+	printf(" PD2 sensor name (--pd2_name): %s\n)", pd2_sensor_name);
 	printf(" nFrame after light:           %d (default = -1; any)\n", light_dark);
 	printf(" parallel_block:               %d (default = -1; no parallelization)\n", parallel_block);
 
@@ -419,14 +432,14 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	std::vector<std::string> pd_laser, pd_user2, shutter;
-	retno = myReadSyncDataList(&pd_laser, "xfel_bl_3_st_4_pd_laser_fitting_peak/voltage", tag_hi, tagList.size(), tagList_array);
+	std::vector<std::string> pd1_values, pd2_values, shutter;
+	retno = myReadSyncDataList(&pd1_values, pd1_sensor_name, tag_hi, tagList.size(), tagList_array);
 	if (retno != 0) {
-		printf("WARNING: Failed to get xfel_bl_3_st_4_pd_laser_fitting_peak/voltage.\n");
+		printf("WARNING: Failed to get %s.\n", pd1_sensor_name);
 	}
-	retno = myReadSyncDataList(&pd_user2, "xfel_bl_3_st_4_pd_user_10_fitting_peak/voltage", tag_hi, tagList.size(), tagList_array);
+	retno = myReadSyncDataList(&pd2_values, pd2_sensor_name, tag_hi, tagList.size(), tagList_array);
 	if (retno != 0) {
-		printf("WARNING: Failed to get xfel_bl_3_st_4_pd_user_10_fitting_peak/voltage.\n");
+		printf("WARNING: Failed to get %s.\n", pd2_sensor_name);
 	}
 	retno = myReadSyncDataList(&shutter, "xfel_bl_3_shutter_1_open_valid/status", tag_hi, tagList.size(), tagList_array);
 	if (retno != 0) {
@@ -453,32 +466,32 @@ int main(int argc, char *argv[]) {
 			}
 		}
 
-		double pd_laser_val = atof(pd_laser[j].c_str());
-		double pd_user2_val = atof(pd_user2[j].c_str());
+		double pd1_value = atof(pd1_values[j].c_str());
+		double pd2_value = atof(pd2_values[j].c_str());
 		double photon_energy; // in eV
 		photon_energy = 1000 * atof(pulse_energies[j].c_str());
 
 		bool light = true;
 		if (pd1_threshold != 0 && 
-			!(pd1_threshold > 0 && pd1_threshold <= pd_laser_val) &&
-			!(pd1_threshold < 0 && -pd1_threshold > pd_laser_val)) light = false;
+			!(pd1_threshold > 0 && pd1_threshold <= pd1_value) &&
+			!(pd1_threshold < 0 && -pd1_threshold > pd1_value)) light = false;
 		if (pd2_threshold != 0 &&
-			!(pd2_threshold > 0 && pd2_threshold <= pd_user2_val) &&
-			!(pd2_threshold < 0 && -pd2_threshold > pd_user2_val)) light = false;
+			!(pd2_threshold > 0 && pd2_threshold <= pd2_value) &&
+			!(pd2_threshold < 0 && -pd2_threshold > pd2_value)) light = false;
 		if (light) frame_after_light = 0;
 		else frame_after_light++;
-		printf("Event %d: energy %f frame_after_light %d pd_user2_val %f\n", tagID, photon_energy, frame_after_light, pd_user2_val);
+		printf("Event %d: energy %f frame_after_light %d pd1_value %f pd2_value %f\n", tagID, photon_energy, frame_after_light, pd1_value, pd2_value);
 		if ((light_dark == PD_DARK1 && frame_after_light != 1) ||
 			(light_dark == PD_DARK2 && frame_after_light != 2) ||
 			(light_dark == PD_LIGHT && frame_after_light != 0)) continue;
 
 		processedTags++;
 
-		printf("Event: %d (%d / %d (%.1f%%), LLF passed %d / %d (%.1f%%), Hits %ld (%.1f%%), maxI = %d, PD_laser = %.1f, PD_user = %.3f\n",
+		printf("Event: %d (%d / %d (%.1f%%), Filter passed %d / %d (%.1f%%), Hits %ld (%.1f%%), maxI = %d, pd1_value = %.1f, pd2_value = %.3f\n",
 			   tagID, (j + 1), tagSize, 100.0 * (j + 1) / tagSize, 
 			   LLFpassed, processedTags, 100.0 * LLFpassed / processedTags,
 			   cheetahGlobal.nhits, 100.0 * cheetahGlobal.nhits / processedTags,
-			   maxI, pd_laser_val, pd_user2_val);
+			   maxI, pd1_value, pd2_value);
 		if (maxI < maxI_threshold) {
 			continue;
 		}
