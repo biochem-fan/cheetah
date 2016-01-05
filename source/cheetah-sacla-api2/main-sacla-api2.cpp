@@ -22,13 +22,14 @@
 #include "DataAccessUserAPI.h"
 #include "hdf5.h"
 
+const int NDET = 8;
 const int parallel_size = 3; // MUST match dispatcher
 const int bl = 3;
 const int xsize = 512;
 const int ysize = 1024; 
 const int ydatasize = 1030;
 const int blocksize = xsize * ysize;
-const int buffersize = blocksize * 8;
+const int buffersize = blocksize * NDET;
 const int PD_ANY = -1, PD_LIGHT = 0, PD_DARK1 = 1, PD_DARK2 = 2;
 
 char *det_name_template[30] = {"EventInfo_stor0%d", "MPCCD-8-2-001-%d", "EventInfo_stor1_0%d"};
@@ -41,7 +42,7 @@ double buffer[buffersize] = {};
 unsigned short averaged[buffersize] = {};
 int det_temp_idx = -1;
 float gains[9] = {};
-char *streaders[8], *databufs[8];
+char *streaders[NDET], *databufs[NDET];
 
 int myReadSyncDataList(std::vector<std::string>* buffer, char* equip_id, int tag_hi, int n_taglist, int *taglist) {
 	struct da_string_array *strbuf;
@@ -71,7 +72,7 @@ static bool get_image(double *buffer, int tag, double photon_energy) {
   float buf_panel[xsize * ydatasize];
   float gain;
 
-  for (int det_id = 0; det_id < 8; det_id++) {
+  for (int det_id = 0; det_id < NDET; det_id++) {
     uint32_t tagid = tag; // tagid will be overwritten
     retno = st_collect_data(databufs[det_id], streaders[det_id], &tagid);
     if (retno != 0 || tagid != (uint32_t)tag) {
@@ -107,7 +108,7 @@ static bool get_image(double *buffer, int tag, double photon_energy) {
 }
 
 int main(int argc, char *argv[]) {
-	printf("Cheetah for SACLA new offline API -- version 151001\n");
+	printf("Cheetah for SACLA new offline API -- version 160105\n");
 	printf(" by Takanori Nakane\n");
 	printf(" This program is based on cheetah-sacla by Anton Barty.\n");
 	int c, retno;
@@ -247,7 +248,7 @@ int main(int argc, char *argv[]) {
 	strncpy(cheetahGlobal.cxiFilename, outputH5, MAX_FILENAME_LENGTH);
 
     hsize_t dims[2];
-    dims[0] = 8 * ysize;
+    dims[0] = NDET * ysize;
     dims[1] = xsize;
 
 	// get tag_hi and start
@@ -353,7 +354,7 @@ int main(int argc, char *argv[]) {
 	// Create storage readers and buffers
 	// and get detector gains
 	printf("Initializing reader and buffer\n");
-	for (int det_id = 0; det_id < 8; det_id++) {
+	for (int det_id = 0; det_id < NDET; det_id++) {
 		char det_name[256];
 		snprintf(det_name, 256, det_name_template[det_temp_idx], det_id + 1);
 		
