@@ -184,7 +184,7 @@ class LogWatcher(threading.Thread):
                         tmp['Status'] = "Indexing"
                 event = ThreadEvent(msg=tmp)
                 wx.PostEvent(self.window, event)
-                if tmp['indexed'] != "NA" or tmp['Status'].startswith("Error"):
+                if (tmp['indexed'] != "NA" and tmp['indexed'] != "") or tmp['Status'].startswith("Error"):
                     self.running = False # FIXME
 
 class AutoQsub(threading.Thread):
@@ -344,6 +344,7 @@ class MainWindow(wx.Frame):
         
         self.timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self.OnTimer)
+        self.timer.Start(5000)
 
         self.scanDirectory()
 
@@ -396,6 +397,7 @@ class MainWindow(wx.Frame):
             self.CountSums(row1, row2)
 
     def CountSums(self, row1, row2):
+        # TODO: Separate light/dark
         total = 0
         processed = 0
         llf_passed = 0
@@ -460,17 +462,17 @@ class MainWindow(wx.Frame):
             print traceback.format_exc()
 
     def scanDirectory(self):
-        re_filename = re.compile("^[0-9]{6}(-dark1|-light|-\d)?$") # Removed dark2
+        re_filename = re.compile("^[0-9]{6}(-dark1|-dark2|-light|-\d)?$")
         for filename in sorted(glob.glob("*")):
             if os.path.isdir(filename) and re_filename.match(filename) != None:
                 self.addRun(filename)
+        # TODO: Support deleting existing rows. This is more complex since the row idx changes.
 
     def onPush(self, event):
         if self.waitFor != None:
             self.stopWatch()
         else:
             self.prepareSubmitJob(self.text_runid.GetValue())
-
 
     def prepareSubmitJob(self, run_str):
         runids = None
@@ -523,11 +525,10 @@ class MainWindow(wx.Frame):
         self.text_pd2.Disable()
         self.text_maxI.Disable()
         self.combo_station.Disable()
-        self.timer.Start(5000)
 
     def OnTimer(self, event):
+        self.scanDirectory()
         if (self.waitFor == None):
-            self.timer.Stop()
             return
 
         out = Popen(["ShowRunInfo", "-b", "3", "-r", "%d" % self.waitFor], stdout=PIPE).communicate()[0]
@@ -557,7 +558,8 @@ class MainWindow(wx.Frame):
                 arguments += " --pd2_thresh=%.3f --pd2_name=%s " % (pd2_thresh, self.opts.pd2_name)
             master_arguments = arguments + " --type=light "
             subjobs.append("dark1")
-#            subjobs.append("dark2") # removed
+            if self.opts.submit_dark2 == 1:
+                subjobs.append("dark2")
         else:
             master_arguments = arguments + " --type=0 "
             run_dir += "-0"
@@ -596,6 +598,9 @@ class MainWindow(wx.Frame):
             self.addRun(run_dir)
 
     def addRun(self, runid):
+        if self.rows.get(runid) is not None:
+            return
+
         row = self.table.GetNumberRows()
         self.subthreads.append(LogWatcher("%s/status.txt" % runid, self, runid))
         self.rows[runid] = row
@@ -712,7 +717,7 @@ class ProgressCellRenderer(wx.grid.PyGridCellRenderer):
         return ProgressCellRenderer() 
 
 print
-print "Cheetah dispatcher GUI version 2016/01/05"
+print "Cheetah dispatcher GUI version 2016/01/21"
 print "   by Takanori Nakane (takanori.nakane@bs.s.u-tokyo.ac.jp)"
 print
 if not os.path.exists("sacla-photon.ini"):
@@ -729,6 +734,7 @@ parser.add_option("--queue", dest="queue", type=str, default="serial", help="que
 parser.add_option("--pd1_name", dest="pd1_name", type=str, default=None, help="queue name")
 # e.g. xfel_bl_3_st_4_pd_user_10_fitting_peak/voltage
 parser.add_option("--pd2_name", dest="pd2_name", type=str, default=None, help="queue name")
+parser.add_option("--submit_dark2", dest="submit_dark2", type=int, default=False, help="submit dark2")
 parser.add_option("--crystfel_args", dest="crystfel_args", type=str, default="", help="optional arguments to CrystFEL")
 opts, args = parser.parse_args()
 
@@ -737,6 +743,7 @@ print "Option: quick         = %s" % opts.quick
 print "Option: queue         = %s" % opts.queue
 print "Option: pd1_name      = %s" % opts.pd1_name
 print "Option: pd2_name      = %s" % opts.pd2_name
+print "Option: submit_dark2  = %s" % opts.submit_dark2
 print "Option: crystfel_args = %s" % opts.crystfel_args
 
 app = wx.App(False)
