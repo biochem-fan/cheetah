@@ -271,7 +271,7 @@ class MainWindow(wx.Frame):
         self.table.SetColLabelValue(MainWindow.COL_STATUS, "Status       ")
         self.table.SetColLabelValue(MainWindow.COL_TOTAL, "Total    ")
         self.table.SetColLabelValue(MainWindow.COL_PROCESSED, "Processed     ")
-        self.table.SetColLabelValue(MainWindow.COL_LLF_PASSED, "Filter passed    ")
+        self.table.SetColLabelValue(MainWindow.COL_LLF_PASSED, "Accepted      ")
         self.table.SetColLabelValue(MainWindow.COL_HITS, "Hits          ")
         self.table.SetColLabelValue(MainWindow.COL_INDEXED, "Indexed       ")
         self.table.SetColLabelValue(MainWindow.COL_COMMENT, "Comment  ")
@@ -391,29 +391,46 @@ class MainWindow(wx.Frame):
         elif id == MainWindow.MENU_CELLEXPLORER:
             self.CellExplorer(runid)
         elif id == MainWindow.MENU_COUNTSUMS:
-            row1 = self.table.GetSelectionBlockTopLeft()[0][0]
-            row2 = self.table.GetSelectionBlockBottomRight()[0][0]
-            print row1, row2
-            self.CountSums(row1, row2)
+#            GetSelectionBlock no longer works on newer wxPython as before...
+#             https://forums.wxwidgets.org/viewtopic.php?t=41607
+#            row1 = self.table.GetSelectionBlockTopLeft()[0][0]
+#            row2 = self.table.GetSelectionBlockBottomRight()[0][0]
+            self.CountSums(self.table.GetSelectedRows())
 
-    def CountSums(self, row1, row2):
+    def CountSums(self, rows):
         # TODO: Separate light/dark
-        total = 0
-        processed = 0
-        llf_passed = 0
-        hits = 0
-        indexed = 0
-        for row in xrange(row1, row2 + 1):
+        total = {}
+        processed = {}
+        accepted = {}
+        hits = {}
+        indexed = {}
+        types = ("normal", "light", "dark1", "dark2")
+        for t in types:
+            for x in (total, processed, accepted, hits, indexed):
+                x[t] = 0
+        for row in rows:
             text = self.table.GetCellValue(row, 0)
+            print text
+            typ = "normal"
+            for t in types:
+                if text.endswith(t):
+                    typ = t
             try:
-                total += int(self.table.GetCellValue(row, self.COL_TOTAL))
-                processed += int(self.table.GetCellValue(row, self.COL_PROCESSED).rsplit(" ")[0])
-                llf_passed += int(self.table.GetCellValue(row, self.COL_LLF_PASSED).rsplit(" ")[0])
-                hits += int(self.table.GetCellValue(row, self.COL_HITS).rsplit(" ")[0])
-                indexed += int(self.table.GetCellValue(row, self.COL_INDEXED).rsplit(" ")[0])
+                total[typ] += int(self.table.GetCellValue(row, self.COL_TOTAL))
+                processed[typ] += int(self.table.GetCellValue(row, self.COL_PROCESSED).rsplit(" ")[0])
+                accepted[typ] += int(self.table.GetCellValue(row, self.COL_LLF_PASSED).rsplit(" ")[0])
+                hits[typ] += int(self.table.GetCellValue(row, self.COL_HITS).rsplit(" ")[0])
+                indexed[typ] += int(self.table.GetCellValue(row, self.COL_INDEXED).rsplit(" ")[0])
             except:
                 pass
-        message = "Total: %d\nProcessed: %d\nLLF passed: %d\nHits: %d\nIndexed: %d" % (total, processed, llf_passed, hits, indexed)
+        message = ""
+        for t in types:
+            if total[t] != 0:
+                if message != "":
+                    message += "\n"
+                message += "Type: %s\nTotal: %d\nProcessed: %d\nAccepted: %d\nHits: %d (%.1f%% of accepted)\nIndexed: %d (%.1f%% of hits)\n" % \
+                           (t, total[t], processed[t], accepted[t], hits[t], 100.0 * hits[t] / accepted[t], indexed[t],
+                            100.0 * indexed[t] / hits[t])
         dlg = wx.MessageDialog(None, message, "Cheetah dispatcher")
         dlg.ShowModal()
         dlg.Destroy()
@@ -717,7 +734,7 @@ class ProgressCellRenderer(wx.grid.PyGridCellRenderer):
         return ProgressCellRenderer() 
 
 print
-print "Cheetah dispatcher GUI version 2016/01/21"
+print "Cheetah dispatcher GUI version 2016/01/25"
 print "   by Takanori Nakane (takanori.nakane@bs.s.u-tokyo.ac.jp)"
 print
 if not os.path.exists("sacla-photon.ini"):

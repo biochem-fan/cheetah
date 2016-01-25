@@ -142,7 +142,7 @@ int run(int runid) {
     if (tmp < 0) averaged[i] = 0;
     if (tmp > USHRT_MAX) averaged[i] = USHRT_MAX;
     else averaged[i] = (unsigned short)tmp;
-    // TODO: Is this correct treatmen2Dt?
+    // TODO: Is this correct treatment?
   }
   
   /*
