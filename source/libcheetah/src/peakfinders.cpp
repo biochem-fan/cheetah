@@ -196,8 +196,9 @@ int peakfinder(cGlobal *global, cEventData *eventData, int detIndex) {
 	float z = global->detector[0].detectorZ*1e-3;
 	float dx = global->detector[0].pixelSize;
 	double r = sqrt(z*z+dx*dx*resolution*resolution);
-	double sintheta = dx*resolution/r;
-	resolutionA = eventData->wavelengthA/sintheta;
+	double twotheta = asin(dx*resolution/r);
+	double sintheta = sin(twotheta/2.0);
+	resolutionA = eventData->wavelengthA/(2*sintheta);
 	peaklist->peakResolutionA = resolutionA;
 	eventData->peakResolutionA = resolutionA;
 	eventData->peakResolution = resolution;
@@ -212,8 +213,9 @@ int peakfinder(cGlobal *global, cEventData *eventData, int detIndex) {
 	for(long k=0; k<np; k++) {
 		r = eventData->peaklist.peak_com_r_assembled[k];
 		r2 = sqrt(z*z+(dx*dx*r*r));
-		sintheta = dx*r/r2;
-		A = eventData->wavelengthA/sintheta;
+		twotheta = asin(dx*r/r2);
+		sintheta = sin(twotheta/2.0);
+		A = eventData->wavelengthA/(2*sintheta);
 		peaklist->peak_com_res[k] = A;
 		peaklist->peak_com_q[k] = 10./A;
 	}
