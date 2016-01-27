@@ -21,8 +21,7 @@ const int ysize = 1024;
 const int ydatasize = 1030;
 const int blocksize = xsize * ysize;
 const int buffersize = blocksize * 8;
-const int numDark = 150;
-const int stride = 2; // 30Hz mode (60 / 30)
+const int stride = 2; // 30 Hz mode (60 / 30)
 char *det_name_template[30] = {"EventInfo_stor0%d", "MPCCD-8-2-001-%d", "EventInfo_stor1_0%d"};
 char *LLF_ID = "BL3-ST4-MPCCD-octal"; // FIXME: LLF ID changed to ST4. how to switch automatically??
 
@@ -33,6 +32,28 @@ float posx[buffersize] = {}, posy[buffersize] = {}, posz[buffersize] = {};
 float gains[9] = {};
 int det_temp_idx = -1;
 char *streaders[8], *databufs[8];
+
+int myReadSyncDataList(std::vector<std::string>* buffer, char* equip_id, int tag_hi, int n_taglist, int *taglist) {
+	struct da_string_array *strbuf;
+	int n_strbuf, retno;
+
+	da_alloc_string_array(&strbuf);
+	retno = sy_read_syncdatalist(strbuf, equip_id, tag_hi, n_taglist, taglist);
+	if (retno != 0) {
+		return retno;
+	}
+
+	da_getsize_string_array(&n_strbuf, strbuf);
+	for (int i = 0; i < n_strbuf; i++) {
+		char *val;
+		da_getstring_string_array(&val, strbuf, i);
+		buffer->push_back(val);
+		free(val);
+	}
+	da_destroy_string_array(&strbuf);
+
+	return retno;
+}
 
 int main(int argc, char **argv) {
   if(argc < 2) {
@@ -47,18 +68,49 @@ int main(int argc, char **argv) {
 }
 
 int run(int runid) {
-  int retno = 0, start, tag_hi = -1;
+  int retno = 0, start, end, tag_hi = -1;
 
   printf("SACLA geometry & dark average exporter\n");
   printf(" By Takanori Nakane\n");
-  printf(" version 20151116 with new API\n\n");
+  printf(" version 20160127 with new API\n\n");
   
-  // get tag_hi and start
+  // Get tag_hi, start, end
   retno = sy_read_start_tagnumber(&tag_hi, &start, bl, runid);
+  retno += sy_read_end_tagnumber(&tag_hi, &end, bl, runid);
   if (retno != 0) {
-	  printf("ERROR: Cannot read run %d.\n", runid);
-    printf("If this run is before Nov 2014, please use the old API version.\n");
+	printf("ERROR: Cannot read run %d.\n", runid);
+	printf("If this run is before Nov 2014, please use the old API version.\n");
     return -1;
+  }
+
+  int numAll = (end - start) / stride + 1;
+  printf("Run %d contains tag %d - %d (%d images)\n", runid, start, end, numAll);
+  int *tagAll = (int*)malloc(sizeof(int) * numAll);
+  for (int i = 0; i < numAll; i++) {
+    tagAll[i] = start + i * stride;
+  }
+
+  // How many dark frames?
+  std::vector<std::string> shutter;
+  if (myReadSyncDataList(&shutter, "xfel_bl_3_shutter_1_open_valid/status", tag_hi, numAll, tagAll) != 0) {
+    printf("Failed to get shutter status.\n");
+    return -1;
+  }
+  free(tagAll);
+
+  int numDark = 0;
+  for (int i = 0; i < numAll; i++) {
+    if (atoi(shutter[i].c_str()) == 0) {
+	  numDark++;
+	} else {
+      break;
+    }
+  }
+  printf("Number of dark frames: %d\n\n", numDark);
+
+  int *tagList = (int*)malloc(sizeof(int) * numDark);
+  for (int i = 0; i < numDark; i++) {
+    tagList[i] = start + i * stride;
   }
 
   // find detector ID
@@ -87,10 +139,6 @@ int run(int runid) {
   da_destroy_string_array(&det_ids);
 
   printf("\n");
-  int tagList[numDark];
-  for (int i = 0; i < numDark; i++) {
-    tagList[i] = start + i * stride;
-  }
    
   // Create storage readers and buffers
   // collect first image (used to generate geometry files)
@@ -177,18 +225,17 @@ int run(int runid) {
       pulse_energies.push_back("7.0");
     }
   } else {
-      da_alloc_string_array(&energies);
-      sy_read_syncdatalist(energies, "xfel_bl_3_tc_spec_1/energy", tag_hi,
-			   numDark, tagList);
+    da_alloc_string_array(&energies);
+    sy_read_syncdatalist(energies, "xfel_bl_3_tc_spec_1/energy", tag_hi, numDark, tagList);
 
-      da_getsize_string_array(&n_energy, energies);
-      for (int i = 0; i < n_energy; i++) {
-	char *val;
-	da_getstring_string_array(&val, energies, i);
-	pulse_energies.push_back(val);
-	free(val);
-      }
-        da_destroy_string_array(&energies);
+    da_getsize_string_array(&n_energy, energies);
+    for (int i = 0; i < n_energy; i++) {
+      char *val;
+      da_getstring_string_array(&val, energies, i);
+      pulse_energies.push_back(val);
+      free(val);
+    }
+    da_destroy_string_array(&energies);
   }
   
   printf("xfel_bl_3_tc_spec_1/energy for %ld frames.\n", pulse_energies.size());
@@ -268,6 +315,7 @@ int run(int runid) {
     st_destroy_streader(&streaders[det_id]);
   }
 
+  free(tagList);
   return 0;
 }
 

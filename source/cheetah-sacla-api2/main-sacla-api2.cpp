@@ -117,8 +117,8 @@ int main(int argc, char *argv[]) {
 	int runNumber = -1;
 	char cheetahIni[4096] = {};
 	int maxI_threshold = 10000;
-	int startAt = 300;
-	int stride = 2; // 30Hz mode (60 / 30)
+	int startAt = 0;
+	int stride = 2; // 30 Hz mode (60 / 30)
 	double pd1_threshold = 0, pd2_threshold = 0;
 	char *pd1_sensor_name = "xfel_bl_3_st_4_pd_laser_fitting_peak/voltage";
 	char *pd2_sensor_name = "xfel_bl_3_st_4_pd_user_10_fitting_peak/voltage";
@@ -134,7 +134,6 @@ int main(int argc, char *argv[]) {
 		{"output", 1, NULL, 'o'},
 		{"run", 1, NULL, 'r'},
 		{"maxI", 1, NULL, 'm'},
-		{"start_at", 1, NULL, 10},
 		{"stride", 1, NULL, 11},
 		{"station", 1, NULL, 12},
 		{"pd1_thresh", 1, NULL, 13},
@@ -160,9 +159,6 @@ int main(int argc, char *argv[]) {
 			break;
 		case 'm':
 			maxI_threshold = atoi(optarg);
-			break;
-		case 10: // start-at
-			startAt = atoi(optarg);
 			break;
 		case 11: // stride
 			tmp = atoi(optarg);
@@ -230,8 +226,7 @@ int main(int argc, char *argv[]) {
 	printf(" cheetah ini file (-i/--ini):  %s\n", cheetahIni);
 	printf(" output H5 file (-o/--output): %s (default = run######.h5)\n", outputH5);
 	printf(" maxI threshold (-m/--maxI):   %d (default = 10000)\n", maxI_threshold);
-	printf(" start frame (--start_at):     %d (default = 300; to skip 150 dark frames)\n", startAt);
-	printf(" stride (--stride):            %d (default = 2; 30Hz mode)\n", stride);
+	printf(" stride (--stride):            %d (default = 2; 30 Hz mode)\n", stride);
 	printf(" station (--station):          %d (default = 4)\n", station);
 	printf(" PD1 threshold (--pd1_thresh): %.3f (default = 0; ignore.)\n", pd1_threshold);
 	printf(" PD2 threshold (--pd2_thresh): %.3f (default = 0; ignore.)\n", pd2_threshold);
@@ -273,7 +268,32 @@ int main(int argc, char *argv[]) {
 		return -1;
 	}
 	retno = sy_read_end_tagnumber(&tag_hi, &end, bl, runNumber);
-	printf("tag_hi = %d start = %d end = %d retno = %d\n", tag_hi, start, end, retno);
+
+	// How many dark frames?
+	int numAll = (end - start) / stride + 1;
+	printf("Run %d contains tag %d - %d (%d images), taghi = %d\n", runNumber, start, end, numAll, tag_hi);
+	int *tagAll = (int*)malloc(sizeof(int) * numAll);
+	for (int i = 0; i < numAll; i++) {
+		tagAll[i] = start + i * stride;
+	}
+
+	std::vector<std::string> shutterAll;
+	if (myReadSyncDataList(&shutterAll, "xfel_bl_3_shutter_1_open_valid/status", tag_hi, numAll, tagAll) != 0) {
+		printf("Failed to get shutter status.\n");
+		return -1;
+	}
+
+	int numDark = 0;
+	for (int i = 0; i < numAll; i++) {
+		if (atoi(shutterAll[i].c_str()) == 0) {
+			numDark++;
+		} else {
+			break;
+		}
+	}
+	printf("Number of dark frames: %d\n\n", numDark);
+	startAt = (numDark + 1) * stride;
+	free(tagAll);
 
 	// find detector ID
 	struct da_string_array *det_ids;
