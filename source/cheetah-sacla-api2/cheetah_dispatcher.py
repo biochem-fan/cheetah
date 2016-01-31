@@ -341,6 +341,7 @@ class MainWindow(wx.Frame):
             self.vsizer.Hide(self.hsizer_pd1)
         if self.opts.pd2_name is None:
             self.vsizer.Hide(self.hsizer_pd2)
+        self.Layout()
         
         self.timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self.OnTimer)
@@ -410,7 +411,6 @@ class MainWindow(wx.Frame):
                 x[t] = 0
         for row in rows:
             text = self.table.GetCellValue(row, 0)
-            print text
             typ = "normal"
             for t in types:
                 if text.endswith(t):
@@ -673,8 +673,11 @@ class MainWindow(wx.Frame):
 
         try:
             indexed = int(event.msg['indexed'])
-            self.table.SetCellValue(row, MainWindow.COL_INDEXED, 
-                                    "%d (%.1f%%)" % (indexed, 100.0 * indexed / hits))
+            if hits == 0:
+                self.table.SetCellValue(row, MainWindow.COL_INDEXED, "0 (0.0%)")
+            else:
+                self.table.SetCellValue(row, MainWindow.COL_INDEXED,
+                                            "%d (%.1f%%)" % (indexed, 100.0 * indexed / hits))
         except:
             self.table.SetCellValue(row, MainWindow.COL_INDEXED, "NA")
 
@@ -734,7 +737,7 @@ class ProgressCellRenderer(wx.grid.PyGridCellRenderer):
         return ProgressCellRenderer() 
 
 print
-print "Cheetah dispatcher GUI version 2016/01/25"
+print "Cheetah dispatcher GUI version 2016/01/30"
 print "   by Takanori Nakane (takanori.nakane@bs.s.u-tokyo.ac.jp)"
 print
 if not os.path.exists("sacla-photon.ini"):
