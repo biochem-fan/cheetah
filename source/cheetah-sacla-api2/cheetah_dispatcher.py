@@ -428,9 +428,13 @@ class MainWindow(wx.Frame):
             if total[t] != 0:
                 if message != "":
                     message += "\n"
-                message += "Type: %s\nTotal: %d\nProcessed: %d\nAccepted: %d\nHits: %d (%.1f%% of accepted)\nIndexed: %d (%.1f%% of hits)\n" % \
-                           (t, total[t], processed[t], accepted[t], hits[t], 100.0 * hits[t] / accepted[t], indexed[t],
-                            100.0 * indexed[t] / hits[t])
+                message += "Type: %s\nTotal: %d\nProcessed: %d\nAccepted: %d\nHits: %d" % (t, total[t], processed[t], accepted[t], hits[t])
+                if accepted[t] != 0:
+                    message += " (%.1f%% of accepted)" % (100.0 * hits[t] / accepted[t])
+                message += "\nIndexed: %d " % indexed[t]
+                if hits[t] != 0:
+                    message += " (%.1f%% of hits)" % (100.0 * indexed[t] / hits[t])
+                message += "\n"                
         dlg = wx.MessageDialog(None, message, "Cheetah dispatcher")
         dlg.ShowModal()
         dlg.Destroy()
@@ -737,7 +741,7 @@ class ProgressCellRenderer(wx.grid.PyGridCellRenderer):
         return ProgressCellRenderer() 
 
 print
-print "Cheetah dispatcher GUI version 2016/01/30"
+print "Cheetah dispatcher GUI version 2016/02/03"
 print "   by Takanori Nakane (takanori.nakane@bs.s.u-tokyo.ac.jp)"
 print
 if not os.path.exists("sacla-photon.ini"):
