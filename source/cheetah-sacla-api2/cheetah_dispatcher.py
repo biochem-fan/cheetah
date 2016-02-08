@@ -120,7 +120,11 @@ class LogWatcher(threading.Thread):
         self.cv = threading.Condition()
         self.runid = runid
         self.comment = None
-        self.start()
+        try:
+            self.start()
+        except: # To avoid "too many theads" error
+            time.sleep(1) # wait "Finished" threads to be stopped
+            self.start
 
     def stop(self):
         self.running = False
@@ -741,7 +745,7 @@ class ProgressCellRenderer(wx.grid.PyGridCellRenderer):
         return ProgressCellRenderer() 
 
 print
-print "Cheetah dispatcher GUI version 2016/02/03"
+print "Cheetah dispatcher GUI version 2016/02/08"
 print "   by Takanori Nakane (takanori.nakane@bs.s.u-tokyo.ac.jp)"
 print
 if not os.path.exists("sacla-photon.ini"):
