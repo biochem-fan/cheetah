@@ -403,7 +403,6 @@ class MainWindow(wx.Frame):
             self.CountSums(self.table.GetSelectedRows())
 
     def CountSums(self, rows):
-        # TODO: Separate light/dark
         total = {}
         processed = {}
         accepted = {}
@@ -439,7 +438,7 @@ class MainWindow(wx.Frame):
                 if hits[t] != 0:
                     message += " (%.1f%% of hits)" % (100.0 * indexed[t] / hits[t])
                 message += "\n"                
-        dlg = wx.MessageDialog(None, message, "Cheetah dispatcher")
+        dlg = wx.MessageDialog(None, message, "Summary", wx.OK)
         dlg.ShowModal()
         dlg.Destroy()
 
@@ -464,7 +463,7 @@ class MainWindow(wx.Frame):
             t = threading.Thread(target=launchCellExplorer).start()
         else:
             message = "Indexing result for {runid} is not available (yet)." % runid
-            dlg = wx.MessageDialog(None, message, "Cheetah dispatcher")
+            dlg = wx.MessageDialog(None, message, "Cheetah dispatcher", wx.OK)
 
     def KillJob(self, runid):
         message = "Are you sure to kill job %s?" % runid
@@ -634,6 +633,13 @@ class MainWindow(wx.Frame):
         self.table.SetCellValue(row, MainWindow.COL_STATUS, "waiting")
 
     def onClose(self, event):
+        dlg = wx.MessageDialog(self, "Do you really want to exit? Submitted jobs are kept running.",
+                               "Exit", wx.YES_NO|wx.ICON_QUESTION)
+        result = dlg.ShowModal()
+        dlg.Destroy()
+        if result != wx.ID_YES:
+            return
+        
         # WaitFor is implemented using wxTimer, so we don't have to worry about it.
         for th in self.subthreads:
             th.stop()
@@ -745,7 +751,7 @@ class ProgressCellRenderer(wx.grid.PyGridCellRenderer):
         return ProgressCellRenderer() 
 
 print
-print "Cheetah dispatcher GUI version 2016/02/08"
+print "Cheetah dispatcher GUI version 2016/02/18"
 print "   by Takanori Nakane (takanori.nakane@bs.s.u-tokyo.ac.jp)"
 print
 if not os.path.exists("sacla-photon.ini"):
