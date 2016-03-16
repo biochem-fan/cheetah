@@ -25,6 +25,7 @@ import wx.lib.newevent
 
 PARALLEL_SIZE = 3 # MUST match hard-coded value in Cheetah
 
+re_filename = re.compile("^[0-9]{6}(-dark1|-dark2|-light|-\d)?$")
 re_status = re.compile("^Status:")
 (ThreadEvent, EVT_THREAD) = wx.lib.newevent.NewEvent()
 
@@ -195,7 +196,6 @@ class AutoQsub(threading.Thread):
     MAX_JOBS = 14
     LONG_WAIT = 20
     SHORT_WAIT = 1
-    re_filename = re.compile("^[0-9]{6}(-light|-[1-9])?$")
 
     def __init__(self, queue="serial"):
         super(AutoQsub, self).__init__()
@@ -216,7 +216,7 @@ class AutoQsub(threading.Thread):
     def checkAndSubmit(self, forceSubmit=False):
 #        print "started directory scan ---"
         for filename in sorted(glob.glob("*"), reverse=True):
-            if os.path.isdir(filename) and self.re_filename.match(filename) != None:
+            if os.path.isdir(filename) and re_filename.match(filename) != None:
                 dir = filename
                 if os.path.exists(dir + "/run.sh") and not os.path.exists(dir + "/job.id"):
                     self.cv.acquire()
@@ -462,8 +462,7 @@ class MainWindow(wx.Frame):
         if os.path.exists("%s/%s.stream" % (runid, runid)):
             t = threading.Thread(target=launchCellExplorer).start()
         else:
-            message = "Indexing result for {runid} is not available (yet)." % runid
-            dlg = wx.MessageDialog(None, message, "Cheetah dispatcher", wx.OK)
+            self.showError("Indexing result for {runid} is not available (yet).".format(runid=runid))
 
     def KillJob(self, runid):
         message = "Are you sure to kill job %s?" % runid
@@ -486,7 +485,6 @@ class MainWindow(wx.Frame):
             print traceback.format_exc()
 
     def scanDirectory(self):
-        re_filename = re.compile("^[0-9]{6}(-dark1|-dark2|-light|-\d)?$")
         for filename in sorted(glob.glob("*")):
             if os.path.isdir(filename) and re_filename.match(filename) != None:
                 self.addRun(filename)
@@ -751,7 +749,7 @@ class ProgressCellRenderer(wx.grid.PyGridCellRenderer):
         return ProgressCellRenderer() 
 
 print
-print "Cheetah dispatcher GUI version 2016/02/18"
+print "Cheetah dispatcher GUI version 2016/03/16"
 print "   by Takanori Nakane (takanori.nakane@bs.s.u-tokyo.ac.jp)"
 print
 if not os.path.exists("sacla-photon.ini"):
