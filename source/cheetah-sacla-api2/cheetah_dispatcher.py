@@ -296,9 +296,9 @@ class MainWindow(wx.Frame):
         self.label_runid = wx.StaticText(self, wx.ID_ANY, "Run ID:")
         self.text_maxI = wx.TextCtrl(self, wx.ID_ANY, "0")
         self.label_maxI = wx.StaticText(self, wx.ID_ANY, "MaxI threshold:")
-        self.combo_station = wx.ComboBox(self, wx.ID_ANY, value="ST4", choices=["ST3", "ST4"], 
+        self.combo_station = wx.ComboBox(self, wx.ID_ANY, value="ST4", choices=["ST2", "ST3", "ST4"],
                                          size=(80, -1), style=wx.CB_READONLY)
-        self.combo_station.SetSelection(1) # somehow value= is ignored...
+        self.combo_station.SetSelection(2) # somehow value= is ignored...
 
         self.hsizer = wx.BoxSizer(wx.HORIZONTAL)
         self.hsizer.Add(self.label_runid, 0, wx.ALIGN_CENTER_VERTICAL)
@@ -443,6 +443,7 @@ class MainWindow(wx.Frame):
         dlg.Destroy()
 
     def HDFsee(self, runid):
+        # FIXME: warn when multiple rows are selected
         runnum = re.sub("-light|-0", "", runid)
         def launchHDFsee():
             if os.path.exists("%s/%s.stream" % (runid, runid)):
@@ -454,6 +455,7 @@ class MainWindow(wx.Frame):
         threading.Thread(target=launchHDFsee).start()
 
     def CellExplorer(self, runid):
+        # FIXME: warn when multiple rows are selected
         def launchCellExplorer():
             command = "cd {runid}; cell_explorer {runid}.stream &".format(runid=runid)
             os.system(command)
@@ -749,7 +751,7 @@ class ProgressCellRenderer(wx.grid.PyGridCellRenderer):
         return ProgressCellRenderer() 
 
 print
-print "Cheetah dispatcher GUI version 2016/03/16"
+print "Cheetah dispatcher GUI version 2016/04/04"
 print "   by Takanori Nakane (takanori.nakane@bs.s.u-tokyo.ac.jp)"
 print
 if not os.path.exists("sacla-photon.ini"):

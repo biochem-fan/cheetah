@@ -32,10 +32,11 @@ const int blocksize = xsize * ysize;
 const int buffersize = blocksize * NDET;
 const int PD_ANY = -1, PD_LIGHT = 0, PD_DARK1 = 1, PD_DARK2 = 2;
 
-char *det_name_template[30] = {"EventInfo_stor0%d", "MPCCD-8-2-001-%d", "EventInfo_stor1_0%d"};
+char *det_name_template[30] = {"EventInfo_stor0%d", "MPCCD-8-2-001-%d", "EventInfo_stor1_0%d", "MPCCD-8-2-002-%d"};
 char LLF_ID[50] = {};
 char *LLF_ST4 = "BL3-ST4-MPCCD-octal";
 char *LLF_ST3 = "BL3-ST3-MPCCD-octal";
+char *LLF_ST2 = "BL3-ST2-MPCCD-octal";
 
 // FIXME: make these local. Is Cheetah's main portion reentrant?
 double buffer[buffersize] = {};
@@ -108,7 +109,7 @@ static bool get_image(double *buffer, int tag, double photon_energy) {
 }
 
 int main(int argc, char *argv[]) {
-	printf("Cheetah for SACLA new offline API -- version 160105\n");
+	printf("Cheetah for SACLA new offline API -- version 160404\n");
 	printf(" by Takanori Nakane\n");
 	printf(" This program is based on cheetah-sacla by Anton Barty.\n");
 	int c, retno;
@@ -212,7 +213,9 @@ int main(int argc, char *argv[]) {
 	if (strnlen(outputH5, 4096) == 0) {
 		snprintf(outputH5, 4096, "run%d.h5", runNumber);
 	}
-	if (station == 3) {
+	if (station == 2) {
+		strncpy(LLF_ID, LLF_ST2, 50);
+	} else if (station == 3) {
 		strncpy(LLF_ID, LLF_ST3, 50);
 	} else if (station == 4) {
 		strncpy(LLF_ID, LLF_ST4, 50);
@@ -308,10 +311,12 @@ int main(int argc, char *argv[]) {
 		char *detid;
 		da_getstring_string_array(&detid, det_ids, i);
 		printf(" detID #%d = %s\n", i, detid);
-		if (strcmp(detid, "MPCCD-8-2-001-1")) {
+		if (strcmp(detid, "MPCCD-8-2-001-1") == 0) {
 			det_temp_idx = 1;
-		} else if (strcmp(detid, "EventInfo_stor01")) {
-			det_temp_idx = 0;
+		} else if (strcmp(detid, "EventInfo_stor01") == 0) {
+			printf("ERROR: This detector is not longer supported by the API. Use old Cheetah.\n");
+		} else if (strcmp(detid, "MPCCD-8-2-002-1") == 0) {
+			det_temp_idx = 3;
 		}
 		free(detid);    
 	}
@@ -424,11 +429,18 @@ int main(int argc, char *argv[]) {
 		sy_read_statistics_detllf(llf, LLF_ID, bl, tag_hi, tagList.size(), tagList_array);
 		
 		da_getsize_string_array(&n_llf, llf);
-		for (int i = 0; i < n_llf; i++) {
-			char *val;
-			da_getstring_string_array(&val, llf, i);
-			maxIs.push_back(val);
-			free(val);
+		if (n_llf != (signed)tagList.size()) {
+			printf("WARNING: Failed to get LLF. Filling 65535 instead.\n");
+			for (int i = 0; i < (signed)tagList.size(); i++) {
+				maxIs.push_back("65535");
+			}
+		} else {
+			for (int i = 0; i < n_llf; i++) {
+				char *val;
+				da_getstring_string_array(&val, llf, i);
+				maxIs.push_back(val);
+				free(val);
+			}
 		}
 		da_destroy_string_array(&llf);
 	}

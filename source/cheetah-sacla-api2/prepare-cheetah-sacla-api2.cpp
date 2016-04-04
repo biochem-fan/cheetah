@@ -22,7 +22,7 @@ const int ydatasize = 1030;
 const int blocksize = xsize * ysize;
 const int buffersize = blocksize * 8;
 const int stride = 2; // 30 Hz mode (60 / 30)
-char *det_name_template[30] = {"EventInfo_stor0%d", "MPCCD-8-2-001-%d", "EventInfo_stor1_0%d"};
+char *det_name_template[30] = {"EventInfo_stor0%d", "MPCCD-8-2-001-%d", "EventInfo_stor1_0%d", "MPCCD-8-2-002-%d"};
 char *LLF_ID = "BL3-ST4-MPCCD-octal"; // FIXME: LLF ID changed to ST4. how to switch automatically??
 
 // FIXME: make these local
@@ -126,14 +126,17 @@ int run(int runid) {
     char *detid;
     da_getstring_string_array(&detid, det_ids, i);
     printf(" detID #%d = %s\n", i, detid);
-    if (strcmp(detid, "MPCCD-8-2-001-1")) {
+    if (strcmp(detid, "MPCCD-8-2-001-1") == 0) {
       det_temp_idx = 1;
-      //      break;
-    }
-    free(detid);    
+    } else if (strcmp(detid, "MPCCD-8-2-002-1") == 0) {
+      det_temp_idx = 3;
+    } else if (strcmp(detid, "EventInfo_stor01") == 0) {
+      printf("ERROR: This detector is not longer supported by the API. Use old Cheetah.\n");
+	}
+    free(detid);
   }
   if (det_temp_idx == -1) {
-    printf("ERROR: Unknown detector ID.\n");
+    printf("ERROR: Unknown or non-supported detector ID.\n");
     return -1;
   }
   da_destroy_string_array(&det_ids);
