@@ -72,7 +72,7 @@ int run(int runid) {
 
   printf("SACLA geometry & dark average exporter\n");
   printf(" By Takanori Nakane\n");
-  printf(" version 20160127 with new API\n\n");
+  printf(" version 20160404 with new API\n\n");
   
   // Get tag_hi, start, end
   retno = sy_read_start_tagnumber(&tag_hi, &start, bl, runid);
