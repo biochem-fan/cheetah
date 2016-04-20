@@ -93,10 +93,10 @@ cPixelDetectorCommon::cPixelDetectorCommon() {
 	strcpy(commonModeCorrection, "undefined");
 	cmModule = 0;
 	cmFloor = 0.1;
-    cmStart = -100;
-    cmStop = 100;
-    cmThreshold = 10;
-    cmRange = 1.0;
+	cmStart = -100;
+	cmStop = 100;
+	cmThreshold = 10;
+	cmRange = 1.0;
 	cspadSubtractUnbondedPixels = 0;
 	cspadSubtractBehindWires = 0;
     
@@ -106,7 +106,7 @@ cPixelDetectorCommon::cPixelDetectorCommon() {
 	
 	// Polarization correction
 	usePolarizationCorrection = 0;
-    horizontalFractionOfPolarization = 1.0;
+	horizontalFractionOfPolarization = 1.0;
     
 	// Solid angle correction
 	useSolidAngleCorrection = 0;
@@ -285,8 +285,8 @@ void cPixelDetectorCommon::configure(cGlobal * global) {
 		
 	} else if(strcmp(detectorName, "eiger-1m") == 0 ) {
 		strcpy(detectorType, "eiger-1m");
-		asic_nx = EIGER1M_ASIC_NX/2;
-		asic_ny = EIGER1M_ASIC_NY/2;
+		asic_nx = EIGER1M_ASIC_NX;
+		asic_ny = EIGER1M_ASIC_NY;
 		nasics_x = 1;
 		nasics_y = 1;
 		asic_nn = asic_nx*asic_ny;
@@ -296,8 +296,8 @@ void cPixelDetectorCommon::configure(cGlobal * global) {
 		pixelSize = 75e-6;
 	} else if(strcmp(detectorName, "eiger-4m") == 0 ) {
 		strcpy(detectorType, "eiger-4m");
-		asic_nx = EIGER4M_ASIC_NX/2;
-		asic_ny = EIGER4M_ASIC_NY/2;
+		asic_nx = EIGER4M_ASIC_NX;
+		asic_ny = EIGER4M_ASIC_NY;
 		nasics_x = 1;
 		nasics_y = 1;
 		asic_nn = asic_nx*asic_ny;
@@ -307,8 +307,8 @@ void cPixelDetectorCommon::configure(cGlobal * global) {
 		pixelSize = 75e-6;
 	} else if(strcmp(detectorName, "eiger-16m") == 0 ) {
 		strcpy(detectorType, "eiger-16m");
-		asic_nx = EIGER16M_ASIC_NX/2;
-		asic_ny = EIGER16M_ASIC_NY/2;
+		asic_nx = EIGER16M_ASIC_NX;
+		asic_ny = EIGER16M_ASIC_NY;
 		nasics_x = 1;
 		nasics_y = 1;
 		asic_nn = asic_nx*asic_ny;
