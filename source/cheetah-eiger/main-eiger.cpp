@@ -190,6 +190,7 @@ int main(int argc, const char * argv[]) {
             
         // Cheetah: Populate event structure with meta-data
 		eventData->frameNumber = frameNumber;
+		eventData->fiducial = frameNumber;
 		eventData->runNumber = runNumber;
 		eventData->nPeaks = 0;
 		eventData->pumpLaserCode = 0;
