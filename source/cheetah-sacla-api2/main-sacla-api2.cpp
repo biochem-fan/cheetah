@@ -30,7 +30,7 @@ const int ysize = 1024;
 const int ydatasize = 1030;
 const int blocksize = xsize * ysize;
 const int buffersize = blocksize * NDET;
-const int PD_ANY = -1, PD_LIGHT = 0, PD_DARK1 = 1, PD_DARK2 = 2;
+const int PD_ANY = -1, PD_LIGHT = 0, PD_DARK1 = 1, PD_DARK2 = 2, PD_DARK_ANY = -2;
 
 char *det_name_template[30] = {"EventInfo_stor0%d", "MPCCD-8-2-001-%d", "EventInfo_stor1_0%d", "MPCCD-8-2-002-%d"};
 char LLF_ID[50] = {};
@@ -185,6 +185,8 @@ int main(int argc, char *argv[]) {
 				light_dark = PD_DARK1;
 			} else if (strcmp(optarg, "dark2") == 0) {
 				light_dark = PD_DARK2;
+			} else if (strcmp(optarg, "dark") == 0) {
+				light_dark = PD_DARK_ANY;
 			} else {
 				parallel_block = atoi(optarg);
 				if (parallel_block < -1 || parallel_block >= parallel_size) {
@@ -235,7 +237,7 @@ int main(int argc, char *argv[]) {
 	printf(" PD2 threshold (--pd2_thresh): %.3f (default = 0; ignore.)\n", pd2_threshold);
 	printf(" PD1 sensor name (--pd1_name): %s\n)", pd1_sensor_name);
 	printf(" PD2 sensor name (--pd2_name): %s\n)", pd2_sensor_name);
-	printf(" nFrame after light:           %d (default = -1; any)\n", light_dark);
+	printf(" nFrame after light:           %d (default = -1; accept all image. -2; accept all dark images)\n", light_dark);
 	printf(" parallel_block:               %d (default = -1; no parallelization)\n", parallel_block);
 
 	if (runNumber < 0 || strlen(cheetahIni) == 0) {
@@ -515,7 +517,8 @@ int main(int argc, char *argv[]) {
 		printf("Event %d: energy %f frame_after_light %d pd1_value %f pd2_value %f\n", tagID, photon_energy, frame_after_light, pd1_value, pd2_value);
 		if ((light_dark == PD_DARK1 && frame_after_light != 1) ||
 			(light_dark == PD_DARK2 && frame_after_light != 2) ||
-			(light_dark == PD_LIGHT && frame_after_light != 0)) continue;
+			(light_dark == PD_LIGHT && frame_after_light != 0) ||
+			(light_dark == PD_DARK_ANY && frame_after_light == 0)) continue;
 
 		processedTags++;
 

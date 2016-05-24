@@ -25,7 +25,7 @@ import wx.lib.newevent
 
 PARALLEL_SIZE = 3 # MUST match hard-coded value in Cheetah
 
-re_filename = re.compile("^[0-9]{6}(-dark1|-dark2|-light|-\d)?$")
+re_filename = re.compile("^[0-9]{6}(-dark1|-dark2|-dark|-light|-\d)?$")
 re_status = re.compile("^Status:")
 (ThreadEvent, EVT_THREAD) = wx.lib.newevent.NewEvent()
 
@@ -408,7 +408,7 @@ class MainWindow(wx.Frame):
         accepted = {}
         hits = {}
         indexed = {}
-        types = ("normal", "light", "dark1", "dark2")
+        types = ("normal", "light", "dark1", "dark2", "dark")
         for t in types:
             for x in (total, processed, accepted, hits, indexed):
                 x[t] = 0
@@ -581,7 +581,10 @@ class MainWindow(wx.Frame):
             if (pd2_thresh != 0 and self.opts.pd2_name is not None):
                 arguments += " --pd2_thresh=%.3f --pd2_name=%s " % (pd2_thresh, self.opts.pd2_name)
             master_arguments = arguments + " --type=light "
-            subjobs.append("dark1")
+            if self.opts.submit_dark_any == 1:
+                subjobs.append("dark")
+            else:
+                subjobs.append("dark1")
             if self.opts.submit_dark2 == 1:
                 subjobs.append("dark2")
         else:
@@ -768,17 +771,23 @@ parser.add_option("--queue", dest="queue", type=str, default="serial", help="que
 parser.add_option("--pd1_name", dest="pd1_name", type=str, default=None, help="queue name")
 # e.g. xfel_bl_3_st_4_pd_user_10_fitting_peak/voltage
 parser.add_option("--pd2_name", dest="pd2_name", type=str, default=None, help="queue name")
-parser.add_option("--submit_dark2", dest="submit_dark2", type=int, default=False, help="submit dark2")
+parser.add_option("--submit_dark2", dest="submit_dark2", type=int, default=False, help="accepts second darks (Ln-D2)")
+parser.add_option("--submit_dark_any", dest="submit_dark_any", type=int, default=False, help="accepts any lights and darks (Ln-Dm)")
 parser.add_option("--crystfel_args", dest="crystfel_args", type=str, default="", help="optional arguments to CrystFEL")
 opts, args = parser.parse_args()
 
-print "Option: clen          = %f mm" % opts.clen
-print "Option: quick         = %s" % opts.quick
-print "Option: queue         = %s" % opts.queue
-print "Option: pd1_name      = %s" % opts.pd1_name
-print "Option: pd2_name      = %s" % opts.pd2_name
-print "Option: submit_dark2  = %s" % opts.submit_dark2
-print "Option: crystfel_args = %s" % opts.crystfel_args
+print "Option: clen             = %f mm" % opts.clen
+print "Option: quick            = %s" % opts.quick
+print "Option: queue            = %s" % opts.queue
+print "Option: pd1_name         = %s" % opts.pd1_name
+print "Option: pd2_name         = %s" % opts.pd2_name
+print "Option: submit_dark2     = %s" % opts.submit_dark2
+print "Option: submit_dark_any  = %s" % opts.submit_dark_any
+print "Option: crystfel_args    = %s" % opts.crystfel_args
+
+if opts.submit_dark2 == 1 and opts.submit_dark_any == 1:
+    sys.stderr.write("You cannot enable submit_dark2 and submit_dark_any simultaneously!\n")
+    sys.exit(-1)
 
 app = wx.App(False)
 frame = MainWindow(None, opts)
