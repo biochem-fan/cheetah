@@ -109,7 +109,7 @@ static bool get_image(double *buffer, int tag, double photon_energy) {
 }
 
 int main(int argc, char *argv[]) {
-	printf("Cheetah for SACLA new offline API -- version 160404\n");
+	printf("Cheetah for SACLA new offline API -- version 160525\n");
 	printf(" by Takanori Nakane\n");
 	printf(" This program is based on cheetah-sacla by Anton Barty.\n");
 	int c, retno;
@@ -120,9 +120,10 @@ int main(int argc, char *argv[]) {
 	int maxI_threshold = 10000;
 	int startAt = 0;
 	int stride = 2; // 30 Hz mode (60 / 30)
-	double pd1_threshold = 0, pd2_threshold = 0;
+	double pd1_threshold = 0, pd2_threshold = 0, pd3_threshold = 0;
 	char *pd1_sensor_name = "xfel_bl_3_st_4_pd_laser_fitting_peak/voltage";
 	char *pd2_sensor_name = "xfel_bl_3_st_4_pd_user_10_fitting_peak/voltage";
+	char *pd3_sensor_name = "xfel_bl_3_st_4_pd_user_10_fitting_peak/voltage"; // same as pd2 (dummy)
 	int parallel_block = -1;
 	int light_dark = PD_ANY;
 	
@@ -143,6 +144,8 @@ int main(int argc, char *argv[]) {
 		{"list", 1, NULL, 16},
 		{"pd1_name", 1, NULL, 17},
 		{"pd2_name", 1, NULL, 18},
+		{"pd3_thresh", 1, NULL, 19},
+		{"pd3_name", 1, NULL, 20},
 		{0, 0, NULL, 0}
 	};
 
@@ -178,6 +181,9 @@ int main(int argc, char *argv[]) {
 		case 14: // pd2_thresh
 			pd2_threshold = atof(optarg);
 			break;
+		case 19: // pd3_thresh
+			pd3_threshold = atof(optarg);
+			break;
 		case 15: // type
 			if (strcmp(optarg, "light") == 0) {
 				light_dark = PD_LIGHT;
@@ -210,6 +216,9 @@ int main(int argc, char *argv[]) {
 		case 18: // pd2_name
 			pd2_sensor_name = strdup(optarg); // small leak.
 			break;
+		case 20: // pd3_name
+			pd3_sensor_name = strdup(optarg); // small leak.
+			break;
 		}
 	}
 	if (strnlen(outputH5, 4096) == 0) {
@@ -235,8 +244,10 @@ int main(int argc, char *argv[]) {
 	printf(" station (--station):          %d (default = 4)\n", station);
 	printf(" PD1 threshold (--pd1_thresh): %.3f (default = 0; ignore.)\n", pd1_threshold);
 	printf(" PD2 threshold (--pd2_thresh): %.3f (default = 0; ignore.)\n", pd2_threshold);
+	printf(" PD3 threshold (--pd3_thresh): %.3f (default = 0; ignore.)\n", pd3_threshold);
 	printf(" PD1 sensor name (--pd1_name): %s\n)", pd1_sensor_name);
 	printf(" PD2 sensor name (--pd2_name): %s\n)", pd2_sensor_name);
+	printf(" PD3 sensor name (--pd3_name): %s\n)", pd3_sensor_name);
 	printf(" nFrame after light:           %d (default = -1; accept all image. -2; accept all dark images)\n", light_dark);
 	printf(" parallel_block:               %d (default = -1; no parallelization)\n", parallel_block);
 
@@ -466,7 +477,7 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	std::vector<std::string> pd1_values, pd2_values, shutter;
+	std::vector<std::string> pd1_values, pd2_values, pd3_values, shutter;
 	retno = myReadSyncDataList(&pd1_values, pd1_sensor_name, tag_hi, tagList.size(), tagList_array);
 	if (retno != 0) {
 		printf("WARNING: Failed to get %s.\n", pd1_sensor_name);
@@ -474,6 +485,10 @@ int main(int argc, char *argv[]) {
 	retno = myReadSyncDataList(&pd2_values, pd2_sensor_name, tag_hi, tagList.size(), tagList_array);
 	if (retno != 0) {
 		printf("WARNING: Failed to get %s.\n", pd2_sensor_name);
+	}
+	retno = myReadSyncDataList(&pd3_values, pd3_sensor_name, tag_hi, tagList.size(), tagList_array);
+	if (retno != 0) {
+		printf("WARNING: Failed to get %s.\n", pd3_sensor_name);
 	}
 	retno = myReadSyncDataList(&shutter, "xfel_bl_3_shutter_1_open_valid/status", tag_hi, tagList.size(), tagList_array);
 	if (retno != 0) {
@@ -502,6 +517,7 @@ int main(int argc, char *argv[]) {
 
 		double pd1_value = atof(pd1_values[j].c_str());
 		double pd2_value = atof(pd2_values[j].c_str());
+		double pd3_value = atof(pd3_values[j].c_str());
 		double photon_energy; // in eV
 		photon_energy = 1000 * atof(pulse_energies[j].c_str());
 
@@ -512,9 +528,15 @@ int main(int argc, char *argv[]) {
 		if (pd2_threshold != 0 &&
 			!(pd2_threshold > 0 && pd2_threshold <= pd2_value) &&
 			!(pd2_threshold < 0 && -pd2_threshold > pd2_value)) light = false;
-		if (light) frame_after_light = 0;
-		else frame_after_light++;
-		printf("Event %d: energy %f frame_after_light %d pd1_value %f pd2_value %f\n", tagID, photon_energy, frame_after_light, pd1_value, pd2_value);
+		if (pd3_threshold != 0 &&
+			!(pd3_threshold > 0 && pd3_threshold <= pd3_value) &&
+			!(pd3_threshold < 0 && -pd3_threshold > pd3_value)) light = false;
+		if (light) {
+			frame_after_light = 0;
+		} else {
+			frame_after_light++;
+		}
+//		printf("Event %d: energy %f frame_after_light %d pd1_value %f pd2_value %f pd3_value %f\n", tagID, photon_energy, frame_after_light, pd1_value, pd2_value, pd3_value);
 		if ((light_dark == PD_DARK1 && frame_after_light != 1) ||
 			(light_dark == PD_DARK2 && frame_after_light != 2) ||
 			(light_dark == PD_LIGHT && frame_after_light != 0) ||
@@ -522,11 +544,11 @@ int main(int argc, char *argv[]) {
 
 		processedTags++;
 
-		printf("Event: %d (%d / %d (%.1f%%), Filter passed %d / %d (%.1f%%), Hits %ld (%.1f%%), maxI = %d, pd1_value = %.1f, pd2_value = %.3f\n",
+		printf("Event: %d (%d / %d (%.1f%%), Filter passed %d / %d (%.1f%%), Hits %ld (%.1f%%), maxI = %d, pd1_value = %.1f, pd2_value = %.3f, pd3_value = %.3f\n",
 			   tagID, (j + 1), tagSize, 100.0 * (j + 1) / tagSize, 
 			   LLFpassed, processedTags, 100.0 * LLFpassed / processedTags,
 			   cheetahGlobal.nhits, 100.0 * cheetahGlobal.nhits / processedTags,
-			   maxI, pd1_value, pd2_value);
+			   maxI, pd1_value, pd2_value, pd3_value);
 		if (maxI < maxI_threshold) {
 			continue;
 		}

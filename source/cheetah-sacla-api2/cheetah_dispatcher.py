@@ -313,6 +313,8 @@ class MainWindow(wx.Frame):
         self.label_pd1 = wx.StaticText(self, wx.ID_ANY, "%s :" % self.opts.pd1_name)
         self.text_pd2 = wx.TextCtrl(self, wx.ID_ANY, "0")
         self.label_pd2 = wx.StaticText(self, wx.ID_ANY, "%s:" % self.opts.pd2_name)
+        self.text_pd3 = wx.TextCtrl(self, wx.ID_ANY, "0")
+        self.label_pd3 = wx.StaticText(self, wx.ID_ANY, "%s:" % self.opts.pd3_name)
 
         self.hsizer_pd = wx.BoxSizer(wx.HORIZONTAL)
         self.hsizer_pd.Add(self.label_pd, 0, wx.ALIGN_CENTER_VERTICAL)
@@ -322,12 +324,16 @@ class MainWindow(wx.Frame):
         self.hsizer_pd2 = wx.BoxSizer(wx.HORIZONTAL)
         self.hsizer_pd2.Add(self.label_pd2, 0, wx.ALIGN_CENTER_VERTICAL)
         self.hsizer_pd2.Add(self.text_pd2, 0, wx.EXPAND | wx.ALL, 5)
+        self.hsizer_pd3 = wx.BoxSizer(wx.HORIZONTAL)
+        self.hsizer_pd3.Add(self.label_pd3, 0, wx.ALIGN_CENTER_VERTICAL)
+        self.hsizer_pd3.Add(self.text_pd3, 0, wx.EXPAND | wx.ALL, 5)
         
         self.vsizer = wx.BoxSizer(wx.VERTICAL)
         self.vsizer.Add(self.hsizer, 0, wx.EXPAND | wx.RIGHT)
         self.vsizer.Add(self.hsizer_pd, 0, wx.EXPAND | wx.RIGHT)
         self.vsizer.Add(self.hsizer_pd1, 0, wx.EXPAND | wx.RIGHT)
-        self.vsizer.Add(self.hsizer_pd2, 0, wx.EXPAND | wx.RIGHT)        
+        self.vsizer.Add(self.hsizer_pd2, 0, wx.EXPAND | wx.RIGHT)
+        self.vsizer.Add(self.hsizer_pd3, 0, wx.EXPAND | wx.RIGHT)
         
         self.vsizer.Add(self.table, 1, wx.EXPAND | wx.ALL)
 
@@ -339,12 +345,14 @@ class MainWindow(wx.Frame):
 #        self.vsizer.Fit(self)
         self.Show()
 
-        if self.opts.pd1_name is None and self.opts.pd2_name is None:
+        if self.opts.pd1_name is None and self.opts.pd2_name is None and self.opts.pd3_name is None:
             self.vsizer.Hide(self.hsizer_pd)
         if self.opts.pd1_name is None:
             self.vsizer.Hide(self.hsizer_pd1)
         if self.opts.pd2_name is None:
             self.vsizer.Hide(self.hsizer_pd2)
+        if self.opts.pd3_name is None:
+            self.vsizer.Hide(self.hsizer_pd3)
         self.Layout()
         
         self.timer = wx.Timer(self)
@@ -505,10 +513,11 @@ class MainWindow(wx.Frame):
             station = self.combo_station.GetStringSelection()[-1]
             pd1_thresh = float(self.text_pd1.GetValue())
             pd2_thresh = float(self.text_pd2.GetValue())
+            pd3_thresh = float(self.text_pd3.GetValue())
             re_single = re.match('^([0-9]+)$', run_str)
             re_range = re.match('^([0-9]+)-([0-9]+)$', run_str)
             re_autofollow = re.match('^([0-9]+)-$', run_str)
-            if maxI < 0 or pd1_thresh < 0 or pd2_thresh < 0:
+            if maxI < 0 or pd1_thresh < 0 or pd2_thresh < 0 or pd3_thresh < 0:
                 raise
 
             if re_single != None: # I wish I could use = within if !!
@@ -530,7 +539,7 @@ class MainWindow(wx.Frame):
             return
 
         for runid in runids:
-            self.startRun("%06d" % runid, maxI, station, pd1_thresh, pd2_thresh)
+            self.startRun("%06d" % runid, maxI, station, pd1_thresh, pd2_thresh, pd3_thresh)
 
     def stopWatch(self):
         self.waitFor = None
@@ -538,6 +547,7 @@ class MainWindow(wx.Frame):
         self.text_runid.Enable()
         self.text_pd1.Enable()
         self.text_pd2.Enable()
+        self.text_pd3.Enable()
         self.text_maxI.Enable()
         self.combo_station.Enable()
 
@@ -547,6 +557,7 @@ class MainWindow(wx.Frame):
         self.text_runid.Disable()
         self.text_pd1.Disable()
         self.text_pd2.Disable()
+        self.text_pd3.Disable()
         self.text_maxI.Disable()
         self.combo_station.Disable()
 
@@ -568,18 +579,20 @@ class MainWindow(wx.Frame):
         dlg.ShowModal()
         dlg.Destroy()
 
-    def startRun(self, runid, maxI, station, pd1_thresh=0, pd2_thresh=0):
+    def startRun(self, runid, maxI, station, pd1_thresh=0, pd2_thresh=0, pd3_thresh=0):
         run_dir = runid
         arguments = ""
         master_arguments = ""
         subjobs = []
         
-        if (pd1_thresh != 0 or pd2_thresh != 0):
+        if (pd1_thresh != 0 or pd2_thresh != 0 or pd3_thresh != 0):
             run_dir += "-light"
             if (pd1_thresh != 0 and self.opts.pd1_name is not None):
                 arguments += " --pd1_thresh=%.3f --pd1_name=%s " % (pd1_thresh, self.opts.pd1_name)
             if (pd2_thresh != 0 and self.opts.pd2_name is not None):
                 arguments += " --pd2_thresh=%.3f --pd2_name=%s " % (pd2_thresh, self.opts.pd2_name)
+            if (pd3_thresh != 0 and self.opts.pd3_name is not None):
+                arguments += " --pd3_thresh=%.3f --pd3_name=%s " % (pd3_thresh, self.opts.pd3_name)
             master_arguments = arguments + " --type=light "
             if self.opts.submit_dark_any == 1:
                 subjobs.append("dark")
@@ -754,7 +767,7 @@ class ProgressCellRenderer(wx.grid.PyGridCellRenderer):
         return ProgressCellRenderer() 
 
 print
-print "Cheetah dispatcher GUI version 2016/04/04"
+print "Cheetah dispatcher GUI version 2016/05/25"
 print "   by Takanori Nakane (takanori.nakane@bs.s.u-tokyo.ac.jp)"
 print
 if not os.path.exists("sacla-photon.ini"):
@@ -771,6 +784,7 @@ parser.add_option("--queue", dest="queue", type=str, default="serial", help="que
 parser.add_option("--pd1_name", dest="pd1_name", type=str, default=None, help="queue name")
 # e.g. xfel_bl_3_st_4_pd_user_10_fitting_peak/voltage
 parser.add_option("--pd2_name", dest="pd2_name", type=str, default=None, help="queue name")
+parser.add_option("--pd3_name", dest="pd3_name", type=str, default=None, help="queue name")
 parser.add_option("--submit_dark2", dest="submit_dark2", type=int, default=False, help="accepts second darks (Ln-D2)")
 parser.add_option("--submit_dark_any", dest="submit_dark_any", type=int, default=False, help="accepts any lights and darks (Ln-Dm)")
 parser.add_option("--crystfel_args", dest="crystfel_args", type=str, default="", help="optional arguments to CrystFEL")
@@ -781,6 +795,7 @@ print "Option: quick            = %s" % opts.quick
 print "Option: queue            = %s" % opts.queue
 print "Option: pd1_name         = %s" % opts.pd1_name
 print "Option: pd2_name         = %s" % opts.pd2_name
+print "Option: pd3_name         = %s" % opts.pd3_name
 print "Option: submit_dark2     = %s" % opts.submit_dark2
 print "Option: submit_dark_any  = %s" % opts.submit_dark_any
 print "Option: crystfel_args    = %s" % opts.crystfel_args
