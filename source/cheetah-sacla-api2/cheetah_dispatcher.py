@@ -771,7 +771,7 @@ print "Cheetah dispatcher GUI version 2016/05/25"
 print "   by Takanori Nakane (takanori.nakane@bs.s.u-tokyo.ac.jp)"
 print
 if not os.path.exists("sacla-photon.ini"):
-    sys.stderr.write("ERROR: Configulation file was not found!\n\n")
+    sys.stderr.write("ERROR: Configuration file was not found!\n\n")
     sys.stderr.write("You should copy @@TEMPLATE_FILE@@ into this directory\n")
     sys.stderr.write("and confirm the settings.\n")
     sys.exit(-1)
