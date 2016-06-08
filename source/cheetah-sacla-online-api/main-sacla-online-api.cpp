@@ -231,6 +231,8 @@ int main(int argc, const char * argv[])
 	}
 
 	for (int j = 0; j < detIDListAll.size(); j++) {
+		// Note that if the eight sensors are not ordered, online indexing do not work.
+		// Fortunatelty, Dr. Joti assurred they ARE ordered.
 		if (strncmp(detIDListAll[j].c_str(), "MPCCD-8", 7) == 0) {
 			detIDList.push_back(detIDListAll[j]);
 		}
