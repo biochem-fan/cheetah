@@ -193,13 +193,13 @@ class LogWatcher(threading.Thread):
                     self.running = False # FIXME
 
 class AutoQsub(threading.Thread):
-    MAX_JOBS = 14
     LONG_WAIT = 20
     SHORT_WAIT = 1
 
-    def __init__(self, queue="serial"):
+    def __init__(self, queue="serial", maxjobs=14):
         super(AutoQsub, self).__init__()
 
+        self.maxjobs = maxjobs
         self.cv = threading.Condition()
         self.running = True
         self.start()
@@ -228,7 +228,7 @@ class AutoQsub(threading.Thread):
                         break
                     print "Unsubmitted job found in " + dir
                     njobs = int(commands.getoutput("qstat | grep -c %s" % self.queue)) # FIXME: deprecated method 
-                    if forceSubmit or njobs <= self.MAX_JOBS:
+                    if forceSubmit or njobs <= self.maxjobs:
                         print " submitted this job. %d jobs in the queue" % (njobs + 1)
                         os.system("qsub run.sh -d {dir} > {dir}/job.id".format(dir=dir))
                     else:
@@ -365,7 +365,7 @@ class MainWindow(wx.Frame):
             self.startAutoQsub()
 
     def startAutoQsub(self):
-        self.autoqsub = AutoQsub(self.opts.queue)
+        self.autoqsub = AutoQsub(self.opts.queue, self.opts.max_jobs)
         
     def OnGridResize(self, event):
         # Reference: https://forums.wxwidgets.org/viewtopic.php?t=90
@@ -770,6 +770,11 @@ print
 print "Cheetah dispatcher GUI version 2016/06/08"
 print "   by Takanori Nakane (takanori.nakane@bs.s.u-tokyo.ac.jp)"
 print
+print "Please cite the following paper when you use this software."
+print " \"Data processing pipeline for serial femtosecond crystallography at SACLA\""
+print " Nakane et al., J. Appl. Cryst. (2016). 49"
+print
+
 if not os.path.exists("sacla-photon.ini"):
     sys.stderr.write("ERROR: Configuration file was not found!\n\n")
     sys.stderr.write("You should copy @@TEMPLATE_FILE@@ into this directory\n")
@@ -780,7 +785,7 @@ parser = optparse.OptionParser()
 parser.add_option("--clen", dest="clen", type=float, default=51.5, help="camera length in mm")
 parser.add_option("--quick", dest="quick", type=int, default=False, help="enable quick mode")
 parser.add_option("--queue", dest="queue", type=str, default="serial", help="queue name")
-# e.g. xfel_bl_3_st_4_pd_laser_fitting_peak/voltage
+parser.add_option("--max_jobs", dest="max_jobs", type=int, default=14, help="maximum number of jobs to submit when --quick is enabled")
 parser.add_option("--pd1_name", dest="pd1_name", type=str, default=None, help="PD1 sensor name e.g. xfel_bl_3_st_4_pd_laser_fitting_peak/voltage")
 # e.g. xfel_bl_3_st_4_pd_user_10_fitting_peak/voltage
 parser.add_option("--pd2_name", dest="pd2_name", type=str, default=None, help="PD2 sensor name")
@@ -807,8 +812,13 @@ if opts.submit_dark_to > 9 or opts.submit_dark_to < 1:
     sys.stderr.write("ERROR: submit_dark_to must be within 1 to 9.\n")
     sys.exit(-1)
 
+if opts.max_jobs < 1:
+    sys.stderr.write("ERROR: max_jobs must be a positive integer.\n")
+    sys.exit(-1)
+
 print "Option: clen             = %f mm" % opts.clen
 print "Option: quick            = %s" % opts.quick
+print "Option: max_jobs         = %s" % opts.max_jobs
 print "Option: queue            = %s" % opts.queue
 print "Option: pd1_name         = %s" % opts.pd1_name
 print "Option: pd2_name         = %s" % opts.pd2_name
