@@ -25,7 +25,7 @@ import wx.lib.newevent
 
 PARALLEL_SIZE = 3 # MUST match hard-coded value in Cheetah
 
-re_filename = re.compile("^[0-9]{6}(-dark1|-dark2|-dark|-light|-\d)?$")
+re_filename = re.compile("^[0-9]{6}(-dark[0-9]?|-light|-\d)?$")
 re_status = re.compile("^Status:")
 (ThreadEvent, EVT_THREAD) = wx.lib.newevent.NewEvent()
 
@@ -416,7 +416,7 @@ class MainWindow(wx.Frame):
         accepted = {}
         hits = {}
         indexed = {}
-        types = ("normal", "light", "dark1", "dark2", "dark")
+        types = ("normal", "light", "dark") + tuple("dark%d" % i for i in xrange(1, 10))
         for t in types:
             for x in (total, processed, accepted, hits, indexed):
                 x[t] = 0
@@ -597,9 +597,9 @@ class MainWindow(wx.Frame):
             if self.opts.submit_dark_any == 1:
                 subjobs.append("dark")
             else:
-                subjobs.append("dark1")
-            if self.opts.submit_dark2 == 1:
-                subjobs.append("dark2")
+                for i in xrange(1, self.opts.submit_dark_to + 1):
+                    subjobs.append("dark%d" % i)
+
         else:
             master_arguments = arguments + " --type=0 "
             run_dir += "-0"
@@ -767,7 +767,7 @@ class ProgressCellRenderer(wx.grid.PyGridCellRenderer):
         return ProgressCellRenderer() 
 
 print
-print "Cheetah dispatcher GUI version 2016/05/25"
+print "Cheetah dispatcher GUI version 2016/06/08"
 print "   by Takanori Nakane (takanori.nakane@bs.s.u-tokyo.ac.jp)"
 print
 if not os.path.exists("sacla-photon.ini"):
@@ -781,14 +781,31 @@ parser.add_option("--clen", dest="clen", type=float, default=51.5, help="camera 
 parser.add_option("--quick", dest="quick", type=int, default=False, help="enable quick mode")
 parser.add_option("--queue", dest="queue", type=str, default="serial", help="queue name")
 # e.g. xfel_bl_3_st_4_pd_laser_fitting_peak/voltage
-parser.add_option("--pd1_name", dest="pd1_name", type=str, default=None, help="queue name")
+parser.add_option("--pd1_name", dest="pd1_name", type=str, default=None, help="PD1 sensor name e.g. xfel_bl_3_st_4_pd_laser_fitting_peak/voltage")
 # e.g. xfel_bl_3_st_4_pd_user_10_fitting_peak/voltage
-parser.add_option("--pd2_name", dest="pd2_name", type=str, default=None, help="queue name")
-parser.add_option("--pd3_name", dest="pd3_name", type=str, default=None, help="queue name")
-parser.add_option("--submit_dark2", dest="submit_dark2", type=int, default=False, help="accepts second darks (Ln-D2)")
-parser.add_option("--submit_dark_any", dest="submit_dark_any", type=int, default=False, help="accepts any lights and darks (Ln-Dm)")
+parser.add_option("--pd2_name", dest="pd2_name", type=str, default=None, help="PD2 sensor name")
+parser.add_option("--pd3_name", dest="pd3_name", type=str, default=None, help="PD3 sensor name")
+parser.add_option("--submit_dark2", dest="submit_dark2", type=int, default=False, help="(DEPRECATED) accepts second darks (Ln-D2) and divide into light, dark1 and dark2")
+parser.add_option("--submit_dark_to", dest="submit_dark_to", type=int, default=False, help="accepts up to M (<=9) darks (Ln-Dm) and divide into light, dark1, ..., darkM")
+parser.add_option("--submit_dark_any", dest="submit_dark_any", type=int, default=False, help="accepts any lights and darks (Ln-Dm) and divide into light and dark")
 parser.add_option("--crystfel_args", dest="crystfel_args", type=str, default="", help="optional arguments to CrystFEL")
 opts, args = parser.parse_args()
+
+if opts.submit_dark2 is not False:
+    sys.stderr.write("WARNING: submit_dark2 has been deprecated. Use --submit-dark-to=2 instead.\n")
+    sys.stderr.write("         --submit-dark-to was set to 2 for you.\n")
+    opts.submit_dark_to = 2
+
+if opts.submit_dark_to is not False and opts.submit_dark_any == 1:
+    sys.stderr.write("ERROR: You cannot enable submit_dark_any and set submit_dark_to simultaneously!\n")
+    sys.exit(-1)
+
+if opts.submit_dark_to is False:
+    opts.submit_dark_to = 1
+
+if opts.submit_dark_to > 9 or opts.submit_dark_to < 1:
+    sys.stderr.write("ERROR: submit_dark_to must be within 1 to 9.\n")
+    sys.exit(-1)
 
 print "Option: clen             = %f mm" % opts.clen
 print "Option: quick            = %s" % opts.quick
@@ -796,13 +813,9 @@ print "Option: queue            = %s" % opts.queue
 print "Option: pd1_name         = %s" % opts.pd1_name
 print "Option: pd2_name         = %s" % opts.pd2_name
 print "Option: pd3_name         = %s" % opts.pd3_name
-print "Option: submit_dark2     = %s" % opts.submit_dark2
+print "Option: submit_dark_to   = %s" % opts.submit_dark_to
 print "Option: submit_dark_any  = %s" % opts.submit_dark_any
 print "Option: crystfel_args    = %s" % opts.crystfel_args
-
-if opts.submit_dark2 == 1 and opts.submit_dark_any == 1:
-    sys.stderr.write("You cannot enable submit_dark2 and submit_dark_any simultaneously!\n")
-    sys.exit(-1)
 
 app = wx.App(False)
 frame = MainWindow(None, opts)

@@ -30,7 +30,7 @@ const int ysize = 1024;
 const int ydatasize = 1030;
 const int blocksize = xsize * ysize;
 const int buffersize = blocksize * NDET;
-const int PD_ANY = -1, PD_LIGHT = 0, PD_DARK1 = 1, PD_DARK2 = 2, PD_DARK_ANY = -2;
+const int PD_DARK_ANY = -2, PD_ANY = -1, PD_LIGHT = 0; // PD_DARKn = n afterwards
 
 char *det_name_template[30] = {"EventInfo_stor0%d", "MPCCD-8-2-001-%d", "EventInfo_stor1_0%d", "MPCCD-8-2-002-%d"};
 char LLF_ID[50] = {};
@@ -109,7 +109,7 @@ static bool get_image(double *buffer, int tag, double photon_energy) {
 }
 
 int main(int argc, char *argv[]) {
-	printf("Cheetah for SACLA new offline API -- version 160525\n");
+	printf("Cheetah for SACLA new offline API -- version 160608\n");
 	printf(" by Takanori Nakane\n");
 	printf(" This program is based on cheetah-sacla by Anton Barty.\n");
 	int c, retno;
@@ -187,18 +187,23 @@ int main(int argc, char *argv[]) {
 		case 15: // type
 			if (strcmp(optarg, "light") == 0) {
 				light_dark = PD_LIGHT;
-			} else if (strcmp(optarg, "dark1") == 0) {
-				light_dark = PD_DARK1;
-			} else if (strcmp(optarg, "dark2") == 0) {
-				light_dark = PD_DARK2;
 			} else if (strcmp(optarg, "dark") == 0) {
 				light_dark = PD_DARK_ANY;
+			} else if (strlen(optarg) == 5 &&
+					   optarg[0] == 'd' && optarg[1] == 'a' &&
+					   optarg[2] == 'r' && optarg[3] == 'k' ) { // darkN
+				light_dark = optarg[4] - '0';
+				if (light_dark < 1 || light_dark > 9) {
+					printf("ERROR: wrong type.\n");
+					return -1;
+				}
 			} else {
 				parallel_block = atoi(optarg);
 				if (parallel_block < -1 || parallel_block >= parallel_size) {
-					printf("ERROR: wrong parallel_block.\n");
+					printf("ERROR: wrong type or parallel_block.\n");
 					return -1;
 				}
+				break;
 			}
 			break;
 		case 16: // list
@@ -537,9 +542,7 @@ int main(int argc, char *argv[]) {
 			frame_after_light++;
 		}
 //		printf("Event %d: energy %f frame_after_light %d pd1_value %f pd2_value %f pd3_value %f\n", tagID, photon_energy, frame_after_light, pd1_value, pd2_value, pd3_value);
-		if ((light_dark == PD_DARK1 && frame_after_light != 1) ||
-			(light_dark == PD_DARK2 && frame_after_light != 2) ||
-			(light_dark == PD_LIGHT && frame_after_light != 0) ||
+		if ((light_dark >= 0 && frame_after_light != light_dark) ||
 			(light_dark == PD_DARK_ANY && frame_after_light == 0)) continue;
 
 		processedTags++;
