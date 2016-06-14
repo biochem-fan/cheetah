@@ -250,7 +250,6 @@ int main(int argc, const char * argv[]) {
 		// 3. copy to the event data
 		long    detID = 0;
 		long    pix_nn = cheetahGlobal.detector[detID].pix_nn;
-		eventData->detector[detID].data_raw16 = (uint16_t*) calloc(pix_nn, sizeof(uint16_t));
 
 //		int underflow = 0, overflow = 0;
 		for(long ii=0; ii<pix_nn; ii++) {
