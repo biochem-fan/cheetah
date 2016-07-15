@@ -109,7 +109,7 @@ static bool get_image(double *buffer, int tag, double photon_energy) {
 }
 
 int main(int argc, char *argv[]) {
-	printf("Cheetah for SACLA new offline API -- version 160608\n");
+	printf("Cheetah for SACLA new offline API -- version 160706\n");
 	printf(" by Takanori Nakane\n");
 	printf(" This program is based on cheetah-sacla by Anton Barty.\n");
 	int c, retno;
@@ -501,7 +501,7 @@ int main(int argc, char *argv[]) {
 	}
 
 
-	int processedTags = 0, LLFpassed = 0, tagSize = tagList.size(), frame_after_light = 0;
+	int processedTags = 0, LLFpassed = 0, tagSize = tagList.size(), frame_after_light = 9999;
 	for (int j = 0; j < tagSize; j++) {
 		int tagID = tagList[j];
 		int maxI = 0;
