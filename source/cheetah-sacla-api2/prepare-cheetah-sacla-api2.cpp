@@ -4,6 +4,7 @@
 #include <iostream>
 #include <fstream>
 #include <stdlib.h>
+#include <cstring>
 #include <cstdio>
 #include <cmath>
 #include <boost/format.hpp>
