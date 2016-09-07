@@ -31,8 +31,8 @@ re_status = re.compile("^Status:")
 
 job_script = '''#!/bin/bash
 #PBS -l nodes=1:ppn=14
-#PBS -e $PBS_O_WORKDIR/{runname}/cheetah.stderr
-#PBS -o $PBS_O_WORKDIR/{runname}/cheetah.stdout
+#PBS -e {runname}/cheetah.stderr
+#PBS -o {runname}/cheetah.stdout
 #PBS -N {runname}
 #PBS -q {queuename}
 
@@ -73,8 +73,8 @@ ruby @@SCRIPT_PATH@@/parse_stream.rb < {runname}.stream > {runname}.csv
 
 job_script_dark = '''#!/bin/bash
 #PBS -l nodes=1:ppn=14
-#PBS -e $PBS_O_WORKDIR/{runname}/cheetah.stderr
-#PBS -o $PBS_O_WORKDIR/{runname}/cheetah.stdout
+#PBS -e {runname}/cheetah.stderr
+#PBS -o {runname}/cheetah.stdout
 #PBS -N {runname}
 #PBS -q {queuename}
 
