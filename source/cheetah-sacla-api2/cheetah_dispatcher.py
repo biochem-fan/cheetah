@@ -30,12 +30,13 @@ re_status = re.compile("^Status:")
 (ThreadEvent, EVT_THREAD) = wx.lib.newevent.NewEvent()
 
 job_script = '''#!/bin/bash
-#PBS -l nodes=1:ppn=12
-#PBS -e cheetah.stderr
-#PBS -o cheetah.stdout
+#PBS -l nodes=1:ppn=14
+#PBS -e $PBS_O_WORKDIR/{runname}/cheetah.stderr
+#PBS -o $PBS_O_WORKDIR/{runname}/cheetah.stdout
 #PBS -N {runname}
 #PBS -q {queuename}
-# Usage: qsub -d . run.sh
+
+cd $PBS_O_WORKDIR/{runname}
 
 # This is the master job for runid, runid-light, runid-0.
 # Subjobs must be submitted separatedly.
@@ -63,7 +64,7 @@ done
 @@CHEETAH_PATH@@/cheetah-sacla-api2 --ini ../sacla-photon.ini --run {runid} --stride 2 -m {maxI} --station {station} -o run{runname}.h5 {arguments}
 
 # th 100 gr 5000000 for > 10 keV
-@@INDEXAMAJIG_PATH@@/indexamajig -g {runid}.geom --indexing=dirax-raw --peaks=zaef --threshold=400 --min-gradient=10000 --min-snr=5 --int-radius=3,4,7 -o {runname}.stream -j 12 -i - {crystfel_args} <<EOF
+@@INDEXAMAJIG_PATH@@/indexamajig -g {runid}.geom --indexing=dirax-raw --peaks=zaef --threshold=400 --min-gradient=10000 --min-snr=5 --int-radius=3,4,7 -o {runname}.stream -j 14 -i - {crystfel_args} <<EOF
 run{runname}.h5
 EOF
 grep Cell {runname}.stream | wc -l > indexed.cnt
@@ -71,11 +72,13 @@ ruby @@SCRIPT_PATH@@/parse_stream.rb < {runname}.stream > {runname}.csv
 '''
 
 job_script_dark = '''#!/bin/bash
-#PBS -l nodes=1:ppn=12
-#PBS -e cheetah.stderr
-#PBS -o cheetah.stdout
+#PBS -l nodes=1:ppn=14
+#PBS -e $PBS_O_WORKDIR/{runname}/cheetah.stderr
+#PBS -o $PBS_O_WORKDIR/{runname}/cheetah.stdout
 #PBS -N {runname}
 #PBS -q {queuename}
+
+cd $PBS_O_WORKDIR/{runname}/
 
 #if [ -e job.id ]; then
 #   exit
@@ -102,7 +105,7 @@ done
 @@CHEETAH_PATH@@/cheetah-sacla-api2 --ini ../sacla-photon.ini --run {runid} --stride 2 -m {maxI} --station {station} -o run{runname}.h5 {arguments}
 
 # th 100 gr 5000000 for > 10 keV
-@@INDEXAMAJIG_PATH@@/indexamajig -g {runname}.geom --indexing=dirax-raw --peaks=zaef --threshold=400 --min-gradient=10000 --min-snr=5 --int-radius=3,4,7 -o {runname}.stream -j 12 -i - {crystfel_args} <<EOF
+@@INDEXAMAJIG_PATH@@/indexamajig -g {runname}.geom --indexing=dirax-raw --peaks=zaef --threshold=400 --min-gradient=10000 --min-snr=5 --int-radius=3,4,7 -o {runname}.stream -j 14 -i - {crystfel_args} <<EOF
 run{runname}.h5
 EOF
 grep Cell {runname}.stream | wc -l > indexed.cnt
@@ -227,10 +230,10 @@ class AutoQsub(threading.Thread):
                         print "WARNING: Another instance of auto_qsub is runnning?"
                         break
                     print "Unsubmitted job found in " + dir
-                    njobs = int(commands.getoutput("qstat | grep -c %s" % self.queue)) # FIXME: deprecated method 
+                    njobs = int(commands.getoutput("qstat -w -u $USER | grep -c %s" % self.queue)) # FIXME: deprecated method 
                     if forceSubmit or njobs <= self.maxjobs:
                         print " submitted this job. %d jobs in the queue" % (njobs + 1)
-                        os.system("qsub run.sh -d {dir} > {dir}/job.id".format(dir=dir))
+                        os.system("qsub {dir}/run.sh > {dir}/job.id".format(dir=dir))
                     else:
                         print " the queue is full"
                         break
@@ -616,7 +619,7 @@ class MainWindow(wx.Frame):
                                   subjobs=" ".join(subjobs), maxI=maxI, station=station, arguments=master_arguments,
                                   crystfel_args=self.opts.crystfel_args))
         f.close()
-        os.system("qsub -d {rundir} run.sh > {rundir}/job.id".format(rundir=run_dir))
+        os.system("qsub {rundir}/run.sh > {rundir}/job.id".format(rundir=run_dir))
         self.addRun(run_dir)
 
         # Children
@@ -634,7 +637,7 @@ class MainWindow(wx.Frame):
                                            crystfel_args=self.opts.crystfel_args))
             f.close()
             if self.opts.quick != 1:
-                os.system("qsub -d {runid} run.sh > {runid}/job.id".format(runid=run_dir))
+                os.system("qsub {runid}/run.sh > {runid}/job.id".format(runid=run_dir))
             self.addRun(run_dir)
 
     def addRun(self, runid):
@@ -767,7 +770,7 @@ class ProgressCellRenderer(wx.grid.PyGridCellRenderer):
         return ProgressCellRenderer() 
 
 print
-print "Cheetah dispatcher GUI version 2016/06/08"
+print "Cheetah dispatcher GUI version 2016/09/07"
 print "   by Takanori Nakane (takanori.nakane@bs.s.u-tokyo.ac.jp)"
 print
 print "Please cite the following paper when you use this software."
