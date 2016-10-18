@@ -348,6 +348,14 @@ class MainWindow(wx.Frame):
 #        self.vsizer.Fit(self)
         self.Show()
 
+        # Monitor mode shows only the table
+        if self.opts.monitor is not False:
+            self.vsizer.Hide(self.hsizer)
+            self.vsizer.Hide(self.hsizer_pd)
+            self.vsizer.Hide(self.hsizer_pd1)
+            self.vsizer.Hide(self.hsizer_pd1)
+            self.vsizer.Hide(self.hsizer_pd1)
+        # Show PD threshold only when specified
         if self.opts.pd1_name is None and self.opts.pd2_name is None and self.opts.pd3_name is None:
             self.vsizer.Hide(self.hsizer_pd)
         if self.opts.pd1_name is None:
@@ -364,7 +372,7 @@ class MainWindow(wx.Frame):
 
         self.scanDirectory()
 
-        if self.opts.quick == 1:        
+        if self.opts.quick == 1: 
             self.startAutoQsub()
 
     def startAutoQsub(self):
@@ -770,7 +778,7 @@ class ProgressCellRenderer(wx.grid.PyGridCellRenderer):
         return ProgressCellRenderer() 
 
 print
-print "Cheetah dispatcher GUI version 2016/09/07"
+print "Cheetah dispatcher GUI version 2016/10/10"
 print "   by Takanori Nakane (takanori.nakane@bs.s.u-tokyo.ac.jp)"
 print
 print "Please cite the following paper when you use this software."
@@ -785,6 +793,7 @@ if not os.path.exists("sacla-photon.ini"):
     sys.exit(-1)
 
 parser = optparse.OptionParser()
+parser.add_option("--monitor", dest="monitor", type=int, default=False, help="Monitor only")
 parser.add_option("--clen", dest="clen", type=float, default=51.5, help="camera length in mm")
 parser.add_option("--quick", dest="quick", type=int, default=False, help="enable quick mode")
 parser.add_option("--queue", dest="queue", type=str, default="serial", help="queue name")
@@ -815,10 +824,15 @@ if opts.submit_dark_to > 9 or opts.submit_dark_to < 1:
     sys.stderr.write("ERROR: submit_dark_to must be within 1 to 9.\n")
     sys.exit(-1)
 
+if opts.monitor is not False and opts.quick is not False:
+    sys.stderr.write("ERROR: You cannot enable 'quick' when 'monitor' mode is enabled.\n")
+    sys.exit(-1)
+
 if opts.max_jobs < 1:
     sys.stderr.write("ERROR: max_jobs must be a positive integer.\n")
     sys.exit(-1)
 
+print "Option: monitor          = %s" % opts.monitor
 print "Option: clen             = %f mm" % opts.clen
 print "Option: quick            = %s" % opts.quick
 print "Option: max_jobs         = %s" % opts.max_jobs
