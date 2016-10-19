@@ -50,6 +50,14 @@ echo run{runid}.h5 > file.lst
 source @@SETUP_SCRIPT@@
 ShowRunInfo -b 3 -r {runid} > run.info
 @@CHEETAH_PATH@@/prepare-cheetah-sacla-api2 {runid}
+grep Error status.txt
+if [ $? -eq 0 ]; then # Found
+   for i in {subjobs}; do
+      ln -s ../{runname}/status.txt ../{runid}-$i/
+   done
+   exit
+fi
+
 sed -i 's/clen.*/clen = {clen}; You SHOULD optimize this!/' {runid}.geom
 ln -s {runid}-geom.h5 sacla-geom.h5
 ln -s {runid}-dark.h5 sacla-dark.h5
@@ -94,12 +102,17 @@ while :; do
    if [ -e sacla-dark.h5 ]; then
       break
    fi
-   if [ $i -gt 1000 ]; then
+   grep Error status.txt
+   if [ $? -eq 0 ]; then
+      exit
+   fi
+
+   if [ $i -gt 500 ]; then
       echo "Status: Status=Error-TimeoutWaitingDarkAverage" > status.txt
       exit -1
    fi
 
-   sleep 1
+   sleep 2
 done
 
 @@CHEETAH_PATH@@/cheetah-sacla-api2 --ini ../sacla-photon.ini --run {runid} --stride 2 -m {maxI} --station {station} -o run{runname}.h5 {arguments}
