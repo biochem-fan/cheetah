@@ -56,9 +56,9 @@ ln -s {runid}-dark.h5 sacla-dark.h5
 
 for i in {subjobs}; do
    ln -s ../{runname}/{runid}-geom.h5 ../{runid}-$i/sacla-geom.h5
-   ln -s ../{runname}/{runid}-dark.h5 ../{runid}-$i/sacla-dark.h5
    ln -s ../{runname}/{runid}.geom ../{runid}-$i/{runid}-$i.geom
    ln -s ../{runname}/run.info ../{runid}-$i/run.info
+   ln -s ../{runname}/{runid}-dark.h5 ../{runid}-$i/sacla-dark.h5
 done
 
 @@CHEETAH_PATH@@/cheetah-sacla-api2 --ini ../sacla-photon.ini --run {runid} --stride 2 -m {maxI} --station {station} -o run{runname}.h5 {arguments}
@@ -95,7 +95,7 @@ while :; do
       break
    fi
    if [ $i -gt 1000 ]; then
-      echo "Status: TimeoutWaitingDarkAverage" > status.txt
+      echo "Status: Status=Error-TimeoutWaitingDarkAverage" > status.txt
       exit -1
    fi
 
@@ -778,7 +778,7 @@ class ProgressCellRenderer(wx.grid.PyGridCellRenderer):
         return ProgressCellRenderer() 
 
 print
-print "Cheetah dispatcher GUI version 2016/10/10"
+print "Cheetah dispatcher GUI version 2016/10/19"
 print "   by Takanori Nakane (takanori.nakane@bs.s.u-tokyo.ac.jp)"
 print
 print "Please cite the following paper when you use this software."
