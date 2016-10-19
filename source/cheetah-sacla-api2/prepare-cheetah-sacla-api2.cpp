@@ -23,15 +23,13 @@ const int ydatasize = 1030;
 const int blocksize = xsize * ysize;
 const int buffersize = blocksize * 8;
 const int stride = 2; // 30 Hz mode (60 / 30)
-char *det_name_template[30] = {"EventInfo_stor0%d", "MPCCD-8-2-001-%d", "EventInfo_stor1_0%d", "MPCCD-8-2-002-%d"};
-char *LLF_ID = "BL3-ST4-MPCCD-octal"; // FIXME: LLF ID changed to ST4. how to switch automatically??
+const char *LLF_ID = "BL3-ST4-MPCCD-octal"; // FIXME: LLF ID changed to ST4. how to switch automatically??
 
 // FIXME: make these local
 double buffer[buffersize] = {};
 unsigned short averaged[buffersize] = {};
 float posx[buffersize] = {}, posy[buffersize] = {}, posz[buffersize] = {};
 float gains[9] = {};
-int det_temp_idx = -1;
 char *streaders[8], *databufs[8];
 
 int myReadSyncDataList(std::vector<std::string>* buffer, char* equip_id, int tag_hi, int n_taglist, int *taglist) {
@@ -73,7 +71,7 @@ int run(int runid) {
 
   printf("SACLA geometry & dark average exporter\n");
   printf(" By Takanori Nakane\n");
-  printf(" version 20160404 with new API\n\n");
+  printf(" version 20161019 with new API\n\n");
   
   // Get tag_hi, start, end
   retno = sy_read_start_tagnumber(&tag_hi, &start, bl, runid);
@@ -81,7 +79,7 @@ int run(int runid) {
   if (retno != 0) {
 	printf("ERROR: Cannot read run %d.\n", runid);
 	printf("If this run is before Nov 2014, please use the old API version.\n");
-    return -1;
+	return -1;
   }
 
   int numAll = (end - start) / stride + 1;
@@ -117,6 +115,7 @@ int run(int runid) {
   // find detector ID
   struct da_string_array *det_ids;
   int n_detid;
+  char det_template[256] = {};
 
   printf("Detector configulation:\n");
   da_alloc_string_array(&det_ids);
@@ -126,17 +125,21 @@ int run(int runid) {
   for (int i = 0; i < n_detid; i++) {
     char *detid;
     da_getstring_string_array(&detid, det_ids, i);
-    printf(" detID #%d = %s\n", i, detid);
-    if (strcmp(detid, "MPCCD-8-2-001-1") == 0) {
-      det_temp_idx = 1;
-    } else if (strcmp(detid, "MPCCD-8-2-002-1") == 0) {
-      det_temp_idx = 3;
-    } else if (strcmp(detid, "EventInfo_stor01") == 0) {
+    printf(" detID #%02d = %s\n", i, detid);
+    if (strncmp(detid, "MPCCD-8", 7) == 0) {
+      int len = strlen(detid);
+      if (detid[len - 2] == '-' &&  detid[len - 1] == '1') {
+        printf("  prefix and suffix matched. using this as the detector name template.\n");
+        strncpy(det_template, detid, 255);
+      } 
+    }
+    if (strcmp(detid, "EventInfo_stor01") == 0) {
       printf("ERROR: This detector is not longer supported by the API. Use old Cheetah.\n");
-	}
+      return -1;
+    }
     free(detid);
   }
-  if (det_temp_idx == -1) {
+  if (det_template[0] == 0) {
     printf("ERROR: Unknown or non-supported detector ID.\n");
     return -1;
   }
@@ -149,7 +152,8 @@ int run(int runid) {
   printf("Initializing reader and buffer\n");
   for (int det_id = 0; det_id < 8; det_id++) {
     char det_name[256];
-    snprintf(det_name, 256, det_name_template[det_temp_idx], det_id + 1);
+    strncpy(det_name, det_template, 255);
+    det_name[strlen(det_name) - 1] = '0' + det_id + 1;
 
     printf(" detector %s\n", det_name);
     retno = st_create_streader(&streaders[det_id], det_name, bl, 1, &runid);
