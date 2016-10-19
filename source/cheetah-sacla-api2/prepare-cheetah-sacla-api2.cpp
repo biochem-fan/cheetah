@@ -54,6 +54,12 @@ int myReadSyncDataList(std::vector<std::string>* buffer, char* equip_id, int tag
 	return retno;
 }
 
+void log_error(char *message) {
+  FILE *status = fopen("status.txt", "w");
+  fprintf(status, "Status:ERROR-%s\n", message);
+  fclose(status);
+}
+
 int main(int argc, char **argv) {
   if(argc < 2) {
     std::cout << argv[0] << " RunID" << std::endl;
@@ -79,6 +85,7 @@ int run(int runid) {
   if (retno != 0) {
 	printf("ERROR: Cannot read run %d.\n", runid);
 	printf("If this run is before Nov 2014, please use the old API version.\n");
+        log_error("BadRunID");
 	return -1;
   }
 
@@ -93,6 +100,7 @@ int run(int runid) {
   std::vector<std::string> shutter;
   if (myReadSyncDataList(&shutter, "xfel_bl_3_shutter_1_open_valid/status", tag_hi, numAll, tagAll) != 0) {
     printf("Failed to get shutter status.\n");
+    log_error("NoShutterStatus");
     return -1;
   }
   free(tagAll);
@@ -106,6 +114,10 @@ int run(int runid) {
     }
   }
   printf("Number of dark frames: %d\n\n", numDark);
+  if (numDark == 0) {
+    printf("ERROR: No dark image!\n");
+    log_error("NoDarkImage");
+  }
 
   int *tagList = (int*)malloc(sizeof(int) * numDark);
   for (int i = 0; i < numDark; i++) {
@@ -135,12 +147,12 @@ int run(int runid) {
     }
     if (strcmp(detid, "EventInfo_stor01") == 0) {
       printf("ERROR: This detector is not longer supported by the API. Use old Cheetah.\n");
-      return -1;
     }
     free(detid);
   }
   if (det_template[0] == 0) {
     printf("ERROR: Unknown or non-supported detector ID.\n");
+    log_error("NoSupportedDetectorFound");
     return -1;
   }
   da_destroy_string_array(&det_ids);
@@ -159,17 +171,20 @@ int run(int runid) {
     retno = st_create_streader(&streaders[det_id], det_name, bl, 1, &runid);
     if (retno != 0) {
       printf("Failed to create streader for %s.\n", det_name);
+      log_error("FailedOn_create_streader");
       return -1;
     }
     retno = st_create_stbuf(&databufs[det_id], streaders[det_id]);
     if (retno != 0) {
       printf("Failed to allocate databuffer for %s.\n", det_name);
+      log_error("FailedOn_create_stbuf");
       return -1;
     }
     uint32_t tagid = start;
     retno = st_collect_data(databufs[det_id], streaders[det_id], &tagid);
     if (retno != 0) {
       printf("Failed to collect data for %s.\n", det_name);
+      log_error("FailedOn_collect_data");
       return -1;
     }
   }
