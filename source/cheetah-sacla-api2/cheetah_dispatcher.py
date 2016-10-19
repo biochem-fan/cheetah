@@ -142,7 +142,7 @@ class LogWatcher(threading.Thread):
             with open(self.filename) as f:
                 for line in f:
                     if re_status.match(line):
-                        ret = line[8:].rstrip() #  len("Status :")
+                        ret = line[8:].rstrip() #  len("Status: ")
                         break
         except:
 #            print "File not ready: %s" % self.filename

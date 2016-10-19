@@ -56,7 +56,7 @@ int myReadSyncDataList(std::vector<std::string>* buffer, char* equip_id, int tag
 
 void log_error(char *message) {
   FILE *status = fopen("status.txt", "w");
-  fprintf(status, "Status:ERROR-%s\n", message);
+  fprintf(status, "Status: Status=Error-%s\n", message);
   fclose(status);
 }
 
