@@ -75,6 +75,7 @@ done
 @@INDEXAMAJIG_PATH@@/indexamajig -g {runid}.geom --indexing=dirax-raw --peaks=zaef --threshold=400 --min-gradient=10000 --min-snr=5 --int-radius=3,4,7 -o {runname}.stream -j 14 -i - {crystfel_args} <<EOF
 run{runname}.h5
 EOF
+rm -fr indexamajig.*
 grep Cell {runname}.stream | wc -l > indexed.cnt
 ruby @@SCRIPT_PATH@@/parse_stream.rb < {runname}.stream > {runname}.csv
 '''
@@ -121,6 +122,7 @@ done
 @@INDEXAMAJIG_PATH@@/indexamajig -g {runname}.geom --indexing=dirax-raw --peaks=zaef --threshold=400 --min-gradient=10000 --min-snr=5 --int-radius=3,4,7 -o {runname}.stream -j 14 -i - {crystfel_args} <<EOF
 run{runname}.h5
 EOF
+rm -fr indexamajig.*
 grep Cell {runname}.stream | wc -l > indexed.cnt
 ruby @@SCRIPT_PATH@@/parse_stream.rb < {runname}.stream > {runname}.csv
 
@@ -791,7 +793,7 @@ class ProgressCellRenderer(wx.grid.PyGridCellRenderer):
         return ProgressCellRenderer() 
 
 print
-print "Cheetah dispatcher GUI version 2016/10/19"
+print "Cheetah dispatcher GUI version 2016/12/06"
 print "   by Takanori Nakane (takanori.nakane@bs.s.u-tokyo.ac.jp)"
 print
 print "Please cite the following paper when you use this software."
