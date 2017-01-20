@@ -48,8 +48,8 @@ cd $PBS_O_WORKDIR/{runname}
 echo $PBS_JOBID > job.id
 echo run{runid}.h5 > file.lst
 source @@SETUP_SCRIPT@@
-ShowRunInfo -b 3 -r {runid} > run.info
-@@CHEETAH_PATH@@/prepare-cheetah-sacla-api2 {runid}
+ShowRunInfo -b {beamline} -r {runid} > run.info
+@@CHEETAH_PATH@@/prepare-cheetah-sacla-api2 {runid} {beamline}
 grep Error status.txt
 if [ $? -eq 0 ]; then # Found
    for i in {subjobs}; do
@@ -69,7 +69,7 @@ for i in {subjobs}; do
    ln -s ../{runname}/{runid}-dark.h5 ../{runid}-$i/sacla-dark.h5
 done
 
-@@CHEETAH_PATH@@/cheetah-sacla-api2 --ini ../sacla-photon.ini --run {runid} --stride 2 -m {maxI} --station {station} -o run{runname}.h5 {arguments}
+@@CHEETAH_PATH@@/cheetah-sacla-api2 --ini ../sacla-photon.ini --run {runid} --stride 2 -m {maxI} --station {station} -o run{runname}.h5 --bl {beamline} {arguments}
 
 # th 100 gr 5000000 for > 10 keV
 @@INDEXAMAJIG_PATH@@/indexamajig -g {runid}.geom --indexing=dirax-raw --peaks=zaef --threshold=400 --min-gradient=10000 --min-snr=5 --int-radius=3,4,7 -o {runname}.stream -j 14 -i - {crystfel_args} <<EOF
@@ -116,7 +116,7 @@ while :; do
    sleep 2
 done
 
-@@CHEETAH_PATH@@/cheetah-sacla-api2 --ini ../sacla-photon.ini --run {runid} --stride 2 -m {maxI} --station {station} -o run{runname}.h5 {arguments}
+@@CHEETAH_PATH@@/cheetah-sacla-api2 --ini ../sacla-photon.ini --run {runid} --stride 2 -m {maxI} --station {station} -o run{runname}.h5 --bl {beamline} {arguments}
 
 # th 100 gr 5000000 for > 10 keV
 @@INDEXAMAJIG_PATH@@/indexamajig -g {runname}.geom --indexing=dirax-raw --peaks=zaef --threshold=400 --min-gradient=10000 --min-snr=5 --int-radius=3,4,7 -o {runname}.stream -j 14 -i - {crystfel_args} <<EOF
@@ -592,7 +592,7 @@ class MainWindow(wx.Frame):
         if (self.waitFor == None):
             return
 
-        out = Popen(["ShowRunInfo", "-b", "3", "-r", "%d" % self.waitFor], stdout=PIPE).communicate()[0]
+        out = Popen(["ShowRunInfo", "-b", "%d" % self.opts.bl, "-r", "%d" % self.waitFor], stdout=PIPE).communicate()[0]
         lines = out.split("\n")
         if lines[0].find("Ready to Read") != -1:
                 print "\rRun %d became ready." % self.waitFor
@@ -640,7 +640,7 @@ class MainWindow(wx.Frame):
         f = open("%s/run.sh" % run_dir, "w")
         f.write(job_script.format(runid=runid, runname=run_dir, clen=self.opts.clen/1.e3, queuename=self.opts.queue,
                                   subjobs=" ".join(subjobs), maxI=maxI, station=station, arguments=master_arguments,
-                                  crystfel_args=self.opts.crystfel_args))
+                                  crystfel_args=self.opts.crystfel_args, beamline=self.opts.bl))
         f.close()
         os.system("qsub {rundir}/run.sh > {rundir}/job.id".format(rundir=run_dir))
         self.addRun(run_dir)
@@ -657,7 +657,7 @@ class MainWindow(wx.Frame):
             f = open("%s/run.sh" % run_dir, "w")
             f.write(job_script_dark.format(runid=runid, runname=run_dir, maxI=maxI, station=station, 
                                            queuename=self.opts.queue, arguments=child_arguments,
-                                           crystfel_args=self.opts.crystfel_args))
+                                           crystfel_args=self.opts.crystfel_args, beamline=self.opts.bl))
             f.close()
             if self.opts.quick != 1:
                 os.system("qsub {runid}/run.sh > {runid}/job.id".format(runid=run_dir))
@@ -793,7 +793,7 @@ class ProgressCellRenderer(wx.grid.PyGridCellRenderer):
         return ProgressCellRenderer() 
 
 print
-print "Cheetah dispatcher GUI version 2016/12/06"
+print "Cheetah dispatcher GUI version 2016/12/11"
 print "   by Takanori Nakane (takanori.nakane@bs.s.u-tokyo.ac.jp)"
 print
 print "Please cite the following paper when you use this software."
@@ -809,6 +809,7 @@ if not os.path.exists("sacla-photon.ini"):
 
 parser = optparse.OptionParser()
 parser.add_option("--monitor", dest="monitor", type=int, default=False, help="Monitor only")
+parser.add_option("--bl", dest="bl", type=int, default=3, help="Beamline")
 parser.add_option("--clen", dest="clen", type=float, default=51.5, help="camera length in mm")
 parser.add_option("--quick", dest="quick", type=int, default=False, help="enable quick mode")
 parser.add_option("--queue", dest="queue", type=str, default="serial", help="queue name")
@@ -847,7 +848,12 @@ if opts.max_jobs < 1:
     sys.stderr.write("ERROR: max_jobs must be a positive integer.\n")
     sys.exit(-1)
 
+if opts.bl != 2 and opts.bl != 3:
+    sys.stderr.write("ERROR: beamline must be 2 or 3.\n")
+    sys.exit(-1)
+
 print "Option: monitor          = %s" % opts.monitor
+print "Option: bl               = %d" % opts.bl
 print "Option: clen             = %f mm" % opts.clen
 print "Option: quick            = %s" % opts.quick
 print "Option: max_jobs         = %s" % opts.max_jobs

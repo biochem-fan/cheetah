@@ -16,7 +16,7 @@ static void get_geom_h5(int run);
 static int add_image(double *buffer, int tag, double photon_energy);
 static int run(int runid);
 
-const int bl = 3;
+int bl = 3;
 const int xsize = 512;
 const int ysize = 1024; 
 const int ydatasize = 1030;
@@ -62,11 +62,19 @@ void log_error(char *message) {
 
 int main(int argc, char **argv) {
   if(argc < 2) {
-    std::cout << argv[0] << " RunID" << std::endl;
-    return 1;
+    std::cout << argv[0] << " RunID [Beamline (2 or 3)]" << std::endl;
+    return -1;
   }
   
   int runid = atoi(argv[1]);
+  if (argc >= 3) {
+    bl = atoi(argv[2]);
+    if (bl != 2 && bl != 3) {
+      printf("Beamline must be 2 or 3.\n");
+      return -1;
+    }
+  }
+  printf("Set beamline to %d\n", bl);
   run(runid);
   
   return 0;
@@ -77,7 +85,7 @@ int run(int runid) {
 
   printf("SACLA geometry & dark average exporter\n");
   printf(" By Takanori Nakane\n");
-  printf(" version 20161019 with new API\n\n");
+  printf(" version 20161211 with new API\n\n");
   
   // Get tag_hi, start, end
   retno = sy_read_start_tagnumber(&tag_hi, &start, bl, runid);
@@ -98,7 +106,8 @@ int run(int runid) {
 
   // How many dark frames?
   std::vector<std::string> shutter;
-  if (myReadSyncDataList(&shutter, "xfel_bl_3_shutter_1_open_valid/status", tag_hi, numAll, tagAll) != 0) {
+  if ((bl == 3 && myReadSyncDataList(&shutter, "xfel_bl_3_shutter_1_open_valid/status", tag_hi, numAll, tagAll) != 0) ||
+      (bl == 2 && myReadSyncDataList(&shutter, "xfel_bl_2_shutter_1_open_valid/status", tag_hi, numAll, tagAll) != 0)) {
     printf("Failed to get shutter status.\n");
     log_error("NoShutterStatus");
     return -1;
@@ -249,7 +258,11 @@ int run(int runid) {
     }
   } else {
     da_alloc_string_array(&energies);
-    sy_read_syncdatalist(energies, "xfel_bl_3_tc_spec_1/energy", tag_hi, numDark, tagList);
+    if (bl == 3) {
+      sy_read_syncdatalist(energies, "xfel_bl_3_tc_spec_1/energy", tag_hi, numDark, tagList);
+    } else if (bl == 2) {
+      sy_read_syncdatalist(energies, "xfel_bl_2_tc_spec_1/energy", tag_hi, numDark, tagList);
+    }
 
     da_getsize_string_array(&n_energy, energies);
     for (int i = 0; i < n_energy; i++) {
@@ -261,7 +274,7 @@ int run(int runid) {
     da_destroy_string_array(&energies);
   }
   
-  printf("xfel_bl_3_tc_spec_1/energy for %ld frames.\n", pulse_energies.size());
+  printf("energy for %ld frames.\n", pulse_energies.size());
   for (unsigned int i = 0; i < pulse_energies.size(); i++) {
     printf(" %s", pulse_energies[i].c_str());
   }
@@ -454,7 +467,7 @@ static void get_geom_h5(int runid) {
   hid_t file_id, dataset_id, dataspace_id;
   hsize_t dims[] = {ysize * 8, xsize};
 
-  snprintf(filename, 256, "%d-geom.h5", runid);
+  snprintf(filename, 256, "%06d-geom.h5", runid);
   file_id = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
   dataspace_id = H5Screate_simple(2, dims, NULL);
   dataset_id = H5Dcreate2(file_id, "x", H5T_NATIVE_FLOAT, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);

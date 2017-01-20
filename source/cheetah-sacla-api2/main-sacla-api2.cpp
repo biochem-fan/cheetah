@@ -24,7 +24,7 @@
 
 const int NDET = 8;
 const int parallel_size = 3; // MUST match dispatcher
-const int bl = 3;
+int bl = 3;
 const int xsize = 512;
 const int ysize = 1024; 
 const int ydatasize = 1030;
@@ -108,7 +108,7 @@ static bool get_image(double *buffer, int tag, double photon_energy) {
 }
 
 int main(int argc, char *argv[]) {
-	printf("Cheetah for SACLA new offline API -- version 161019\n");
+	printf("Cheetah for SACLA new offline API -- version 161211\n");
 	printf(" by Takanori Nakane\n");
 	printf(" This program is based on cheetah-sacla by Anton Barty.\n");
 	int c, retno;
@@ -145,6 +145,7 @@ int main(int argc, char *argv[]) {
 		{"pd2_name", 1, NULL, 18},
 		{"pd3_thresh", 1, NULL, 19},
 		{"pd3_name", 1, NULL, 20},
+                {"bl", 1, NULL, 21},
 		{0, 0, NULL, 0}
 	};
 
@@ -223,6 +224,13 @@ int main(int argc, char *argv[]) {
 		case 20: // pd3_name
 			pd3_sensor_name = strdup(optarg); // small leak.
 			break;
+                case 21: // bl
+                        bl = atoi(optarg);
+			if (bl != 2 && bl != 3) {
+				printf("ERROR: beamline must be 2 or 3.\n");
+				return -1;
+			}
+                        break;
 		}
 	}
 	if (strnlen(outputH5, 4096) == 0) {
@@ -246,12 +254,13 @@ int main(int argc, char *argv[]) {
 	printf(" maxI threshold (-m/--maxI):   %d (default = 10000)\n", maxI_threshold);
 	printf(" stride (--stride):            %d (default = 2; 30 Hz mode)\n", stride);
 	printf(" station (--station):          %d (default = 4)\n", station);
+        printf(" beamline (--bl):              %d (default = 3)\n", bl);
 	printf(" PD1 threshold (--pd1_thresh): %.3f (default = 0; ignore.)\n", pd1_threshold);
 	printf(" PD2 threshold (--pd2_thresh): %.3f (default = 0; ignore.)\n", pd2_threshold);
 	printf(" PD3 threshold (--pd3_thresh): %.3f (default = 0; ignore.)\n", pd3_threshold);
-	printf(" PD1 sensor name (--pd1_name): %s\n)", pd1_sensor_name);
-	printf(" PD2 sensor name (--pd2_name): %s\n)", pd2_sensor_name);
-	printf(" PD3 sensor name (--pd3_name): %s\n)", pd3_sensor_name);
+	printf(" PD1 sensor name (--pd1_name): %s)\n", pd1_sensor_name);
+	printf(" PD2 sensor name (--pd2_name): %s)\n", pd2_sensor_name);
+	printf(" PD3 sensor name (--pd3_name): %s)\n", pd3_sensor_name);
 	printf(" nFrame after light:           %d (default = -1; accept all image. -2; accept all dark images)\n", light_dark);
 	printf(" parallel_block:               %d (default = -1; no parallelization)\n", parallel_block);
 
@@ -298,7 +307,8 @@ int main(int argc, char *argv[]) {
 	}
 
 	std::vector<std::string> shutterAll;
-	if (myReadSyncDataList(&shutterAll, "xfel_bl_3_shutter_1_open_valid/status", tag_hi, numAll, tagAll) != 0) {
+	if ((bl == 3 && myReadSyncDataList(&shutterAll, "xfel_bl_3_shutter_1_open_valid/status", tag_hi, numAll, tagAll) != 0) ||
+	    (bl == 2 && myReadSyncDataList(&shutterAll, "xfel_bl_2_shutter_1_open_valid/status", tag_hi, numAll, tagAll) != 0)) {
 		printf("Failed to get shutter status.\n");
 		return -1;
 	}
@@ -477,7 +487,11 @@ int main(int argc, char *argv[]) {
 			pulse_energies.push_back("7.0");
 		}
 	} else {
-		retno = myReadSyncDataList(&pulse_energies, "xfel_bl_3_tc_spec_1/energy", tag_hi, tagList.size(), tagList_array);
+                if (bl == 3) {
+			retno = myReadSyncDataList(&pulse_energies, "xfel_bl_3_tc_spec_1/energy", tag_hi, tagList.size(), tagList_array);
+		} else if (bl == 2) {
+			retno = myReadSyncDataList(&pulse_energies, "xfel_bl_2_tc_spec_1/energy", tag_hi, tagList.size(), tagList_array);
+		}
 		if (retno != 0) {
 			printf("Failed to get photon_energy. Exiting...\n");
 			cheetahExit(&cheetahGlobal);
@@ -500,11 +514,14 @@ int main(int argc, char *argv[]) {
 	if (retno != 0) {
 		printf("WARNING: Failed to get %s.\n", pd3_sensor_name);
 	}
-	retno = myReadSyncDataList(&shutter, "xfel_bl_3_shutter_1_open_valid/status", tag_hi, tagList.size(), tagList_array);
-	if (retno != 0) {
-		printf("WARNING: Failed to get xfel_bl_3_shutter_1_open_valid/status.\n");
+	if (bl == 3) {
+		retno = myReadSyncDataList(&shutter, "xfel_bl_3_shutter_1_open_valid/status", tag_hi, tagList.size(), tagList_array);
+	} else if (bl == 2) {
+		retno = myReadSyncDataList(&shutter, "xfel_bl_2_shutter_1_open_valid/status", tag_hi, tagList.size(), tagList_array);
 	}
-
+	if (retno != 0) {
+		printf("WARNING: Failed to get shutter status.\n");
+	}
 
 	int processedTags = 0, LLFpassed = 0, tagSize = tagList.size(), frame_after_light = 9999;
 	for (int j = 0; j < tagSize; j++) {
