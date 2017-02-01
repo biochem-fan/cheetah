@@ -85,24 +85,29 @@ int run(int runid) {
 
   printf("SACLA geometry & dark average exporter\n");
   printf(" By Takanori Nakane\n");
-  printf(" version 20161211 with new API\n\n");
+  printf(" version 20170201 with new API\n\n");
   
   // Get tag_hi, start, end
   retno = sy_read_start_tagnumber(&tag_hi, &start, bl, runid);
   retno += sy_read_end_tagnumber(&tag_hi, &end, bl, runid);
   if (retno != 0) {
-	printf("ERROR: Cannot read run %d.\n", runid);
-	printf("If this run is before Nov 2014, please use the old API version.\n");
-        log_error("BadRunID");
-	return -1;
+    printf("ERROR: Cannot read run %d.\n", runid);
+    printf("If this run is before Nov 2014, please use the old API version.\n");
+    log_error("BadRunID");
+    return -1;
   }
 
-  int numAll = (end - start) / stride + 1;
+  struct da_int_array *tagbuf;
+  int numAll;
+  da_alloc_int_array(&tagbuf, 0, NULL);
+  sy_read_taglist_byrun(tagbuf, bl, runid);
+  da_getsize_int_array(&numAll, tagbuf);
   printf("Run %d contains tag %d - %d (%d images)\n", runid, start, end, numAll);
   int *tagAll = (int*)malloc(sizeof(int) * numAll);
   for (int i = 0; i < numAll; i++) {
-    tagAll[i] = start + i * stride;
+    da_getint_int_array(tagAll + i, tagbuf, i);
   }
+  da_destroy_int_array(&tagbuf);
 
   // How many dark frames?
   std::vector<std::string> shutter;
@@ -117,8 +122,8 @@ int run(int runid) {
   int numDark = 0;
   for (int i = 0; i < numAll; i++) {
     if (atoi(shutter[i].c_str()) == 0) {
-	  numDark++;
-	} else {
+      numDark++;
+    } else {
       break;
     }
   }
