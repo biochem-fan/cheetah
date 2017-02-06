@@ -22,7 +22,6 @@ const int ysize = 1024;
 const int ydatasize = 1030;
 const int blocksize = xsize * ysize;
 const int buffersize = blocksize * 8;
-const int stride = 2; // 30 Hz mode (60 / 30)
 const char *LLF_ID = "BL3-ST4-MPCCD-octal"; // FIXME: LLF ID changed to ST4. how to switch automatically??
 
 // FIXME: make these local
@@ -116,7 +115,6 @@ int run(int runid) {
   for (int i = 0; i < numAll; i++) {
     da_getint_int_array(tagAll + i, tagbuf, i);
   }
-  da_destroy_int_array(&tagbuf);
 
   // How many dark frames?
   std::vector<std::string> shutter;
@@ -144,8 +142,9 @@ int run(int runid) {
 
   int *tagList = (int*)malloc(sizeof(int) * numDark);
   for (int i = 0; i < numDark; i++) {
-    tagList[i] = start + i * stride;
+    da_getint_int_array(tagList + i, tagbuf, i);
   }
+  da_destroy_int_array(&tagbuf);
 
   // find detector ID
   struct da_string_array *det_ids;
