@@ -60,6 +60,15 @@ void log_error(char *message) {
   fclose(status);
 }
 
+/*
+ * Compression helps a lot!
+ *  2016-Dec BL2 Run 21498
+ *
+ *  dark average 8391040, deflate level4 216947, shuf + deflate 179189
+ *  geometry    50333792,              20818705,               1490293
+ *
+ */
+
 int main(int argc, char **argv) {
   if(argc < 2) {
     std::cout << argv[0] << " RunID [Beamline (2 or 3)]" << std::endl;
@@ -85,7 +94,7 @@ int run(int runid) {
 
   printf("SACLA geometry & dark average exporter\n");
   printf(" By Takanori Nakane\n");
-  printf(" version 20170201 with new API\n\n");
+  printf(" version 20170206 with new API\n\n");
   
   // Get tag_hi, start, end
   retno = sy_read_start_tagnumber(&tag_hi, &start, bl, runid);
@@ -337,13 +346,17 @@ int run(int runid) {
     fclose(fh);
   */
   
-  hid_t file_id, dataset_id, dataspace_id, group_id;
+  hid_t file_id, dataset_id, dataspace_id, group_id, plist_id;
   hsize_t dims[] = {ysize * 8, xsize};
   snprintf(filename, 256, "%06d-dark.h5", runid);
   file_id = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
   dataspace_id = H5Screate_simple(2, dims, NULL);
   group_id = H5Gcreate2(file_id, "/data", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-  dataset_id = H5Dcreate2(file_id, "/data/data", H5T_NATIVE_USHORT, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+  plist_id = H5Pcreate(H5P_DATASET_CREATE);
+  H5Pset_shuffle(plist_id);
+  H5Pset_deflate(plist_id, 4);
+  H5Pset_chunk(plist_id, 2, dims);
+  dataset_id = H5Dcreate2(file_id, "/data/data", H5T_NATIVE_USHORT, dataspace_id, H5P_DEFAULT, plist_id, H5P_DEFAULT);
   H5Dwrite(dataset_id, H5T_NATIVE_USHORT, H5S_ALL, H5S_ALL, H5P_DEFAULT, averaged);
   H5Sclose(dataspace_id);
   H5Gclose(group_id);
@@ -469,17 +482,22 @@ static void get_geom_h5(int runid) {
   }
 
   char filename[256];
-  hid_t file_id, dataset_id, dataspace_id;
+  hid_t file_id, dataset_id, dataspace_id, plist_id;
   hsize_t dims[] = {ysize * 8, xsize};
+
+  plist_id = H5Pcreate(H5P_DATASET_CREATE);
+  H5Pset_shuffle(plist_id);
+  H5Pset_deflate(plist_id, 4);
+  H5Pset_chunk(plist_id, 2, dims);
 
   snprintf(filename, 256, "%06d-geom.h5", runid);
   file_id = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
   dataspace_id = H5Screate_simple(2, dims, NULL);
-  dataset_id = H5Dcreate2(file_id, "x", H5T_NATIVE_FLOAT, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+  dataset_id = H5Dcreate2(file_id, "x", H5T_NATIVE_FLOAT, dataspace_id, H5P_DEFAULT, plist_id, H5P_DEFAULT);
   H5Dwrite(dataset_id, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, posx);
-  dataset_id = H5Dcreate2(file_id, "y", H5T_NATIVE_FLOAT, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+  dataset_id = H5Dcreate2(file_id, "y", H5T_NATIVE_FLOAT, dataspace_id, H5P_DEFAULT, plist_id, H5P_DEFAULT);
   H5Dwrite(dataset_id, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, posy);
-  dataset_id = H5Dcreate2(file_id, "z", H5T_NATIVE_FLOAT, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+  dataset_id = H5Dcreate2(file_id, "z", H5T_NATIVE_FLOAT, dataspace_id, H5P_DEFAULT, plist_id, H5P_DEFAULT);
   H5Dwrite(dataset_id, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, posz);
   H5Sclose(dataspace_id);
   H5Dclose(dataset_id);
