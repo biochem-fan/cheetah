@@ -13,7 +13,6 @@ import re
 
 XSIZE = 512
 YSIZE = 1024
-BL = 3
 
 def write_crystfel_geom(filename, det_infos, energy):
     with open(filename, "w") as out:
@@ -115,37 +114,43 @@ def str2float(str):
     else:
         return None
 
-def run(runid):
-    print "prepare-cheetah-sacla-api2.py version 1y0209"
-    print " by Takanori Nakane at University of Tokyo"
-    print
+def run(runid, bl=3):
+    # Beamline specific constants
+    if bl == 2:
+        sensor_spec = "xfel_bl_2_tc_spec_1/energy"
+        sensor_shutter = "xfel_bl_2_shutter_1_open_valid/status"
+    elif bl == 3:
+        sensor_spec = "xfel_bl_3_tc_spec_1/energy"
+        sensor_shutter = "xfel_bl_3_shutter_1_open_valid/status"
+    else:
+        pass
 
     # Get Run info
-    run_info = dbpy.read_runinfo(BL, runid)
-    high_tag = dbpy.read_hightagnumber(BL, runid)
+    run_info = dbpy.read_runinfo(bl, runid)
+    high_tag = dbpy.read_hightagnumber(bl, runid)
     start_tag = run_info['start_tagnumber']
     end_tag = run_info['end_tagnumber']
 
-    tag_list = dbpy.read_taglist_byrun(BL, runid)
+    tag_list = dbpy.read_taglist_byrun(bl, runid)
     tag = tag_list[0]
     print "Run %d: HighTag %d, Tags %d (inclusive) to %d (exclusive), thus %d images" % (runid, high_tag, start_tag, end_tag, len(tag_list))
     print
 
     # Find detectors
-    det_IDs = dbpy.read_detidlist(3, runid)
+    det_IDs = dbpy.read_detidlist(bl, runid)
     print "Detector IDs: " + " ".join(det_IDs)
-    det_IDs = sorted([x for x in det_IDs if re.match("MPCCD-8-.*-[1-8]", x)])
+    det_IDs = sorted([x for x in det_IDs if re.match("^MPCCD-8.*-[1-8]$", x)])
     print "MPCCD Octal IDs to use: " + " ".join(det_IDs)
     print
 
     # Get shutter status and find dark images
-    shutter = [str2float(s) for s in dbpy.read_syncdatalist("xfel_bl_3_shutter_1_open_valid/status", high_tag, tag_list)]
+    shutter = [str2float(s) for s in dbpy.read_syncdatalist(sensor_shutter, high_tag, tag_list)]
     dark_tags = [tag for tag, is_open in zip(tag_list, shutter) if is_open == 0]
     print "Number of dark images to average: %d" % len(dark_tags)
     print
 
     # Setup buffer readers
-    readers = [stpy.StorageReader(det_id, BL, (runid,)) for det_id in det_IDs]
+    readers = [stpy.StorageReader(det_id, bl, (runid,)) for det_id in det_IDs]
     buffers = [stpy.StorageBuffer(reader) for reader in readers]
     
     # Read first image to get detector info
@@ -154,13 +159,13 @@ def run(runid):
     det_infos = [buf.read_det_info(0) for buf in buffers]
 
     # Collect pulse energies
-    pulse_energies  = [1000.0 * str2float(s) for s in dbpy.read_syncdatalist("xfel_bl_3_tc_spec_1/energy", high_tag, tuple(dark_tags))]
-    print "xfel_bl_3_tc_spec_1/energy for %d frames:" % len(pulse_energies)
+    pulse_energies  = [1000.0 * str2float(s) for s in dbpy.read_syncdatalist(sensor_spec, high_tag, tuple(dark_tags))]
+    print "%s for %d frames:" % (sensor_spec, len(pulse_energies))
     print pulse_energies
     print
     mean_energy = np.mean(pulse_energies)
     print "Mean photon energy: %f eV" % mean_energy
-    print "Configured photon energy: %f eV" % (1000.0 * dbpy.read_config_photonenergy(BL, runid))
+    print "Configured photon energy: %f eV" % (1000.0 * dbpy.read_config_photonenergy(bl, runid))
     print
 
     # Create geometry files
@@ -188,8 +193,10 @@ def run(runid):
         return -1
 
     sum_buffer /= num_added
+    ushort_max = np.iinfo(np.uint16).max
+    print " #neg (< 0) %d, #overflow (> %d) %d" % (np.sum(sum_buffer < 0), ushort_max, np.sum(sum_buffer > ushort_max))
     sum_buffer[sum_buffer < 0] = 0
-    sum_buffer[sum_buffer > np.iinfo(np.uint16).max] = np.iinfo(np.uint16).max
+    sum_buffer[sum_buffer > ushort_max] = ushort_max
     averaged = sum_buffer.astype(np.uint16)
 
     f = h5py.File("%d-dark.h5" % runid, "w")
@@ -197,4 +204,25 @@ def run(runid):
     f.close()
     print "Dark average was written to %s" % ("%d-dark.h5" % runid)
 
-run(int(sys.argv[1]))
+import optparse
+parser = optparse.OptionParser()
+
+parser.add_option("--bl", dest="bl", type=int, default=3, help="Beamline")
+opts, args = parser.parse_args()
+
+if (opts.bl != 2 and opts.bl !=3):
+    print "--bl must be 2 or 3."
+    sys.exit(-1)
+
+if len(args) != 1:
+    print "Usage: prepare-cheetah-sacla-api2.py runid"
+    sys.exit(-1)
+runid = int(args[0])
+
+print "prepare-cheetah-sacla-api2.py version 170209"
+print " by Takanori Nakane at University of Tokyo"
+print
+print "Option: bl               = %d" % opts.bl
+print
+
+run(runid=runid, bl=opts.bl)
