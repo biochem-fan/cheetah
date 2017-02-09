@@ -312,15 +312,19 @@ int run(int runid) {
     num_added += add_image(buffer, tagID, pulse_energies[j]);
   }
   printf("\nDone. Averaged %d frames.\n", num_added);
-  
-  if (num_added < 1) return -1;
+ 
+  if (num_added < 1) {
+    log_error("NoImageAveraged");
+    return -1;
+  }
+  int n_neg = 0, n_overflow = 0;
   for (int i = 0; i < buffersize; i++) {
     double tmp = buffer[i] / num_added;
-    if (tmp < 0) averaged[i] = 0;
-    if (tmp > USHRT_MAX) averaged[i] = USHRT_MAX;
+    if (tmp < 0) {averaged[i] = 0; n_neg++;}
+    else if (tmp > USHRT_MAX) {averaged[i] = USHRT_MAX; n_overflow++;}
     else averaged[i] = (unsigned short)tmp;
-    // TODO: Is this correct treatmen2Dt?
   }
+  printf(" #neg (< 0) %d #overflow (> %d) %d\n", n_neg, USHRT_MAX, n_overflow);
   
   /*
     snprintf(filename, 256, "%d-dark.img", runid);
