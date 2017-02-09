@@ -110,7 +110,7 @@ int run(int runid) {
   da_alloc_int_array(&tagbuf, 0, NULL);
   sy_read_taglist_byrun(tagbuf, bl, runid);
   da_getsize_int_array(&numAll, tagbuf);
-  printf("Run %d contains tag %d - %d (%d images)\n", runid, start, end, numAll);
+  printf("Run %d contains tag %d (inclusive) to %d (exclusive), thus %d images\n", runid, start, end, numAll);
   int *tagAll = (int*)malloc(sizeof(int) * numAll);
   for (int i = 0; i < numAll; i++) {
     da_getint_int_array(tagAll + i, tagbuf, i);

@@ -108,7 +108,7 @@ static bool get_image(double *buffer, int tag, double photon_energy) {
 }
 
 int main(int argc, char *argv[]) {
-	printf("Cheetah for SACLA new offline API -- version 161211\n");
+	printf("Cheetah for SACLA new offline API -- version 170209\n");
 	printf(" by Takanori Nakane\n");
 	printf(" This program is based on cheetah-sacla by Anton Barty.\n");
 	int c, retno;
@@ -117,8 +117,7 @@ int main(int argc, char *argv[]) {
 	int runNumber = -1;
 	char cheetahIni[4096] = {};
 	int maxI_threshold = 10000;
-	int startAt = 0;
-	int stride = 2; // 30 Hz mode (60 / 30)
+	//int stride = 2; // 30 Hz mode (60 / 30)
 	double pd1_threshold = 0, pd2_threshold = 0, pd3_threshold = 0;
 	char *pd1_sensor_name = "xfel_bl_3_st_4_pd_laser_fitting_peak/voltage";
 	char *pd2_sensor_name = "xfel_bl_3_st_4_pd_user_10_fitting_peak/voltage";
@@ -135,7 +134,7 @@ int main(int argc, char *argv[]) {
 		{"output", 1, NULL, 'o'},
 		{"run", 1, NULL, 'r'},
 		{"maxI", 1, NULL, 'm'},
-		{"stride", 1, NULL, 11},
+//		{"stride", 1, NULL, 11},
 		{"station", 1, NULL, 12},
 		{"pd1_thresh", 1, NULL, 13},
 		{"pd2_thresh", 1, NULL, 14},
@@ -149,7 +148,6 @@ int main(int argc, char *argv[]) {
 		{0, 0, NULL, 0}
 	};
 
-	int tmp;
 	while ((c = getopt_long(argc, argv, "i:r:m:o:", longopts, NULL)) != -1) {
 		switch(c) {
 		case 'i':
@@ -164,14 +162,14 @@ int main(int argc, char *argv[]) {
 		case 'm':
 			maxI_threshold = atoi(optarg);
 			break;
-		case 11: // stride
+/*		case 11: // stride
 			tmp = atoi(optarg);
 			if (tmp <= 0) {
 				printf("ERROR: Stride must be a positive integer. \n");
 				return -1;
 			}
 			stride = tmp;
-			break;
+			break; */
 		case 12: // station
 			station = atoi(optarg);
 			break;
@@ -252,7 +250,7 @@ int main(int argc, char *argv[]) {
 	printf(" cheetah ini file (-i/--ini):  %s\n", cheetahIni);
 	printf(" output H5 file (-o/--output): %s (default = run######.h5)\n", outputH5);
 	printf(" maxI threshold (-m/--maxI):   %d (default = 10000)\n", maxI_threshold);
-	printf(" stride (--stride):            %d (default = 2; 30 Hz mode)\n", stride);
+//	printf(" stride (--stride):            %d (default = 2; 30 Hz mode)\n", stride);
 	printf(" station (--station):          %d (default = 4)\n", station);
         printf(" beamline (--bl):              %d (default = 3)\n", bl);
 	printf(" PD1 threshold (--pd1_thresh): %.3f (default = 0; ignore.)\n", pd1_threshold);
@@ -279,32 +277,38 @@ int main(int argc, char *argv[]) {
 	char message[512];
 	static time_t startT = 0;
 	time(&startT);
-    strcpy(cheetahGlobal.configFile, cheetahIni);
+	strcpy(cheetahGlobal.configFile, cheetahIni);
 	cheetahInit(&cheetahGlobal);
 	cheetahGlobal.runNumber = runNumber;
 	strncpy(cheetahGlobal.cxiFilename, outputH5, MAX_FILENAME_LENGTH);
+	printf("\n");
 
-    hsize_t dims[2];
-    dims[0] = NDET * ysize;
-    dims[1] = xsize;
+	hsize_t dims[2];
+	dims[0] = NDET * ysize;
+	dims[1] = xsize;
 
 	// get tag_hi and start
-	int tag_hi, start, end;
-	retno = sy_read_start_tagnumber(&tag_hi, &start, bl, runNumber);
+	int tag_hi, tag_start, tag_end;
+	retno = sy_read_start_tagnumber(&tag_hi, &tag_start, bl, runNumber);
 	if (retno != 0) {
 		printf("ERROR: Cannot read run %d.\n", runNumber);
 		printf("If this run is before Nov 2014, please use the old API version.\n");
 		return -1;
 	}
-	retno = sy_read_end_tagnumber(&tag_hi, &end, bl, runNumber);
+	retno = sy_read_end_tagnumber(&tag_hi, &tag_end, bl, runNumber);
 
 	// How many dark frames?
-	int numAll = (end - start) / stride + 1;
-	printf("Run %d contains tag %d - %d (%d images), taghi = %d\n", runNumber, start, end, numAll, tag_hi);
+	struct da_int_array *tagbuf;
+	int numAll;
+	da_alloc_int_array(&tagbuf, 0, NULL);
+	sy_read_taglist_byrun(tagbuf, bl, runNumber);
+	da_getsize_int_array(&numAll, tagbuf);
+	printf("Run %d contains tag %d (inclusive) to %d (exclusive), thus %d images\n", runNumber, tag_start, tag_end, numAll);
 	int *tagAll = (int*)malloc(sizeof(int) * numAll);
 	for (int i = 0; i < numAll; i++) {
-		tagAll[i] = start + i * stride;
+		da_getint_int_array(tagAll + i, tagbuf, i);
 	}
+	da_destroy_int_array(&tagbuf);
 
 	std::vector<std::string> shutterAll;
 	if ((bl == 3 && myReadSyncDataList(&shutterAll, "xfel_bl_3_shutter_1_open_valid/status", tag_hi, numAll, tagAll) != 0) ||
@@ -315,16 +319,71 @@ int main(int argc, char *argv[]) {
 
 	int numDark = 0;
 	for (int i = 0; i < numAll; i++) {
+		tag_start = tagAll[i];
 		if (atoi(shutterAll[i].c_str()) == 0) {
 			numDark++;
 		} else {
 			break;
 		}
 	}
-	printf("Number of dark frames: %d\n\n", numDark);
-	startAt = (numDark + 1) * stride;
-	free(tagAll);
+	printf("Number of dark frames: %d\nThus, exposed images start from %d\n\n", numDark, tag_start);
 
+	int parallel_cnt = 0;
+	std::vector<int> tagList;
+	if (tagList_file == NULL) {
+		int blockstart = numDark, blockend = numAll - 1; // inclusive
+		if (parallel_block != -1) { // block division
+			int width = (numAll - numDark + 1) / parallel_size;
+			blockstart = numDark + width * parallel_block;
+			blockend = numDark + width * (parallel_block + 1) - 1;
+			if (parallel_block == parallel_size - 1) { // last block
+				blockend = numAll - 1;
+			}
+		}
+		printf("parallel: start %d end %d blockstart %d blockend %d\n", tagAll[0], tagAll[numAll - 1], tagAll[blockstart], tagAll[blockend]);
+		for (int i = blockstart; i <= blockend; i++) {
+			tagList.push_back(tagAll[i]);
+		
+		}
+	} else {
+		FILE *fh = fopen(tagList_file, "r");
+		free(tagList_file);
+
+		if (fh == NULL) {
+			printf("ERROR: Unable to open tagList.\n");
+			return -1;
+		}
+		int i = 0;
+		while (!feof(fh)) {
+			fscanf(fh, "%d\n", &i);
+			if (i < tag_start || i >= tag_end) {
+				printf("WARNING: tag %d does not belong to run %d. skipped.\n", i, runNumber);
+				continue;
+			}
+ 
+			parallel_cnt++; // TODO: refactor and merge above, use block parallelization
+			if (parallel_block == -1 || // no parallelization
+				parallel_cnt % parallel_size == parallel_block) {
+				tagList.push_back(i);
+			}
+		}
+		fclose(fh);
+	}
+        free(tagAll);
+	
+	if (tagList.size() == 0) {
+		printf("No images to process! Exiting...\n");
+		cheetahExit(&cheetahGlobal);
+		snprintf(message, 512, "Status=Error-NoImage");
+		cheetahGlobal.writeStatus(message);
+		return -1;
+	}
+	printf("\n");
+
+	// for API 
+	int *tagList_array = (int*)malloc(sizeof(int) * tagList.size());
+	std::copy(tagList.begin(), tagList.end(), tagList_array);
+	
 	// find detector ID
 	struct da_string_array *det_ids;
 	int n_detid;
@@ -333,7 +392,7 @@ int main(int argc, char *argv[]) {
 	printf("Detector configulation:\n");
 	da_alloc_string_array(&det_ids);
 	sy_read_detidlist(det_ids, bl, runNumber);
-  
+
 	da_getsize_string_array(&n_detid, det_ids);
 	for (int i = 0; i < n_detid; i++) {
    		char *detid;
@@ -360,66 +419,7 @@ int main(int argc, char *argv[]) {
 		cheetahGlobal.writeStatus(message);
 		return -1;
 	}
-	
-	start += startAt;
-	int parallel_cnt = 0;
-	std::vector<int> tagList;
-	if (tagList_file == NULL) {
-		int blockstart = start, blockend = end; // inclusive
-		if (parallel_block != -1) { // block division
-			int width = (end - start + 1) / parallel_size;
-			blockstart = start + width * parallel_block;
-			blockend = start + width * (parallel_block + 1) - 1;
-			if (parallel_block == parallel_size - 1) { // last block
-				blockend = end;
-			}
-		}
-		printf("parallel: start %d end %d blockstart %d blockend %d\n", start, end, blockstart, blockend);
-		for (int i = start; i <= end; i+= stride) {
-			parallel_cnt++;
-//			if (parallel_block == -1 || // no parallelization
-//				parallel_cnt % parallel_size == parallel_block) {
-			if (blockstart <= i && i <= blockend) {
-				tagList.push_back(i);
-			}
-		}
-	} else {
-		FILE *fh = fopen(tagList_file, "r");
-		free(tagList_file);
-
-		if (fh == NULL) {
-			printf("ERROR: Unable to open tagList.\n");
-			return -1;
-		}
-		int i = 0;
-		while (!feof(fh)) {
-			fscanf(fh, "%d\n", &i);
-			if (i < start || i > end) {
-				printf("WARNING: tag %d does not belong to run %d. skipped.\n", i, runNumber);
-				continue;
-			}
- 
-			parallel_cnt++; // TODO: refactor and merge above
-			if (parallel_block == -1 || // no parallelization
-				parallel_cnt % parallel_size == parallel_block) {
-				tagList.push_back(i);
-			}
-		}
-		fclose(fh);
-	}
-//		tagList.clear(); tagList.push_back(121943650); // for debugging
-	
-	if (tagList.size() == 0) {
-		printf("No images to process! Exiting...\n");
-		cheetahExit(&cheetahGlobal);
-		snprintf(message, 512, "Status=Error-NoImage");
-		cheetahGlobal.writeStatus(message);
-		return -1;
-	}
-
-	// for API 
-	int *tagList_array = (int*)malloc(sizeof(int) * tagList.size());
-	std::copy(tagList.begin(), tagList.end(), tagList_array);
+	printf("\n");
 	
 	// Create storage readers and buffers
 	// and get detector gains
@@ -440,7 +440,7 @@ int main(int argc, char *argv[]) {
 			printf("Failed to allocate databuffer for %s.\n", det_name);
 			return -1;
 		}
-		uint32_t tagid = start;
+		uint32_t tagid = tag_start;
 		retno = st_collect_data(databufs[det_id], streaders[det_id], &tagid);
 		if (retno != 0) {
 			printf("Failed to collect data for %s.\n", det_name);
@@ -448,6 +448,7 @@ int main(int argc, char *argv[]) {
 		}
 		mp_read_absgain(&gains[det_id], databufs[det_id]);
 	}
+	printf("\n");
 
 	// LLF values
 	std::vector<std::string> maxIs;
