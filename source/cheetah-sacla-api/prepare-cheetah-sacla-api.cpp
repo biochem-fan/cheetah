@@ -51,7 +51,8 @@ int run(int runid) {
 
   printf("SACLA geometry & dark average exporter\n");
   printf(" By Takanori Nakane \n\n");
-  printf(" version 20151116 with old API\n\n");
+  printf(" version 20170209 with old API\n\n");
+  printf("WARNING: This program is no longer maintained!\nUse prepare-cheetah-sacla-api2.\n\n");
  
   // get tag_hi and start
   ReadStartTagNumber(tag_hi, start, bl, runid);
@@ -140,7 +141,7 @@ int run(int runid) {
   for (int i = 0; i < buffersize; i++) {
     double tmp = buffer[i] / num_added;
     if (tmp < 0) averaged[i] = 0;
-    if (tmp > USHRT_MAX) averaged[i] = USHRT_MAX;
+    else if (tmp > USHRT_MAX) averaged[i] = USHRT_MAX;
     else averaged[i] = (unsigned short)tmp;
     // TODO: Is this correct treatment?
   }
