@@ -11,7 +11,7 @@
 #include "DataAccessUserAPI.h"
 #include "hdf5.h"
 
-static std::string get_geom(int run);
+static std::string get_geom(int run, double energy);
 static void get_geom_h5(int run);
 static int add_image(double *buffer, int tag, double photon_energy);
 static int run(int runid);
@@ -93,7 +93,7 @@ int run(int runid) {
 
   printf("SACLA geometry & dark average exporter\n");
   printf(" By Takanori Nakane\n");
-  printf(" version 20170206 with new API\n\n");
+  printf(" version 20170209 with new API\n\n");
   
   // Get tag_hi, start, end
   retno = sy_read_start_tagnumber(&tag_hi, &start, bl, runid);
@@ -183,7 +183,7 @@ int run(int runid) {
    
   // Create storage readers and buffers
   // collect first image (used to generate geometry files)
-  printf("Initializing reader and buffer\n");
+  printf("Initializing reader and buffer:\n");
   for (int det_id = 0; det_id < 8; det_id++) {
     char det_name[256];
     strncpy(det_name, det_template, 255);
@@ -211,18 +211,7 @@ int run(int runid) {
     }
   }
 
-  // Geometry generation
-  printf("\n");
-  char filename[256];
-  snprintf(filename, 256, "%06d.geom", runid);
-  std::ofstream ofs(filename);
-  ofs << get_geom(runid);
-  ofs.close();
-  printf("CrystFEL geometry file was written to %s\n", filename);
-  get_geom_h5(runid);
-
   // LLF values
-  printf("\n");
   struct da_string_array *llf;
   int n_llf;
   
@@ -230,7 +219,7 @@ int run(int runid) {
   sy_read_statistics_detllf(llf, LLF_ID, bl, tag_hi, numDark, tagList);
 
   da_getsize_string_array(&n_llf, llf);
-  printf("\nLLF statistics for %d frames.\n", n_llf);
+  printf("\nLLF statistics for %d frames:\n", n_llf);
   for (int i = 0; i < n_llf; i++) {
     char *val;
     da_getstring_string_array(&val, llf, i);
@@ -260,14 +249,15 @@ int run(int runid) {
   da_destroy_string_array(&pd_laser);
 
   // Pulse energies
-  std::vector<std::string> pulse_energies;
+  std::vector<float> pulse_energies;
   struct da_string_array *energies;
-  int n_energy;
+  int n_energy = 0;
+  float mean_energy = 0;
   
   if (runid >=333661 && runid <= 333682) {
     // 19 May 2015: spectrometer broken! use config value instead
     for (int i = 0; i < numDark; i++) {
-      pulse_energies.push_back("7.0");
+      pulse_energies.push_back(7.0);
     }
   } else {
     da_alloc_string_array(&energies);
@@ -281,17 +271,32 @@ int run(int runid) {
     for (int i = 0; i < n_energy; i++) {
       char *val;
       da_getstring_string_array(&val, energies, i);
-      pulse_energies.push_back(val);
+      pulse_energies.push_back(1000.0 * atof(val));
       free(val);
     }
     da_destroy_string_array(&energies);
   }
   
-  printf("energy for %ld frames.\n", pulse_energies.size());
-  for (unsigned int i = 0; i < pulse_energies.size(); i++) {
-    printf(" %s", pulse_energies[i].c_str());
+  printf("Photon energies (eV) for %d frames:\n", n_energy);
+  for (unsigned int i = 0; i < n_energy; i++) {
+    printf(" %.2f", pulse_energies[i]);
+    mean_energy += pulse_energies[i];
   }
-  printf("\n\n");
+  mean_energy /= n_energy;
+  printf("\nMean photon energy = %.2f eV\n", mean_energy);
+  double config_energy;
+  sy_read_config_photonenergy(&config_energy, bl, runid);
+  printf("Accelerator config = %.2f eV\n\n", 1000.0 * config_energy);
+
+  // Geometry generation
+  char filename[256];
+  snprintf(filename, 256, "%06d.geom", runid);
+  std::ofstream ofs(filename);
+  ofs << get_geom(runid, mean_energy);
+  ofs.close();
+  printf("CrystFEL geometry file was written to %s\n", filename);
+  get_geom_h5(runid);
+  printf("\n");
 
   // Dark averages
   
@@ -304,7 +309,7 @@ int run(int runid) {
       fprintf(status, "Status: Total=%d,Processed=%d,Status=DarkAveraging\n", numDark, j + 1);
       fclose(status);
     }
-    num_added += add_image(buffer, tagID, 1000 * atof(pulse_energies[j].c_str()));
+    num_added += add_image(buffer, tagID, pulse_energies[j]);
   }
   printf("\nDone. Averaged %d frames.\n", num_added);
   
@@ -372,14 +377,11 @@ int run(int runid) {
   return 0;
 }
 
-static std::string get_geom(int run) {
+static std::string get_geom(int run, double energy) {
   std::stringstream ss;
   float detx, dety, detz, rotation;
 //  float stage_dir, shift_weight, aperture_origin, aperture_par;
 //  int manipulator_pos;
-
-  double energy;
-  sy_read_config_photonenergy(&energy, bl, run); // returned in keV
 
   ss << "; CrystFEL geometry file produced by prepare-cheetah-sacla-api2\n"
      << ";   by Takanori Nakane\n"
@@ -393,7 +395,7 @@ static std::string get_geom(int run) {
      << ";adu_per_eV = /LCLS/adu_per_eV\n"
      << ";max_adu = 250000 ; should NOT be used. see best practice on Web\n"
      << "data = /%/data ; change this to /LCLS/data for single-event files\n"
-     << boost::format("photon_energy = /%%/photon_energy_ev ; roughly %f. change this to /LCLS/photon_energy_eV for single-event files\n") % (energy * 1000)
+     << boost::format("photon_energy = /%%/photon_energy_ev ; roughly %f. change this to /LCLS/photon_energy_eV for single-event files\n") % energy
      << "rigid_group_q1 = q1\n" 
      << "rigid_group_q2 = q2\n" 
      << "rigid_group_q3 = q3\n" 
@@ -436,7 +438,7 @@ static std::string get_geom(int run) {
     // Thus, ADU/eV = 1/(3.65*G)
 
     //    ss << boost::format("q%d/adu_per_eV = %f\n") % panel % (1.0 / (gain * 3.65));
-    ss << boost::format("q%d/adu_per_eV = %f\n") % panel % (1.0 / (0.1 * energy * 1000)); // Keitaro's 0.1 photon
+    ss << boost::format("q%d/adu_per_eV = %f\n") % panel % (1.0 / (0.1 * energy)); // Keitaro's 0.1 photon
     ss << boost::format("q%d/min_fs = %d\n") % panel % 0;
     ss << boost::format("q%d/min_ss = %d\n") % panel % (row * ysize);
     ss << boost::format("q%d/max_fs = %d\n") % panel % 511;
