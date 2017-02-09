@@ -11,10 +11,11 @@ import math
 import numpy as np
 import re
 
+VERSION = 170209
 XSIZE = 512
 YSIZE = 1024
 
-def write_crystfel_geom(filename, det_infos, energy):
+def write_crystfel_geom(filename, det_infos, energy, clen):
     with open(filename, "w") as out:
         out.write("; CrystFEL geometry file produced by prepare_cheetah_api2.py\n")
         out.write(";   Takanori Nakane (takanori.nakane@bs.s.u-tokyo.ac.jp)\n")
@@ -22,7 +23,7 @@ def write_crystfel_geom(filename, det_infos, energy):
         out.write("; NOTE:\n")
         out.write("; This file is for multi-event HDF5 files. To use in single-event\n")
         out.write("; files, you have to edit 'data' record and prepare .beam file\n\n")
-        out.write("clen = 0.0515  ; 51.5 mm camera length. You SHOULD optimize this!\n")
+        out.write("clen = %.4f  ; %.1f mm camera length. You SHOULD optimize this!\n" % (clen * 1E-3, clen))
         out.write("res = 20000  ; 50 micron  1m /50 micron\n")
         out.write(";badrow_direction = x\n")
         out.write(";adu_per_eV = /LCLS/adu_per_eV\n")
@@ -114,7 +115,7 @@ def str2float(str):
     else:
         return None
 
-def run(runid, bl=3):
+def run(runid, bl=3, clen=50.0):
     # Beamline specific constants
     if bl == 2:
         sensor_spec = "xfel_bl_2_tc_spec_1/energy"
@@ -169,7 +170,7 @@ def run(runid, bl=3):
     print
 
     # Create geometry files
-    write_crystfel_geom("%d.geom" % runid, det_infos, mean_energy)
+    write_crystfel_geom("%d.geom" % runid, det_infos, mean_energy, clen)
     write_cheetah_geom("%d-geom.h5" % runid, det_infos)
 
     # Create dark average
@@ -208,6 +209,7 @@ import optparse
 parser = optparse.OptionParser()
 
 parser.add_option("--bl", dest="bl", type=int, default=3, help="Beamline")
+parser.add_option("--clen", dest="clen", type=float, default=50.0, help="Camera distance")
 opts, args = parser.parse_args()
 
 if (opts.bl != 2 and opts.bl !=3):
@@ -215,14 +217,15 @@ if (opts.bl != 2 and opts.bl !=3):
     sys.exit(-1)
 
 if len(args) != 1:
-    print "Usage: prepare-cheetah-sacla-api2.py runid"
+    print "Usage: prepare-cheetah-sacla-api2.py runid [--bl 3] [--clen 50.0]"
     sys.exit(-1)
 runid = int(args[0])
 
-print "prepare-cheetah-sacla-api2.py version 170209"
+print "prepare-cheetah-sacla-api2.py version %d" % VERSION
 print " by Takanori Nakane at University of Tokyo"
 print
 print "Option: bl               = %d" % opts.bl
+print "Option: clen             = %.1f mm" % opts.clen
 print
 
-run(runid=runid, bl=opts.bl)
+run(runid=runid, bl=opts.bl, clen=opts.clen)
