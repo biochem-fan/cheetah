@@ -14,6 +14,7 @@ import re
 VERSION = 170209
 XSIZE = 512
 YSIZE = 1024
+NPANELS = 8
 
 def write_crystfel_geom(filename, det_infos, energy, clen):
     with open(filename, "w") as out:
@@ -23,13 +24,16 @@ def write_crystfel_geom(filename, det_infos, energy, clen):
         out.write("; NOTE:\n")
         out.write("; This file is for multi-event HDF5 files. To use in single-event\n")
         out.write("; files, you have to edit 'data' record and prepare .beam file\n\n")
-        out.write("clen = %.4f  ; %.1f mm camera length. You SHOULD optimize this!\n" % (clen * 1E-3, clen))
-        out.write("res = 20000  ; 50 micron  1m /50 micron\n")
+        out.write("clen = %.4f               ; %.1f mm camera length. You SHOULD optimize this!\n" % (clen * 1E-3, clen))
+        out.write("res = 20000                 ; 50 micron  1m /50 micron\n")
         out.write(";badrow_direction = x\n")
-        out.write(";adu_per_eV = /LCLS/adu_per_eV\n")
-        out.write(";max_adu = 250000 ; should NOT be used. see best practice on Web\n")
-        out.write("data = /%/data ; change this to /LCLS/data for single-event files\n")
+        out.write(";max_adu = 250000           ; should NOT be used. see best practice on Web\n")
+        out.write("data = /%/data\n")
+        out.write(";mask = /metadata/pixelmask ; this does not work in CrystFEL 0.6.2 (reported bug)\n")
+        out.write("mask_good = 0x00            ; instead, we can specify bad regions below if necessary\n")
+        out.write("mask_bad = 0xFF\n")
         out.write("photon_energy = /%%/photon_energy_ev ; roughly %f. change this to /LCLS/photon_energy_eV for single-event files\n\n" % energy)
+        out.write("; Definitions for geoptimiser\n")
         out.write("rigid_group_q1 = q1\n")
         out.write("rigid_group_q2 = q2\n")
         out.write("rigid_group_q3 = q3\n")
@@ -41,8 +45,8 @@ def write_crystfel_geom(filename, det_infos, energy, clen):
         out.write("rigid_group_collection_connected = q1,q2,q3,q4,q5,q6,q7,q8\n")
         out.write("rigid_group_collection_independent = q1,q2,q3,q4,q5,q6,q7,q8\n\n")
 
-	for i in range(8):
-            det_info = det_infos[i]
+        out.write("; Panel definitions\n")
+        for i, det_info in enumerate(det_infos):
             gain = det_info['mp_absgain']
             detx = det_info['mp_posx']
             dety = det_info['mp_posy']
@@ -52,7 +56,6 @@ def write_crystfel_geom(filename, det_infos, energy, clen):
             print "gain %f pos (%f, %f, %f) rotation %f energy %f" % (gain, detx, dety, detz, rotation, energy)
 
             detx /= pixel_size; dety /= pixel_size;
-    
             det_id = i + 1
 
             # Nphotons = S [ADU] * G [e-/ADU] / (E [eV] * 3.65 [eV/e-]) according to the manual.
@@ -68,13 +71,38 @@ def write_crystfel_geom(filename, det_infos, energy, clen):
             out.write("q%d/corner_x = %f\n" % (det_id, -detx))
             out.write("q%d/corner_y = %f\n\n" % (det_id, dety))
 
+        border = get_border(det_infos[0]['id'])
+        if border == 0:
+            return # no bad region
+
+        out.write("; Bad regions near edges of each sensor\n")
+        # NOTE: ranges are inclusive in CrystFEL
+        # left
+        out.write("badv1/min_fs = %d\n"   % 0)
+        out.write("badv1/max_fs = %d\n"   % (border - 1))
+        out.write("badv1/min_ss = %d\n"   % 0)
+        out.write("badv1/max_ss = %d\n\n" % (YSIZE * NPANELS - 1))
+        # right
+        out.write("badv2/min_fs = %d\n"   % (XSIZE - border))
+        out.write("badv2/max_fs = %d\n"   % (XSIZE - 1))
+        out.write("badv2/min_ss = %d\n"   % 0)
+        out.write("badv2/max_ss = %d\n\n" % (YSIZE * NPANELS - 1))
+        for i in xrange(NPANELS):
+            out.write("badq%dh1/min_fs = %d\n"   % (i, 0))
+            out.write("badq%dh1/max_fs = %d\n"   % (i, XSIZE - 1))
+            out.write("badq%dh1/min_ss = %d\n"   % (i, YSIZE * i))
+            out.write("badq%dh1/max_ss = %d\n\n" % (i, YSIZE * i + border - 1))
+            out.write("badq%dh2/min_fs = %d\n"   % (i, 0))
+            out.write("badq%dh2/max_fs = %d\n"   % (i, XSIZE - 1))
+            out.write("badq%dh2/min_ss = %d\n"   % (i, YSIZE * (i + 1) - border))
+            out.write("badq%dh2/max_ss = %d\n\n" % (i, YSIZE * (i + 1) - 1))
+
 def write_cheetah_geom(filename, det_infos):
-    posx = np.zeros((YSIZE * 8, XSIZE), dtype=np.float32)
+    posx = np.zeros((YSIZE * NPANELS, XSIZE), dtype=np.float32)
     posy = posx.copy()
     posz = posx.copy()
 
-    for i in range(8):
-        det_info = det_infos[i]
+    for i, det_info in enumerate(det_infos):
         gain = det_info['mp_absgain']
         detx = det_info['mp_posx'] * 1E-6 # m
         dety = det_info['mp_posy'] * 1E-6
@@ -99,8 +127,42 @@ def write_cheetah_geom(filename, det_infos):
     f.create_dataset("z", data=posz, compression="gzip", shuffle=True)
     f.close()
 
+def get_border(det_name):
+    if re.match("MPCCD-8B", det_name): # Phase 3 detector?
+        return 5
+    else:
+        return 0
+
+def make_pixelmask(border=5):
+    mask = np.zeros((YSIZE * NPANELS, XSIZE), dtype=np.uint16)
+    mask[:, 0:border] = 1
+    mask[:, (XSIZE - border):XSIZE] = 1
+
+    for i in xrange(NPANELS):
+        mask[(YSIZE * i):(YSIZE * i + border), :] = 1
+        mask[(YSIZE * (i + 1) - border):(YSIZE * (i + 1)), :] = 1
+
+    return mask
+
+def write_metadata(filename, det_infos, clen, comment):
+    f = h5py.File(filename, "w")
+    
+    f["/metadata/pipeline_version"] = VERSION
+    f["/metadata/run_comment"] = comment
+    f["/metadata/sensor_id"] = [det_info['id'] for det_info in det_infos]
+    f["/metadata/posx_in_um"] = [det_info['mp_posx'] for det_info in det_infos]
+    f["/metadata/posy_in_um"] = [det_info['mp_posy'] for det_info in det_infos]
+    f["/metadata/posz_in_um"] = [det_info['mp_posz'] for det_info in det_infos]
+    f["/metadata/angle_in_rad"] = [det_info['mp_rotationangle'] for det_info in det_infos]
+    f["/metadata/pixelsizex_in_um"] = [det_info['mp_pixelsizex'] for det_info in det_infos]
+    f["/metadata/pixelsizey_in_um"] = [det_info['mp_pixelsizey'] for det_info in det_infos]
+    f["/metadata/distance_in_mm"] = clen
+    pixel_mask = make_pixelmask(get_border(det_infos[0]['id']))
+    f.create_dataset("/metadata/pixelmask", data=pixel_mask, compression="gzip", shuffle=True)
+    f.close()
+
 def add_image(acc, readers, buffers, gains, tag_id, energy):
-    for i in range(8):
+    for i in range(NPANELS):
         readers[i].collect(buffers[i], tag_id)
         data = buffers[i].read_det_data(0)
         gain = gains[i] * 3.65 / 0.1 / energy
@@ -135,6 +197,8 @@ def run(runid, bl=3, clen=50.0):
     tag_list = dbpy.read_taglist_byrun(bl, runid)
     tag = tag_list[0]
     print "Run %d: HighTag %d, Tags %d (inclusive) to %d (exclusive), thus %d images" % (runid, high_tag, start_tag, end_tag, len(tag_list))
+    comment = dbpy.read_comment(bl, runid)
+    print "Comment: %s" % comment
     print
 
     # Find detectors
@@ -155,9 +219,12 @@ def run(runid, bl=3, clen=50.0):
     buffers = [stpy.StorageBuffer(reader) for reader in readers]
     
     # Read first image to get detector info
+    det_infos = []
     for reader, buf in zip(readers, buffers):
         reader.collect(buf, dark_tags[0])
     det_infos = [buf.read_det_info(0) for buf in buffers]
+    for i, det_info in enumerate(det_infos):
+        det_info['id'] = det_IDs[i]
 
     # Collect pulse energies
     pulse_energies  = [1000.0 * str2float(s) for s in dbpy.read_syncdatalist(sensor_spec, high_tag, tuple(dark_tags))]
@@ -173,11 +240,14 @@ def run(runid, bl=3, clen=50.0):
     write_crystfel_geom("%d.geom" % runid, det_infos, mean_energy, clen)
     write_cheetah_geom("%d-geom.h5" % runid, det_infos)
 
+    # Write metadata
+    write_metadata("%d.h5" % runid, det_infos, clen, comment)
+
     # Create dark average
     print
     print "Calculating a dark average:"
     num_added = 0
-    sum_buffer = np.zeros((YSIZE * 8, XSIZE), dtype=np.float64)
+    sum_buffer = np.zeros((YSIZE * NPANELS, XSIZE), dtype=np.float64)
     gains = [det_info['mp_absgain'] for det_info in det_infos]
 
     for j, tag_id in enumerate(dark_tags):
