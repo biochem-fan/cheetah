@@ -16,23 +16,24 @@ XSIZE = 512
 YSIZE = 1024
 NPANELS = 8
 
+def log_error(message):
+    with open("status.txt", "w") as out:
+        out.write("Status: Status=Error-%s\n" % message)
+
 def write_crystfel_geom(filename, det_infos, energy, clen):
     with open(filename, "w") as out:
         out.write("; CrystFEL geometry file produced by prepare_cheetah_api2.py\n")
         out.write(";   Takanori Nakane (takanori.nakane@bs.s.u-tokyo.ac.jp)\n")
         out.write("; for tiled but NOT reassembled images (512x8192 pixels)\n\n")
-        out.write("; NOTE:\n")
-        out.write("; This file is for multi-event HDF5 files. To use in single-event\n")
-        out.write("; files, you have to edit 'data' record and prepare .beam file\n\n")
         out.write("clen = %.4f               ; %.1f mm camera length. You SHOULD optimize this!\n" % (clen * 1E-3, clen))
-        out.write("res = 20000                 ; 50 micron  1m /50 micron\n")
+        out.write("res = 20000                 ; = 1 m /50 micron\n")
         out.write(";badrow_direction = x\n")
-        out.write(";max_adu = 250000           ; should NOT be used. see best practice on Web\n")
+        out.write(";max_adu = 250000           ; should NOT be used. see best practice on CrystFEL's Web site\n")
         out.write("data = /%/data\n")
         out.write(";mask = /metadata/pixelmask ; this does not work in CrystFEL 0.6.2 (reported bug)\n")
         out.write("mask_good = 0x00            ; instead, we can specify bad regions below if necessary\n")
         out.write("mask_bad = 0xFF\n")
-        out.write("photon_energy = /%%/photon_energy_ev ; roughly %f. change this to /LCLS/photon_energy_eV for single-event files\n\n" % energy)
+        out.write("photon_energy = /%%/photon_energy_ev ; roughly %.1f eV\n\n" % energy)
         out.write("; Definitions for geoptimiser\n")
         out.write("rigid_group_q1 = q1\n")
         out.write("rigid_group_q2 = q2\n")
@@ -163,7 +164,11 @@ def write_metadata(filename, det_infos, clen, comment):
 
 def add_image(acc, readers, buffers, gains, tag_id, energy):
     for i in range(NPANELS):
-        readers[i].collect(buffers[i], tag_id)
+        try:
+            readers[i].collect(buffers[i], tag_id)
+        except:
+            log_error("FailedOn_collect_data")
+            sys.exit(-1)
         data = buffers[i].read_det_data(0)
         gain = gains[i] * 3.65 / 0.1 / energy
         acc[(YSIZE * i):(YSIZE * (i + 1)),] += data * gain
@@ -186,10 +191,15 @@ def run(runid, bl=3, clen=50.0):
         sensor_spec = "xfel_bl_3_tc_spec_1/energy"
         sensor_shutter = "xfel_bl_3_shutter_1_open_valid/status"
     else:
-        pass
+        log_error("BadBeamline")
+        sys.exit(-1)
 
-    # Get Run info
-    run_info = dbpy.read_runinfo(bl, runid)
+    # Get Run infoi
+    try:
+        run_info = dbpy.read_runinfo(bl, runid)
+    except:
+        log_error("BadRunID")
+        sys.exit(-1)
     high_tag = dbpy.read_hightagnumber(bl, runid)
     start_tag = run_info['start_tagnumber']
     end_tag = run_info['end_tagnumber']
@@ -205,23 +215,45 @@ def run(runid, bl=3, clen=50.0):
     det_IDs = dbpy.read_detidlist(bl, runid)
     print "Detector IDs: " + " ".join(det_IDs)
     det_IDs = sorted([x for x in det_IDs if re.match("^MPCCD-8.*-[1-8]$", x)])
+    if len(det_IDs) != 8:
+        log_error("NoSupportedDetectorFound")
+        sys.exit(-1)
     print "MPCCD Octal IDs to use: " + " ".join(det_IDs)
     print
 
     # Get shutter status and find dark images
-    shutter = [str2float(s) for s in dbpy.read_syncdatalist(sensor_shutter, high_tag, tag_list)]
+    try:
+        shutter = [str2float(s) for s in dbpy.read_syncdatalist(sensor_shutter, high_tag, tag_list)]
+    except:
+        log_error("NoShutterStatus")
+        sys.exit(-1)
     dark_tags = [tag for tag, is_open in zip(tag_list, shutter) if is_open == 0]
+    if len(dark_tags) == 0:
+        log_error("NoDarkImage")
+        sys.exit(-1)
     print "Number of dark images to average: %d" % len(dark_tags)
     print
 
     # Setup buffer readers
-    readers = [stpy.StorageReader(det_id, bl, (runid,)) for det_id in det_IDs]
-    buffers = [stpy.StorageBuffer(reader) for reader in readers]
+    try:
+        readers = [stpy.StorageReader(det_id, bl, (runid,)) for det_id in det_IDs]
+    except:
+        log_error("FailedOn_create_streader")
+        sys.exit(-1)
+    try:
+        buffers = [stpy.StorageBuffer(reader) for reader in readers]
+    except:
+        log_error("FailedOn_create_stbuf")
+        sys.exit(-1)
     
     # Read first image to get detector info
     det_infos = []
     for reader, buf in zip(readers, buffers):
-        reader.collect(buf, dark_tags[0])
+        try:
+            reader.collect(buf, dark_tags[0])
+        except:
+            log_error("FailedOn_collect_data")
+            sys.exit(-1)
     det_infos = [buf.read_det_info(0) for buf in buffers]
     for i, det_info in enumerate(det_infos):
         det_info['id'] = det_IDs[i]
