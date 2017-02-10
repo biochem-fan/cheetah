@@ -194,7 +194,7 @@ def run(runid, bl=3, clen=50.0):
         log_error("BadBeamline")
         sys.exit(-1)
 
-    # Get Run infoi
+    # Get Run info
     try:
         run_info = dbpy.read_runinfo(bl, runid)
     except:
@@ -287,9 +287,7 @@ def run(runid, bl=3, clen=50.0):
         if (j % 5 == 0):
             with open("status.txt", "w") as status:
                 status.write("Status: Total=%d,Processed=%d,Status=DarkAveraging\n" % (len(dark_tags), j + 1))
-
         num_added += add_image(sum_buffer, readers, buffers, gains, tag_id, pulse_energies[j])
-  
     print "\nDone. Averaged %d frames." % num_added
   
     if (num_added < 1):
@@ -302,8 +300,13 @@ def run(runid, bl=3, clen=50.0):
     sum_buffer[sum_buffer > ushort_max] = ushort_max
     averaged = sum_buffer.astype(np.uint16)
 
+    # In the Phase 3 detector, some pixels average to negative values.
+    # Most are around -0.1 and all those below -1 are at panel edges that will be masked.
+    # So we don't have to worry about them.
+
     f = h5py.File("%d-dark.h5" % runid, "w")
-    f.create_dataset("data/data", data=averaged, compression="gzip", shuffle=True)
+    f.create_dataset("/data/data", data=averaged, compression="gzip", shuffle=True)
+#    f.create_dataset("/data/raw", data=sum_buffer, compression="gzip", shuffle=True)
     f.close()
     print "Dark average was written to %s" % ("%d-dark.h5" % runid)
 
