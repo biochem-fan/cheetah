@@ -46,10 +46,9 @@ cd $PBS_O_WORKDIR/{runname}
 #fi
 
 echo $PBS_JOBID > job.id
-echo run{runid}.h5 > file.lst
 source @@SETUP_SCRIPT@@
 ShowRunInfo -b {beamline} -r {runid} > run.info
-@@CHEETAH_PATH@@/prepare-cheetah-sacla-api2 {runid} {beamline}
+@@CHEETAH_PATH@@/prepare-cheetah-sacla-api2.py {runid} --bl={beamline} --clen={clen}
 grep Error status.txt
 if [ $? -eq 0 ]; then # Found
    for i in {subjobs}; do
@@ -58,7 +57,6 @@ if [ $? -eq 0 ]; then # Found
    exit
 fi
 
-sed -i 's/clen.*/clen = {clen}; You SHOULD optimize this!/' {runid}.geom
 ln -s {runid}-geom.h5 sacla-geom.h5
 ln -s {runid}-dark.h5 sacla-dark.h5
 
@@ -67,7 +65,9 @@ for i in {subjobs}; do
    ln -s ../{runname}/{runid}.geom ../{runid}-$i/{runid}-$i.geom
    ln -s ../{runname}/run.info ../{runid}-$i/run.info
    ln -s ../{runname}/{runid}-dark.h5 ../{runid}-$i/sacla-dark.h5
+   cp {runid}.h5 ../{runid}-$i/run{runid}-$i.h5
 done
+mv {runid}.h5 run{runname}.h5
 
 @@CHEETAH_PATH@@/cheetah-sacla-api2 --ini ../sacla-photon.ini --run {runid} --stride 2 -m {maxI} --station {station} -o run{runname}.h5 --bl {beamline} {arguments}
 
@@ -94,7 +94,6 @@ cd $PBS_O_WORKDIR/{runname}/
 #fi
 
 echo $PBS_JOBID > job.id
-echo run{runid}.h5 > file.lst
 source @@SETUP_SCRIPT@@
 
 i=0
@@ -638,7 +637,7 @@ class MainWindow(wx.Frame):
             return
         os.mkdir(run_dir)
         f = open("%s/run.sh" % run_dir, "w")
-        f.write(job_script.format(runid=runid, runname=run_dir, clen=self.opts.clen/1.e3, queuename=self.opts.queue,
+        f.write(job_script.format(runid=runid, runname=run_dir, clen=self.opts.clen, queuename=self.opts.queue,
                                   subjobs=" ".join(subjobs), maxI=maxI, station=station, arguments=master_arguments,
                                   crystfel_args=self.opts.crystfel_args, beamline=self.opts.bl))
         f.close()
@@ -793,7 +792,7 @@ class ProgressCellRenderer(wx.grid.PyGridCellRenderer):
         return ProgressCellRenderer() 
 
 print
-print "Cheetah dispatcher GUI version 2016/12/11"
+print "Cheetah dispatcher GUI version 2017/02/16"
 print "   by Takanori Nakane (takanori.nakane@bs.s.u-tokyo.ac.jp)"
 print
 print "Please cite the following paper when you use this software."
