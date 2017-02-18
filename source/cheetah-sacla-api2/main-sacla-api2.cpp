@@ -108,7 +108,7 @@ static bool get_image(double *buffer, int tag, double photon_energy) {
 }
 
 int main(int argc, char *argv[]) {
-	printf("Cheetah for SACLA new offline API -- version 170209\n");
+	printf("Cheetah for SACLA new offline API -- version 170218\n");
 	printf(" by Takanori Nakane\n");
 	printf(" This program is based on cheetah-sacla by Anton Barty.\n");
 	int c, retno;
@@ -480,8 +480,11 @@ int main(int argc, char *argv[]) {
 	}
 
 	// Pulse energies (in keV)
+	double config_photon_energy;
+	sy_read_config_photonenergy(&config_photon_energy, bl, runNumber);
+	
 	std::vector<std::string> pulse_energies;
-    if (runNumber >=333661 && runNumber <= 333682) {
+	if (runNumber >=333661 && runNumber <= 333682) {
 		// 19 May 2015: spectrometer broken! use config value instead
 		printf("Using 7000 eV to fill in missing photon energies due to DB failure during run 333661-333682\n");
 		for (unsigned int i = 0; i < tagList.size(); i++) {
@@ -548,6 +551,17 @@ int main(int argc, char *argv[]) {
 		double pd3_value = atof(pd3_values[j].c_str());
 		double photon_energy; // in eV
 		photon_energy = 1000 * atof(pulse_energies[j].c_str());
+		if (photon_energy == 0) {
+			printf("WARNING: The wavelength from the inline spectrometer for tag %d is not available\n", tagID);
+			if (config_photon_energy < 5000 || config_photon_energy > 14000) {
+				printf("         The accelerator config value also looks broken; assumed 7 keV as a last resort.\n");
+				printf("         The scale factor for this image can be wrong!!\n");
+				photon_energy = 7000;
+			} else {
+				printf("         Used the accelerator config value (%f eV) instead.\n", config_photon_energy);
+				photon_energy = config_photon_energy;
+			}
+		}
 
 		bool light = true;
 		if (pd1_threshold != 0 && 

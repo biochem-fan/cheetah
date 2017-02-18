@@ -11,7 +11,7 @@ import math
 import numpy as np
 import re
 
-VERSION = 170209
+VERSION = 170218
 XSIZE = 512
 YSIZE = 1024
 NPANELS = 8
@@ -259,13 +259,32 @@ def run(runid, bl=3, clen=50.0):
         det_info['id'] = det_IDs[i]
 
     # Collect pulse energies
-    pulse_energies  = [1000.0 * str2float(s) for s in dbpy.read_syncdatalist(sensor_spec, high_tag, tuple(dark_tags))]
-    print "%s for %d frames:" % (sensor_spec, len(pulse_energies))
-    print pulse_energies
+    config_photon_energy = 1000.0 * dbpy.read_config_photonenergy(bl, runid)
+    config_photon_energy_sensible = True
+    if config_photon_energy < 5000 or config_photon_energy > 14000:
+        print "WARNING: dbpy.read_config_photonenergy returned %f eV, which is absurd!" % config_photon_energy
+        print "         Report this to SACLA DAQ team."
+        print "         This is not problematic unless the inline spectrometer is also broken." 
+        config_photon_energy_sensible = False
+
+    pulse_energies_in_keV  = [str2float(s) for s in dbpy.read_syncdatalist(sensor_spec, high_tag, tuple(dark_tags))]
+    pulse_energies = []
+    for tag, energy in zip(dark_tags, pulse_energies_in_keV):
+        if energy is not None and energy > 0:
+            pulse_energies.append(energy * 1000.0)
+        else:
+            print "WARNING: The wavelength from the inline spectrometer does not look sensible for tag %d." % tag
+            if config_photon_energy_sensible:
+                pulse_energies.append(config_photon_energy)
+                print "         Used the accelerator config value instead."
+            else:
+                pulse_energies.append(7000.0)
+                print "         The accelerator config value is also broken; assumed 7 keV as a last resort!"
+
     print
     mean_energy = np.mean(pulse_energies)
     print "Mean photon energy: %f eV" % mean_energy
-    print "Configured photon energy: %f eV" % (1000.0 * dbpy.read_config_photonenergy(bl, runid))
+    print "Configured photon energy: %f eV" % config_photon_energy
     print
 
     # Create geometry files

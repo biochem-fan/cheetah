@@ -94,6 +94,7 @@ int run(int runid) {
   printf("SACLA geometry & dark average exporter\n");
   printf(" By Takanori Nakane\n");
   printf(" version 20170209 with new API\n\n");
+  printf("WARNING: This C++ version is no longer maintained. Use prepare-cheetah-sacla-api2.py!\n\n");
   
   // Get tag_hi, start, end
   retno = sy_read_start_tagnumber(&tag_hi, &start, bl, runid);
