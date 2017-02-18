@@ -291,7 +291,7 @@ int run(int runid) {
 
   // Geometry generation
   char filename[256];
-  snprintf(filename, 256, "%06d.geom", runid);
+  snprintf(filename, 256, "%d.geom", runid);
   std::ofstream ofs(filename);
   ofs << get_geom(runid, mean_energy);
   ofs.close();
@@ -357,7 +357,7 @@ int run(int runid) {
   
   hid_t file_id, dataset_id, dataspace_id, group_id, plist_id;
   hsize_t dims[] = {ysize * 8, xsize};
-  snprintf(filename, 256, "%06d-dark.h5", runid);
+  snprintf(filename, 256, "%d-dark.h5", runid);
   file_id = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
   dataspace_id = H5Screate_simple(2, dims, NULL);
   group_id = H5Gcreate2(file_id, "/data", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
@@ -496,7 +496,7 @@ static void get_geom_h5(int runid) {
   H5Pset_deflate(plist_id, 4);
   H5Pset_chunk(plist_id, 2, dims);
 
-  snprintf(filename, 256, "%06d-geom.h5", runid);
+  snprintf(filename, 256, "%d-geom.h5", runid);
   file_id = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
   dataspace_id = H5Screate_simple(2, dims, NULL);
   dataset_id = H5Dcreate2(file_id, "x", H5T_NATIVE_FLOAT, dataspace_id, H5P_DEFAULT, plist_id, H5P_DEFAULT);

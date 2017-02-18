@@ -25,7 +25,7 @@ import wx.lib.newevent
 
 PARALLEL_SIZE = 3 # MUST match hard-coded value in Cheetah
 
-re_filename = re.compile("^[0-9]{6}(-dark[0-9]?|-light|-\d)?$")
+re_filename = re.compile("^[0-9]+(-dark[0-9]?|-light|-\d)?$")
 re_status = re.compile("^Status:")
 (ThreadEvent, EVT_THREAD) = wx.lib.newevent.NewEvent()
 
@@ -564,7 +564,7 @@ class MainWindow(wx.Frame):
             return
 
         for runid in runids:
-            self.startRun("%06d" % runid, maxI, station, pd1_thresh, pd2_thresh, pd3_thresh)
+            self.startRun("%d" % runid, maxI, station, pd1_thresh, pd2_thresh, pd3_thresh)
 
     def stopWatch(self):
         self.waitFor = None
@@ -792,7 +792,7 @@ class ProgressCellRenderer(wx.grid.PyGridCellRenderer):
         return ProgressCellRenderer() 
 
 print
-print "Cheetah dispatcher GUI version 2017/02/16"
+print "Cheetah dispatcher GUI version 2017/02/18"
 print "   by Takanori Nakane (takanori.nakane@bs.s.u-tokyo.ac.jp)"
 print
 print "Please cite the following paper when you use this software."
