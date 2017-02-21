@@ -1,7 +1,6 @@
 find_package(HDF5 REQUIRED)
 
 #LIST(APPEND sources "api-stub.cpp")
-LIST(APPEND sources "../cheetah-sacla/sacla-hdf5-reader.cpp")
 LIST(APPEND sources "main-sacla-online-api.cpp")
 
 
@@ -15,7 +14,6 @@ add_executable(cheetah-sacla-online-api ${sources})
 add_dependencies(cheetah-sacla-online-api cheetah)
 
 target_link_libraries(cheetah-sacla-online-api ${CHEETAH_LIBRARY})
-target_link_libraries(cheetah-sacla-online-api ${SACLA_API_LIB})
 target_link_libraries(cheetah-sacla-online-api ${MYSQL_LIB})
 target_link_libraries(cheetah-sacla-online-api ${SACLA_ONLINE_API_LIB})
 

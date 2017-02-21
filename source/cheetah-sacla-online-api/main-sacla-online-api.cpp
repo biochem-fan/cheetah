@@ -36,7 +36,7 @@ void ol_initialize_dummy(char* filename);
 
 #define NDET 10 // Normally 8
 #define PRIMARY_DET 0 // Normally 0. 4 for xu-bl2-st3-opcon2
-#define TAG_INCREMENT 2 // 2 for 30 Hz, 1 for API stub or 60 Hz
+int TAG_INCREMENT = 2; // 2 for 30 Hz, 1 for API stub or 60 Hz
 
 const struct timespec SHORT_WAIT = {0, 1E6}; // 1E6 = msec
 const struct timespec LONG_WAIT = {0, 5E6}; // 25E6 for testing
@@ -70,8 +70,8 @@ void* thread(void *thread_data) {
 	printf("Child%d: created. socket = %d\n", det_id, socket_id);
 	
 	int datasize, worksize;
-	ol_getDataSize(socket_id, &datasize, &worksize);
-	printf("API: ol_getDataSize for %d returned dataSize = %d, workSize = %d\n", det_id, datasize, worksize);
+	ol_get_data_size(&datasize, &worksize, socket_id);
+	printf("API: ol_get_data_size for %d returned dataSize = %d, workSize = %d\n", det_id, datasize, worksize);
 	
 	char *pDataStBuf = (char*)malloc(datasize);
 	char *pWorkBuf = (char*)malloc(worksize);
@@ -80,7 +80,7 @@ void* thread(void *thread_data) {
 	
 	if (det_id == PRIMARY_DET) {
 		int actual_tag = -1;
-		int err = ol_collectDetData(socket_id, -1, pDataStBuf, datasize, pWorkBuf, worksize, &actual_tag);
+		int err = ol_collect_det_data(pDataStBuf, pWorkBuf, &actual_tag, socket_id, -1, datasize, worksize);
 		if (err < 0) {
 			printf("ERROR: Failed to read the first image.\n");
 			exit(-1);
@@ -140,24 +140,24 @@ void* thread(void *thread_data) {
 			printf("Child%d: tag %d never get allocated. skipped.\n", det_id, wanted_tag);
 		} else {
 			int actual_tag = -1;
-			int err = ol_collectDetData(socket_id, wanted_tag, pDataStBuf, datasize, pWorkBuf, worksize, &actual_tag);
+			int err = ol_collect_det_data(pDataStBuf, pWorkBuf, &actual_tag, socket_id, wanted_tag, datasize, worksize);
 			if (err < 0 || actual_tag != wanted_tag) {
 				printf("Child%d: could not get tag %d. skipped. error code %d\n", det_id, wanted_tag, err);
 				img->error = true;
 				exit(-1);
 				// 151005: Exit right away; probably MPCCD server has been restarted.
-				// Of course this might happen on our side, for example, if we are running too slow (TAGDATAGONE -10000).
-				// In any case, it is worth restarting. 
+				// Of course this might happen on our side, for example, if we come too late (TAGDATAGONE -10000).
+				// But still it is worth restarting. 
 			} else {
 //				printf("Child%d: Got image %d\n", det_id, wanted_tag);
 				if (det_id == PRIMARY_DET) {
-					ol_readRunNum(pDataStBuf, &img->run);
+					ol_read_run_num(&img->run, pDataStBuf, 0);
 				}
 
 				float *detData;
-				ol_readDetData(pDataStBuf, &detData);
+				ol_read_det_data(&detData, pDataStBuf, 0);
 				float gain;
-				ol_readAbsGain(pDataStBuf, &gain);
+				ol_read_abs_gain(&gain, pDataStBuf, 0);
 				gain *= 3.65 / 0.1 / photon_energy;
 //				gain = 1; // gain is already corrected for STUB API! TODO:
 				int offset = PANELSIZE * det_id;
@@ -182,26 +182,34 @@ void* thread(void *thread_data) {
 
 int main(int argc, const char * argv[])
 {	
-   	printf("Cheetah for SACLA Online API\n\n");
-	printf("Takanori Nakane, 2014-2015\n");
+   	printf("Cheetah for SACLA Online API version 170221\n\n");
+	printf("Takanori Nakane, 2014-2017\n");
 	printf("based on the work by Anton Barty, 21 January 2014\n");
 	
 	// Input data file and Cheetah configuration file
 	char	filename[1024];
 	char	cheetahini[1024];
 
-	if (argc != 3) {
-		printf("Usage: %s input.h5 setting.ini\n", argv[0]);
+	if (argc != 3 && argc != 4) {
+		printf("Usage: %s input.h5 setting.ini [tag_increment; 1 or 2]\n", argv[0]);
 		return -1;
 	}
 
 	// Take configuration from command line arguments
 	strcpy(filename,argv[1]);
 	strcpy(cheetahini,argv[2]);
+
+	if (argc == 4) {
+		TAG_INCREMENT = atoi(argv[3]);
+		if (TAG_INCREMENT != 2 && TAG_INCREMENT != 1) {
+			printf("tag_increment must be 1 or 2.\n");
+			return -1;
+		}
+	}
     
-    printf("Program name: %s\n",argv[0]);
-    printf("Input data file: %s\n", filename);
-    printf("Cheetah .ini file: %s\n", cheetahini);
+	printf("Program name: %s\n",argv[0]);
+	printf("Input data file: %s\n", filename);
+	printf("Cheetah .ini file: %s\n", cheetahini);
 	
 	/*
 	 *	Initialise Cheetah
@@ -212,27 +220,38 @@ int main(int argc, const char * argv[])
 	static cGlobal cheetahGlobal;
 	static time_t startT = 0;
 	time(&startT);
-    strcpy(cheetahGlobal.configFile, cheetahini);
+	strcpy(cheetahGlobal.configFile, cheetahini);
 	strncpy(cheetahGlobal.cxiFilename, "output.h5", MAX_FILENAME_LENGTH);
 	cheetahInit(&cheetahGlobal);
 	cheetahGlobal.runNumber = -1;    
 
-    /*
+	/*
 	 *	Initialize API
 	 */
 //	ol_initialize_dummy(filename);
     
-    std::vector<std::string> detIDList, detIDListAll;
+	std::vector<std::string> detIDList, detIDListAll;
 
- 	ol_readDetIDList(&detIDListAll);
+	struct da_string_array *det_ids;
+	int n_det;
+        da_alloc_string_array(&det_ids);
+ 	ol_read_detid_list(det_ids);
+	da_getsize_string_array(&n_det, det_ids);
+	for (int j = 0; j < n_det; j++) {
+		char *val;
+		da_getstring_string_array(&val, det_ids, j);
+		detIDListAll.push_back(val);
+		free(val);		
+	}
+	da_destroy_string_array(&det_ids);
+
 	printf("API: ol_readDetIDList returned %d detectors.\n", (int)detIDListAll.size());
 	for (int j = 0; j < detIDListAll.size(); j++) {
 		printf("detID %d is %s\n", j, detIDListAll[j].c_str());
 	}
 
+	// Since this is online API, we assume there are no 'reconst' detectors.
 	for (int j = 0; j < detIDListAll.size(); j++) {
-		// Note that if the eight sensors are not ordered, online indexing do not work.
-		// Fortunatelty, Dr. Joti assurred they ARE ordered.
 		if (strncmp(detIDListAll[j].c_str(), "MPCCD-8", 7) == 0) {
 			detIDList.push_back(detIDListAll[j]);
 		}
@@ -243,21 +262,21 @@ int main(int argc, const char * argv[])
 	
 	int sockIDs[NDET] = {};
 	for (int detID = 0; detID < ndet; detID++) {
-		ol_connect(detIDList[detID].c_str(), &sockIDs[detID]);
+		ol_connect(&sockIDs[detID], detIDList[detID].c_str());
 		printf("API: ol_connect for det %s (id %d) returned sockID %d\n", detIDList[detID].c_str(), detID, sockIDs[detID]);
 	}
 
 	int datasize, worksize;
 	char *pDataStBufs[NDET] = {}, *pWorkBufs[NDET] = {};
 	for (int detID = 0; SINGLE_THREAD && detID < ndet; detID++) {
-		ol_getDataSize(sockIDs[detID], &datasize, &worksize);
+		ol_get_data_size(&datasize, &worksize, sockIDs[detID]);
 		printf("API: ol_getDataSize for %d returned dataSize = %d, workSize = %d\n", detID, datasize, worksize);
 
 		pDataStBufs[detID] = (char*)malloc(datasize);
 		pWorkBufs[detID] = (char*)malloc(worksize);
 	}
 
-    /*
+	/*
 	 *	Initialize threads
 	 */
 	
@@ -366,17 +385,17 @@ int main(int argc, const char * argv[])
 		} else { // SINGLE THREAD
 			for (int detID = 0; detID < ndet; detID++) {
 				if (tagID == -1) wanted_tag = -1; // first image
-				int err = ol_collectDetData(sockIDs[detID], wanted_tag, pDataStBufs[detID], datasize, pWorkBufs[detID], worksize, &tagID);
+				int err = ol_collect_det_data(pDataStBufs[detID], pWorkBufs[detID], &tagID, sockIDs[detID], wanted_tag, datasize, worksize);
 				if (err < 0) {
 					printf("ERROR: Couldn't get image data for tag %d.\n", wanted_tag);
 					failed = true;
 					break;
 				}
 				float *detData;
-				ol_readDetData(pDataStBufs[detID], &detData);
+				ol_read_det_data(&detData, pDataStBufs[detID], 0);
 
 				float gain;
-				ol_readAbsGain(pDataStBufs[detID], &gain);
+				ol_read_abs_gain(&gain, pDataStBufs[detID], 0);
 				gain *= 3.65 / 0.1 / cheetahGlobal.defaultPhotonEnergyeV;
 		
 				int offset = PANELSIZE * detID;
@@ -385,7 +404,7 @@ int main(int argc, const char * argv[])
 				}
 			}
 
-			ol_readRunNum(pDataStBufs[0], &runNumber);
+			ol_read_run_num(&runNumber, pDataStBufs[0], 0);
 		}
 		
 		if (skip) continue;

@@ -1,6 +1,6 @@
 
 find_package(HDF5 REQUIRED)
-# find_package(PythonLibs REQUIRED)
+find_package(PythonLibs REQUIRED)
 # We don't want to scare people with this
 mark_as_advanced(HDF5_DIR)
 mark_as_advanced(CLEAR HDF5_C_INCLUDE_DIR)
