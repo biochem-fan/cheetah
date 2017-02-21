@@ -22,26 +22,27 @@
 #include "DataAccessUserAPI.h"
 #include "hdf5.h"
 
+const int NDET = 8;
 const int parallel_size = 3; // MUST match dispatcher
-const int bl = 3;
+int bl = 3;
 const int xsize = 512;
 const int ysize = 1024; 
 const int ydatasize = 1030;
 const int blocksize = xsize * ysize;
-const int buffersize = blocksize * 8;
-const int PD_ANY = -1, PD_LIGHT = 0, PD_DARK1 = 1, PD_DARK2 = 2;
+const int buffersize = blocksize * NDET;
+const int PD_DARK_ANY = -2, PD_ANY = -1, PD_LIGHT = 0; // PD_DARKn = n afterwards
 
-char *det_name_template[30] = {"EventInfo_stor0%d", "MPCCD-8-2-001-%d", "EventInfo_stor1_0%d"};
 char LLF_ID[50] = {};
 char *LLF_ST4 = "BL3-ST4-MPCCD-octal";
 char *LLF_ST3 = "BL3-ST3-MPCCD-octal";
+char *LLF_ST2 = "BL3-ST2-MPCCD-octal";
 
 // FIXME: make these local. Is Cheetah's main portion reentrant?
 double buffer[buffersize] = {};
 unsigned short averaged[buffersize] = {};
 int det_temp_idx = -1;
 float gains[9] = {};
-char *streaders[8], *databufs[8];
+char *streaders[NDET], *databufs[NDET];
 
 int myReadSyncDataList(std::vector<std::string>* buffer, char* equip_id, int tag_hi, int n_taglist, int *taglist) {
 	struct da_string_array *strbuf;
@@ -71,9 +72,9 @@ static bool get_image(double *buffer, int tag, double photon_energy) {
   float buf_panel[xsize * ydatasize];
   float gain;
 
-  for (int det_id = 0; det_id < 8; det_id++) {
+  for (int det_id = 0; det_id < NDET; det_id++) {
     uint32_t tagid = tag; // tagid will be overwritten
-    retno = st_collect_data(databufs[det_id], streaders[det_id], &tagid, 0x03);
+    retno = st_collect_data(databufs[det_id], streaders[det_id], &tagid);
     if (retno != 0 || tagid != (uint32_t)tag) {
       printf("WARNING: Failed to collect tag %d for detector #%det_id (0-indexed)\n", tag, det_id);
       return 0;
@@ -107,7 +108,7 @@ static bool get_image(double *buffer, int tag, double photon_energy) {
 }
 
 int main(int argc, char *argv[]) {
-	printf("Cheetah for SACLA new offline API -- version 151001\n");
+	printf("Cheetah for SACLA new offline API -- version 170218\n");
 	printf(" by Takanori Nakane\n");
 	printf(" This program is based on cheetah-sacla by Anton Barty.\n");
 	int c, retno;
@@ -116,9 +117,11 @@ int main(int argc, char *argv[]) {
 	int runNumber = -1;
 	char cheetahIni[4096] = {};
 	int maxI_threshold = 10000;
-	int startAt = 300;
-	int stride = 2; // 30Hz mode (60 / 30)
-	double pd1_threshold = 0, pd2_threshold = 0;
+	//int stride = 2; // 30 Hz mode (60 / 30)
+	double pd1_threshold = 0, pd2_threshold = 0, pd3_threshold = 0;
+	char *pd1_sensor_name = "xfel_bl_3_st_4_pd_laser_fitting_peak/voltage";
+	char *pd2_sensor_name = "xfel_bl_3_st_4_pd_user_10_fitting_peak/voltage";
+	char *pd3_sensor_name = "xfel_bl_3_st_4_pd_user_10_fitting_peak/voltage"; // same as pd2 (dummy)
 	int parallel_block = -1;
 	int light_dark = PD_ANY;
 	
@@ -131,17 +134,20 @@ int main(int argc, char *argv[]) {
 		{"output", 1, NULL, 'o'},
 		{"run", 1, NULL, 'r'},
 		{"maxI", 1, NULL, 'm'},
-		{"start_at", 1, NULL, 10},
-		{"stride", 1, NULL, 11},
+//		{"stride", 1, NULL, 11},
 		{"station", 1, NULL, 12},
 		{"pd1_thresh", 1, NULL, 13},
 		{"pd2_thresh", 1, NULL, 14},
 		{"type", 1, NULL, 15},
 		{"list", 1, NULL, 16},
+		{"pd1_name", 1, NULL, 17},
+		{"pd2_name", 1, NULL, 18},
+		{"pd3_thresh", 1, NULL, 19},
+		{"pd3_name", 1, NULL, 20},
+                {"bl", 1, NULL, 21},
 		{0, 0, NULL, 0}
 	};
 
-	int tmp;
 	while ((c = getopt_long(argc, argv, "i:r:m:o:", longopts, NULL)) != -1) {
 		switch(c) {
 		case 'i':
@@ -156,17 +162,14 @@ int main(int argc, char *argv[]) {
 		case 'm':
 			maxI_threshold = atoi(optarg);
 			break;
-		case 10: // start-at
-			startAt = atoi(optarg);
-			break;
-		case 11: // stride
+/*		case 11: // stride
 			tmp = atoi(optarg);
 			if (tmp <= 0) {
 				printf("ERROR: Stride must be a positive integer. \n");
 				return -1;
 			}
 			stride = tmp;
-			break;
+			break; */
 		case 12: // station
 			station = atoi(optarg);
 			break;
@@ -176,19 +179,29 @@ int main(int argc, char *argv[]) {
 		case 14: // pd2_thresh
 			pd2_threshold = atof(optarg);
 			break;
+		case 19: // pd3_thresh
+			pd3_threshold = atof(optarg);
+			break;
 		case 15: // type
 			if (strcmp(optarg, "light") == 0) {
 				light_dark = PD_LIGHT;
-			} else if (strcmp(optarg, "dark1") == 0) {
-				light_dark = PD_DARK1;
-			} else if (strcmp(optarg, "dark2") == 0) {
-				light_dark = PD_DARK2;
+			} else if (strcmp(optarg, "dark") == 0) {
+				light_dark = PD_DARK_ANY;
+			} else if (strlen(optarg) == 5 &&
+					   optarg[0] == 'd' && optarg[1] == 'a' &&
+					   optarg[2] == 'r' && optarg[3] == 'k' ) { // darkN
+				light_dark = optarg[4] - '0';
+				if (light_dark < 1 || light_dark > 9) {
+					printf("ERROR: wrong type.\n");
+					return -1;
+				}
 			} else {
 				parallel_block = atoi(optarg);
 				if (parallel_block < -1 || parallel_block >= parallel_size) {
-					printf("ERROR: wrong parallel_block.\n");
+					printf("ERROR: wrong type or parallel_block.\n");
 					return -1;
 				}
+				break;
 			}
 			break;
 		case 16: // list
@@ -199,12 +212,31 @@ int main(int argc, char *argv[]) {
 			tagList_file = strdup(optarg);
 			printf("A tag list file was specified. maxI check was disabled.\n");
 			maxI_threshold = -1;
+			break;
+		case 17: // pd1_name
+			pd1_sensor_name = strdup(optarg); // small leak.
+			break;
+		case 18: // pd2_name
+			pd2_sensor_name = strdup(optarg); // small leak.
+			break;
+		case 20: // pd3_name
+			pd3_sensor_name = strdup(optarg); // small leak.
+			break;
+                case 21: // bl
+                        bl = atoi(optarg);
+			if (bl != 2 && bl != 3) {
+				printf("ERROR: beamline must be 2 or 3.\n");
+				return -1;
+			}
+                        break;
 		}
 	}
 	if (strnlen(outputH5, 4096) == 0) {
 		snprintf(outputH5, 4096, "run%d.h5", runNumber);
 	}
-	if (station == 3) {
+	if (station == 2) {
+		strncpy(LLF_ID, LLF_ST2, 50);
+	} else if (station == 3) {
 		strncpy(LLF_ID, LLF_ST3, 50);
 	} else if (station == 4) {
 		strncpy(LLF_ID, LLF_ST4, 50);
@@ -218,12 +250,16 @@ int main(int argc, char *argv[]) {
 	printf(" cheetah ini file (-i/--ini):  %s\n", cheetahIni);
 	printf(" output H5 file (-o/--output): %s (default = run######.h5)\n", outputH5);
 	printf(" maxI threshold (-m/--maxI):   %d (default = 10000)\n", maxI_threshold);
-	printf(" start frame (--start_at):     %d (default = 300; to skip 150 dark frames)\n", startAt);
-	printf(" stride (--stride):            %d (default = 2; 30Hz mode)\n", stride);
+//	printf(" stride (--stride):            %d (default = 2; 30 Hz mode)\n", stride);
 	printf(" station (--station):          %d (default = 4)\n", station);
+        printf(" beamline (--bl):              %d (default = 3)\n", bl);
 	printf(" PD1 threshold (--pd1_thresh): %.3f (default = 0; ignore.)\n", pd1_threshold);
 	printf(" PD2 threshold (--pd2_thresh): %.3f (default = 0; ignore.)\n", pd2_threshold);
-	printf(" nFrame after light:           %d (default = -1; any)\n", light_dark);
+	printf(" PD3 threshold (--pd3_thresh): %.3f (default = 0; ignore.)\n", pd3_threshold);
+	printf(" PD1 sensor name (--pd1_name): %s)\n", pd1_sensor_name);
+	printf(" PD2 sensor name (--pd2_name): %s)\n", pd2_sensor_name);
+	printf(" PD3 sensor name (--pd3_name): %s)\n", pd3_sensor_name);
+	printf(" nFrame after light:           %d (default = -1; accept all image. -2; accept all dark images)\n", light_dark);
 	printf(" parallel_block:               %d (default = -1; no parallelization)\n", parallel_block);
 
 	if (runNumber < 0 || strlen(cheetahIni) == 0) {
@@ -241,76 +277,73 @@ int main(int argc, char *argv[]) {
 	char message[512];
 	static time_t startT = 0;
 	time(&startT);
-    strcpy(cheetahGlobal.configFile, cheetahIni);
+	strcpy(cheetahGlobal.configFile, cheetahIni);
 	cheetahInit(&cheetahGlobal);
 	cheetahGlobal.runNumber = runNumber;
 	strncpy(cheetahGlobal.cxiFilename, outputH5, MAX_FILENAME_LENGTH);
+	printf("\n");
 
-    hsize_t dims[2];
-    dims[0] = 8 * ysize;
-    dims[1] = xsize;
+	hsize_t dims[2];
+	dims[0] = NDET * ysize;
+	dims[1] = xsize;
 
 	// get tag_hi and start
-	int tag_hi, start, end;
-	retno = sy_read_start_tagnumber(&tag_hi, &start, bl, runNumber);
+	int tag_hi, tag_start, tag_end;
+	retno = sy_read_start_tagnumber(&tag_hi, &tag_start, bl, runNumber);
 	if (retno != 0) {
 		printf("ERROR: Cannot read run %d.\n", runNumber);
 		printf("If this run is before Nov 2014, please use the old API version.\n");
 		return -1;
 	}
-	retno = sy_read_end_tagnumber(&tag_hi, &end, bl, runNumber);
-	printf("tag_hi = %d start = %d end = %d retno = %d\n", tag_hi, start, end, retno);
+	retno = sy_read_end_tagnumber(&tag_hi, &tag_end, bl, runNumber);
 
-	// find detector ID
-	struct da_string_array *det_ids;
-	int n_detid;
-
-	printf("Detector configulation:\n");
-	da_alloc_string_array(&det_ids);
-	sy_read_detidlist(det_ids, bl, runNumber);
-  
-	da_getsize_string_array(&n_detid, det_ids);
-	for (int i = 0; i < n_detid; i++) {
-		char *detid;
-		da_getstring_string_array(&detid, det_ids, i);
-		printf(" detID #%d = %s\n", i, detid);
-		if (strcmp(detid, "MPCCD-8-2-001-1")) {
-			det_temp_idx = 1;
-		} else if (strcmp(detid, "EventInfo_stor01")) {
-			det_temp_idx = 0;
-		}
-		free(detid);    
+	// How many dark frames?
+	struct da_int_array *tagbuf;
+	int numAll;
+	da_alloc_int_array(&tagbuf, 0, NULL);
+	sy_read_taglist_byrun(tagbuf, bl, runNumber);
+	da_getsize_int_array(&numAll, tagbuf);
+	printf("Run %d contains tag %d (inclusive) to %d (exclusive), thus %d images\n", runNumber, tag_start, tag_end, numAll);
+	int *tagAll = (int*)malloc(sizeof(int) * numAll);
+	for (int i = 0; i < numAll; i++) {
+		da_getint_int_array(tagAll + i, tagbuf, i);
 	}
-	if (det_temp_idx == -1) {
-		printf("ERROR: Unknown detector ID.\n");
-        cheetahExit(&cheetahGlobal);
-        snprintf(message, 512, "Status=Error-BadDetID");
-        cheetahGlobal.writeStatus(message);
+	da_destroy_int_array(&tagbuf);
+
+	std::vector<std::string> shutterAll;
+	if ((bl == 3 && myReadSyncDataList(&shutterAll, "xfel_bl_3_shutter_1_open_valid/status", tag_hi, numAll, tagAll) != 0) ||
+	    (bl == 2 && myReadSyncDataList(&shutterAll, "xfel_bl_2_shutter_1_open_valid/status", tag_hi, numAll, tagAll) != 0)) {
+		printf("Failed to get shutter status.\n");
 		return -1;
 	}
-	da_destroy_string_array(&det_ids);
-	
-	start += startAt;
+
+	int numDark = 0;
+	for (int i = 0; i < numAll; i++) {
+		tag_start = tagAll[i];
+		if (atoi(shutterAll[i].c_str()) == 0) {
+			numDark++;
+		} else {
+			break;
+		}
+	}
+	printf("Number of dark frames: %d\nThus, exposed images start from %d\n\n", numDark, tag_start);
+
 	int parallel_cnt = 0;
 	std::vector<int> tagList;
 	if (tagList_file == NULL) {
-		int blockstart = start, blockend = end; // inclusive
+		int blockstart = numDark, blockend = numAll - 1; // inclusive
 		if (parallel_block != -1) { // block division
-			int width = (end - start + 1) / parallel_size;
-			blockstart = start + width * parallel_block;
-			blockend = start + width * (parallel_block + 1) - 1;
+			int width = (numAll - numDark + 1) / parallel_size;
+			blockstart = numDark + width * parallel_block;
+			blockend = numDark + width * (parallel_block + 1) - 1;
 			if (parallel_block == parallel_size - 1) { // last block
-				blockend = end;
+				blockend = numAll - 1;
 			}
 		}
-		printf("parallel: start %d end %d blockstart %d blockend %d\n", start, end, blockstart, blockend);
-		for (int i = start; i <= end; i+= stride) {
-			parallel_cnt++;
-//			if (parallel_block == -1 || // no parallelization
-//				parallel_cnt % parallel_size == parallel_block) {
-			if (blockstart <= i && i <= blockend) {
-				tagList.push_back(i);
-			}
+		printf("parallel: start %d end %d blockstart %d blockend %d\n", tagAll[0], tagAll[numAll - 1], tagAll[blockstart], tagAll[blockend]);
+		for (int i = blockstart; i <= blockend; i++) {
+			tagList.push_back(tagAll[i]);
+		
 		}
 	} else {
 		FILE *fh = fopen(tagList_file, "r");
@@ -323,12 +356,12 @@ int main(int argc, char *argv[]) {
 		int i = 0;
 		while (!feof(fh)) {
 			fscanf(fh, "%d\n", &i);
-			if (i < start || i > end) {
+			if (i < tag_start || i >= tag_end) {
 				printf("WARNING: tag %d does not belong to run %d. skipped.\n", i, runNumber);
 				continue;
 			}
  
-			parallel_cnt++; // TODO: refactor and merge above
+			parallel_cnt++; // TODO: refactor and merge above, use block parallelization
 			if (parallel_block == -1 || // no parallelization
 				parallel_cnt % parallel_size == parallel_block) {
 				tagList.push_back(i);
@@ -336,7 +369,7 @@ int main(int argc, char *argv[]) {
 		}
 		fclose(fh);
 	}
-//		tagList.clear(); tagList.push_back(121943650); // for debugging
+        free(tagAll);
 	
 	if (tagList.size() == 0) {
 		printf("No images to process! Exiting...\n");
@@ -345,17 +378,56 @@ int main(int argc, char *argv[]) {
 		cheetahGlobal.writeStatus(message);
 		return -1;
 	}
+	printf("\n");
 
 	// for API 
 	int *tagList_array = (int*)malloc(sizeof(int) * tagList.size());
 	std::copy(tagList.begin(), tagList.end(), tagList_array);
 	
+	// find detector ID
+	struct da_string_array *det_ids;
+	int n_detid;
+	char det_template[256] = {};
+
+	printf("Detector configulation:\n");
+	da_alloc_string_array(&det_ids);
+	sy_read_detidlist(det_ids, bl, runNumber);
+
+	da_getsize_string_array(&n_detid, det_ids);
+	for (int i = 0; i < n_detid; i++) {
+   		char *detid;
+		da_getstring_string_array(&detid, det_ids, i);
+		printf(" detID #%02d = %s\n", i, detid);
+		if (strncmp(detid, "MPCCD-8", 7) == 0) {
+			int len = strlen(detid);
+			if (detid[len - 2] == '-' &&  detid[len - 1] == '1') {
+				printf("  prefix and suffix matched. using this as the detector name template.\n");
+				strncpy(det_template, detid, 255);
+			} 
+		}
+		if (strcmp(detid, "EventInfo_stor01") == 0) {
+			printf("ERROR: This detector is not longer supported by the API. Use old Cheetah.\n");
+		}
+		free(detid);
+	}
+	da_destroy_string_array(&det_ids);
+
+	if (det_template[0] == 0) {
+		printf("ERROR: Unknown or non-supported detector ID.\n");
+	        cheetahExit(&cheetahGlobal);
+	        snprintf(message, 512, "Status=Error-BadDetID");
+		cheetahGlobal.writeStatus(message);
+		return -1;
+	}
+	printf("\n");
+	
 	// Create storage readers and buffers
 	// and get detector gains
 	printf("Initializing reader and buffer\n");
-	for (int det_id = 0; det_id < 8; det_id++) {
+	for (int det_id = 0; det_id < NDET; det_id++) {
 		char det_name[256];
-		snprintf(det_name, 256, det_name_template[det_temp_idx], det_id + 1);
+		strncpy(det_name, det_template, 255);
+		det_name[strlen(det_name) - 1] = '0' + det_id + 1;
 		
 		printf(" detector %s\n", det_name);
 		retno = st_create_streader(&streaders[det_id], det_name, bl, 1, &runNumber);
@@ -368,14 +440,15 @@ int main(int argc, char *argv[]) {
 			printf("Failed to allocate databuffer for %s.\n", det_name);
 			return -1;
 		}
-		uint32_t tagid = start;
-		retno = st_collect_data(databufs[det_id], streaders[det_id], &tagid, 0x03); // CHECKME: calib frag?
+		uint32_t tagid = tag_start;
+		retno = st_collect_data(databufs[det_id], streaders[det_id], &tagid);
 		if (retno != 0) {
 			printf("Failed to collect data for %s.\n", det_name);
 			return -1;
 		}
 		mp_read_absgain(&gains[det_id], databufs[det_id]);
 	}
+	printf("\n");
 
 	// LLF values
 	std::vector<std::string> maxIs;
@@ -390,25 +463,39 @@ int main(int argc, char *argv[]) {
 		sy_read_statistics_detllf(llf, LLF_ID, bl, tag_hi, tagList.size(), tagList_array);
 		
 		da_getsize_string_array(&n_llf, llf);
-		for (int i = 0; i < n_llf; i++) {
-			char *val;
-			da_getstring_string_array(&val, llf, i);
-			maxIs.push_back(val);
-			free(val);
+		if (n_llf != (signed)tagList.size()) {
+			printf("WARNING: Failed to get LLF. Filling 65535 instead.\n");
+			for (int i = 0; i < (signed)tagList.size(); i++) {
+				maxIs.push_back("65535");
+			}
+		} else {
+			for (int i = 0; i < n_llf; i++) {
+				char *val;
+				da_getstring_string_array(&val, llf, i);
+				maxIs.push_back(val);
+				free(val);
+			}
 		}
 		da_destroy_string_array(&llf);
 	}
 
 	// Pulse energies (in keV)
+	double config_photon_energy;
+	sy_read_config_photonenergy(&config_photon_energy, bl, runNumber);
+	
 	std::vector<std::string> pulse_energies;
-    if (runNumber >=333661 && runNumber <= 333682) {
+	if (runNumber >=333661 && runNumber <= 333682) {
 		// 19 May 2015: spectrometer broken! use config value instead
 		printf("Using 7000 eV to fill in missing photon energies due to DB failure during run 333661-333682\n");
 		for (unsigned int i = 0; i < tagList.size(); i++) {
 			pulse_energies.push_back("7.0");
 		}
 	} else {
-		retno = myReadSyncDataList(&pulse_energies, "xfel_bl_3_tc_spec_1/energy", tag_hi, tagList.size(), tagList_array);
+                if (bl == 3) {
+			retno = myReadSyncDataList(&pulse_energies, "xfel_bl_3_tc_spec_1/energy", tag_hi, tagList.size(), tagList_array);
+		} else if (bl == 2) {
+			retno = myReadSyncDataList(&pulse_energies, "xfel_bl_2_tc_spec_1/energy", tag_hi, tagList.size(), tagList_array);
+		}
 		if (retno != 0) {
 			printf("Failed to get photon_energy. Exiting...\n");
 			cheetahExit(&cheetahGlobal);
@@ -418,17 +505,29 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	std::vector<std::string> pd_laser, pd_user2;
-	retno = myReadSyncDataList(&pd_laser, "xfel_bl_3_st_4_pd_laser_fitting_peak/voltage", tag_hi, tagList.size(), tagList_array);
+	std::vector<std::string> pd1_values, pd2_values, pd3_values, shutter;
+	retno = myReadSyncDataList(&pd1_values, pd1_sensor_name, tag_hi, tagList.size(), tagList_array);
 	if (retno != 0) {
-		printf("WARNING: Failed to get xfel_bl_3_st_4_pd_laser_fitting_peak/voltage.\n");
+		printf("WARNING: Failed to get %s.\n", pd1_sensor_name);
 	}
-	retno = myReadSyncDataList(&pd_user2, "xfel_bl_3_st_4_pd_user_10_fitting_peak/voltage", tag_hi, tagList.size(), tagList_array);
+	retno = myReadSyncDataList(&pd2_values, pd2_sensor_name, tag_hi, tagList.size(), tagList_array);
 	if (retno != 0) {
-		printf("WARNING: Failed to get xfel_bl_3_st_4_pd_user_10_fitting_peak/voltage.\n");
+		printf("WARNING: Failed to get %s.\n", pd2_sensor_name);
+	}
+	retno = myReadSyncDataList(&pd3_values, pd3_sensor_name, tag_hi, tagList.size(), tagList_array);
+	if (retno != 0) {
+		printf("WARNING: Failed to get %s.\n", pd3_sensor_name);
+	}
+	if (bl == 3) {
+		retno = myReadSyncDataList(&shutter, "xfel_bl_3_shutter_1_open_valid/status", tag_hi, tagList.size(), tagList_array);
+	} else if (bl == 2) {
+		retno = myReadSyncDataList(&shutter, "xfel_bl_2_shutter_1_open_valid/status", tag_hi, tagList.size(), tagList_array);
+	}
+	if (retno != 0) {
+		printf("WARNING: Failed to get shutter status.\n");
 	}
 
-	int processedTags = 0, LLFpassed = 0, tagSize = tagList.size(), frame_after_light = 0;
+	int processedTags = 0, LLFpassed = 0, tagSize = tagList.size(), frame_after_light = 9999;
 	for (int j = 0; j < tagSize; j++) {
 		int tagID = tagList[j];
 		int maxI = 0;
@@ -437,32 +536,59 @@ int main(int argc, char *argv[]) {
 		} else {
 			maxI = atoi(maxIs[j].c_str());
 		}
-		double pd_laser_val = atof(pd_laser[j].c_str());
-		double pd_user2_val = atof(pd_user2[j].c_str());
+
+		printf("tag %d shutter = %s\n", tagID, shutter[j].c_str());
+		if (runNumber >= 358814 && runNumber <=358842) {
+			// 2015 Oct: new run control GUI produces gaps in tag number
+			if (atoi(shutter[j].c_str()) != 1) {
+				printf("SHUTTER: tag %d rejected. shutter = %s\n", tagID, shutter[j].c_str());
+				continue;
+			}
+		}
+
+		double pd1_value = atof(pd1_values[j].c_str());
+		double pd2_value = atof(pd2_values[j].c_str());
+		double pd3_value = atof(pd3_values[j].c_str());
 		double photon_energy; // in eV
 		photon_energy = 1000 * atof(pulse_energies[j].c_str());
+		if (photon_energy == 0) {
+			printf("WARNING: The wavelength from the inline spectrometer for tag %d is not available\n", tagID);
+			if (config_photon_energy < 5000 || config_photon_energy > 14000) {
+				printf("         The accelerator config value also looks broken; assumed 7 keV as a last resort.\n");
+				printf("         The scale factor for this image can be wrong!!\n");
+				photon_energy = 7000;
+			} else {
+				printf("         Used the accelerator config value (%f eV) instead.\n", config_photon_energy);
+				photon_energy = config_photon_energy;
+			}
+		}
 
 		bool light = true;
 		if (pd1_threshold != 0 && 
-			!(pd1_threshold > 0 && pd1_threshold <= pd_laser_val) &&
-			!(pd1_threshold < 0 && -pd1_threshold > pd_laser_val)) light = false;
+			!(pd1_threshold > 0 && pd1_threshold <= pd1_value) &&
+			!(pd1_threshold < 0 && -pd1_threshold > pd1_value)) light = false;
 		if (pd2_threshold != 0 &&
-			!(pd2_threshold > 0 && pd2_threshold <= pd_user2_val) &&
-			!(pd2_threshold < 0 && -pd2_threshold > pd_user2_val)) light = false;
-		if (light) frame_after_light = 0;
-		else frame_after_light++;
-		printf("Event %d: energy %f frame_after_light %d pd_user2_val %f\n", tagID, photon_energy, frame_after_light, pd_user2_val);
-		if ((light_dark == PD_DARK1 && frame_after_light != 1) ||
-			(light_dark == PD_DARK2 && frame_after_light != 2) ||
-			(light_dark == PD_LIGHT && frame_after_light != 0)) continue;
+			!(pd2_threshold > 0 && pd2_threshold <= pd2_value) &&
+			!(pd2_threshold < 0 && -pd2_threshold > pd2_value)) light = false;
+		if (pd3_threshold != 0 &&
+			!(pd3_threshold > 0 && pd3_threshold <= pd3_value) &&
+			!(pd3_threshold < 0 && -pd3_threshold > pd3_value)) light = false;
+		if (light) {
+			frame_after_light = 0;
+		} else {
+			frame_after_light++;
+		}
+//		printf("Event %d: energy %f frame_after_light %d pd1_value %f pd2_value %f pd3_value %f\n", tagID, photon_energy, frame_after_light, pd1_value, pd2_value, pd3_value);
+		if ((light_dark >= 0 && frame_after_light != light_dark) ||
+			(light_dark == PD_DARK_ANY && frame_after_light == 0)) continue;
 
 		processedTags++;
 
-		printf("Event: %d (%d / %d (%.1f%%), LLF passed %d / %d (%.1f%%), Hits %ld (%.1f%%), maxI = %d, PD_laser = %.1f, PD_user = %.3f\n",
+		printf("Event: %d (%d / %d (%.1f%%), Filter passed %d / %d (%.1f%%), Hits %ld (%.1f%%), maxI = %d, pd1_value = %.1f, pd2_value = %.3f, pd3_value = %.3f\n",
 			   tagID, (j + 1), tagSize, 100.0 * (j + 1) / tagSize, 
 			   LLFpassed, processedTags, 100.0 * LLFpassed / processedTags,
 			   cheetahGlobal.nhits, 100.0 * cheetahGlobal.nhits / processedTags,
-			   maxI, pd_laser_val, pd_user2_val);
+			   maxI, pd1_value, pd2_value, pd3_value);
 		if (maxI < maxI_threshold) {
 			continue;
 		}
