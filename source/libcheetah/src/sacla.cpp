@@ -60,6 +60,7 @@ void writeSACLA(cEventData *eventData, cGlobal *global) {
         if (global->h5compress != 0) {
                 dcpl = H5Pcreate(H5P_DATASET_CREATE);
                 //printf("global->h5compress = %d\n", global->h5compress);
+                H5Pset_shuffle(dcpl);
                 H5Pset_deflate(dcpl, global->h5compress);
                 H5Pset_chunk(dcpl, 2, dims);
         }
