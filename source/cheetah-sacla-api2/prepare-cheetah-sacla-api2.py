@@ -11,7 +11,7 @@ import math
 import numpy as np
 import re
 
-VERSION = 170218
+VERSION = 170525
 XSIZE = 512
 YSIZE = 1024
 NPANELS = 8
@@ -61,7 +61,7 @@ def write_crystfel_geom(filename, det_infos, energy, clen):
 
             # Nphotons = S [ADU] * G [e-/ADU] / (E [eV] * 3.65 [eV/e-]) according to the manual.
             # Thus, ADU/eV = 1/(3.65*G)
-
+            out.write("; sensor %s\n" % det_info['id'])
             out.write("q%d/adu_per_eV = %f\n" % (det_id, 1.0 / (0.1 * energy))) # Keitaro's 0.1 photon
             out.write("q%d/min_fs = %d\n" % (det_id, 0))
             out.write("q%d/min_ss = %d\n" % (det_id, i * YSIZE))
@@ -72,31 +72,32 @@ def write_crystfel_geom(filename, det_infos, energy, clen):
             out.write("q%d/corner_x = %f\n" % (det_id, -detx))
             out.write("q%d/corner_y = %f\n\n" % (det_id, dety))
 
-        border = get_border(det_infos[0]['id'])
-        if border == 0:
-            return # no bad region
-
-        out.write("; Bad regions near edges of each sensor\n")
-        # NOTE: ranges are inclusive in CrystFEL
-        # left
-        out.write("badv1/min_fs = %d\n"   % 0)
-        out.write("badv1/max_fs = %d\n"   % (border - 1))
-        out.write("badv1/min_ss = %d\n"   % 0)
-        out.write("badv1/max_ss = %d\n\n" % (YSIZE * NPANELS - 1))
-        # right
-        out.write("badv2/min_fs = %d\n"   % (XSIZE - border))
-        out.write("badv2/max_fs = %d\n"   % (XSIZE - 1))
-        out.write("badv2/min_ss = %d\n"   % 0)
-        out.write("badv2/max_ss = %d\n\n" % (YSIZE * NPANELS - 1))
-        for i in xrange(NPANELS):
-            out.write("badq%dh1/min_fs = %d\n"   % (i, 0))
-            out.write("badq%dh1/max_fs = %d\n"   % (i, XSIZE - 1))
-            out.write("badq%dh1/min_ss = %d\n"   % (i, YSIZE * i))
-            out.write("badq%dh1/max_ss = %d\n\n" % (i, YSIZE * i + border - 1))
-            out.write("badq%dh2/min_fs = %d\n"   % (i, 0))
-            out.write("badq%dh2/max_fs = %d\n"   % (i, XSIZE - 1))
-            out.write("badq%dh2/min_ss = %d\n"   % (i, YSIZE * (i + 1) - border))
-            out.write("badq%dh2/max_ss = %d\n\n" % (i, YSIZE * (i + 1) - 1))
+        border, outer_border = get_border(det_infos[0]['id'])
+        if border != 0:
+            out.write("; Bad regions near edges of each sensor\n")
+            # NOTE: ranges are inclusive in CrystFEL
+            # left
+            out.write("badv1/min_fs = %d\n"   % 0)
+            out.write("badv1/max_fs = %d\n"   % (border - 1))
+            out.write("badv1/min_ss = %d\n"   % 0)
+            out.write("badv1/max_ss = %d\n\n" % (YSIZE * NPANELS - 1))
+            # right
+            out.write("badv2/min_fs = %d\n"   % (XSIZE - border))
+            out.write("badv2/max_fs = %d\n"   % (XSIZE - 1))
+            out.write("badv2/min_ss = %d\n"   % 0)
+            out.write("badv2/max_ss = %d\n\n" % (YSIZE * NPANELS - 1))
+            for i in xrange(NPANELS):
+                out.write("badq%dh1/min_fs = %d\n"   % (i, 0))
+                out.write("badq%dh1/max_fs = %d\n"   % (i, XSIZE - 1))
+                out.write("badq%dh1/min_ss = %d\n"   % (i, YSIZE * i))
+                out.write("badq%dh1/max_ss = %d\n\n" % (i, YSIZE * i + border - 1))
+        if outer_border != 0:
+            out.write("; Bad regions near outer edges of each sensor\n")
+            for i in xrange(NPANELS):
+                out.write("badq%dh2/min_fs = %d\n"   % (i, 0))
+                out.write("badq%dh2/max_fs = %d\n"   % (i, XSIZE - 1))
+                out.write("badq%dh2/min_ss = %d\n"   % (i, YSIZE * (i + 1) - outer_border))
+                out.write("badq%dh2/max_ss = %d\n\n" % (i, YSIZE * (i + 1) - 1))
 
 def write_cheetah_geom(filename, det_infos):
     posx = np.zeros((YSIZE * NPANELS, XSIZE), dtype=np.float32)
@@ -129,19 +130,24 @@ def write_cheetah_geom(filename, det_infos):
     f.close()
 
 def get_border(det_name):
-    if re.match("MPCCD-8B", det_name): # Phase 3 detector?
-        return 5
-    else:
-        return 0
 
-def make_pixelmask(border=5):
+    if re.match("MPCCD-8B", det_name): # Phase 3 detector
+        return (5, 5)
+    if re.match("MPCCD-8N", det_name): # Compact detector with amp shields
+        return (0, 16)
+    else:
+        return (0, 0)
+
+def make_pixelmask(borders):
+    border, outer_border = borders
+
     mask = np.zeros((YSIZE * NPANELS, XSIZE), dtype=np.uint16)
     mask[:, 0:border] = 1
     mask[:, (XSIZE - border):XSIZE] = 1
 
     for i in xrange(NPANELS):
         mask[(YSIZE * i):(YSIZE * i + border), :] = 1
-        mask[(YSIZE * (i + 1) - border):(YSIZE * (i + 1)), :] = 1
+        mask[(YSIZE * (i + 1) - outer_border):(YSIZE * (i + 1)), :] = 1
 
     return mask
 
