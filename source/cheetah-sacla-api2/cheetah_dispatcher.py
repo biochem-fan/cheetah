@@ -61,15 +61,21 @@ ln -s {runid}-geom.h5 sacla-geom.h5
 ln -s {runid}-dark.h5 sacla-dark.h5
 
 for i in {subjobs}; do
+   if [ ! -e ../{runid}-$i/metadata.h5 ]; then
+      cp {runid}.h5 ../{runid}-$i/
+   fi
    ln -s ../{runname}/{runid}-geom.h5 ../{runid}-$i/sacla-geom.h5
    ln -s ../{runname}/{runid}.geom ../{runid}-$i/{runid}-$i.geom
    ln -s ../{runname}/run.info ../{runid}-$i/run.info
    ln -s ../{runname}/{runid}-dark.h5 ../{runid}-$i/sacla-dark.h5
-   cp {runid}.h5 ../{runid}-$i/run{runid}-$i.h5
 done
-mv {runid}.h5 run{runname}.h5
+
+if [ ! -e run{runname}.h5 ]; then
+   cp {runid}.h5 run{runname}.h5
+fi
 
 @@CHEETAH_PATH@@/cheetah-sacla-api2 --ini ../sacla-photon.ini --run {runid} --stride 2 -m {maxI} --station {station} -o run{runname}.h5 --bl {beamline} {arguments}
+rm {runid}.h5
 
 # th 100 gr 5000000 for > 10 keV
 @@INDEXAMAJIG_PATH@@/indexamajig -g {runid}.geom --indexing=dirax-raw --peaks=zaef --threshold=400 --min-gradient=10000 --min-snr=5 --int-radius=3,4,7 -o {runname}.stream -j 14 -i - {crystfel_args} <<EOF
@@ -115,7 +121,9 @@ while :; do
    sleep 2
 done
 
+cp {runid}.h5 run{runname}.h5
 @@CHEETAH_PATH@@/cheetah-sacla-api2 --ini ../sacla-photon.ini --run {runid} --stride 2 -m {maxI} --station {station} -o run{runname}.h5 --bl {beamline} {arguments}
+rm {runid}.h5
 
 # th 100 gr 5000000 for > 10 keV
 @@INDEXAMAJIG_PATH@@/indexamajig -g {runname}.geom --indexing=dirax-raw --peaks=zaef --threshold=400 --min-gradient=10000 --min-snr=5 --int-radius=3,4,7 -o {runname}.stream -j 14 -i - {crystfel_args} <<EOF
@@ -792,7 +800,7 @@ class ProgressCellRenderer(wx.grid.PyGridCellRenderer):
         return ProgressCellRenderer() 
 
 print
-print "Cheetah dispatcher GUI version 2017/02/18"
+print "Cheetah dispatcher GUI version 2017/07/08"
 print "   by Takanori Nakane (takanori.nakane@bs.s.u-tokyo.ac.jp)"
 print
 print "Please cite the following paper when you use this software."
