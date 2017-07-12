@@ -11,7 +11,7 @@ import math
 import numpy as np
 import re
 
-VERSION = 170525
+VERSION = 170712
 XSIZE = 512
 YSIZE = 1024
 NPANELS = 8
@@ -92,7 +92,8 @@ def write_crystfel_geom(filename, det_infos, energy, clen):
                 out.write("badq%dh1/min_ss = %d\n"   % (i, YSIZE * i))
                 out.write("badq%dh1/max_ss = %d\n\n" % (i, YSIZE * i + border - 1))
         if outer_border != 0:
-            out.write("; Bad regions near outer edges of each sensor\n")
+            out.write("; Bad regions near outer edges of each sensor due to amplifier shields\n")
+            out.write(";  you might want to optimize these widths (edit min_ss)\n")
             for i in xrange(NPANELS):
                 out.write("badq%dh2/min_fs = %d\n"   % (i, 0))
                 out.write("badq%dh2/max_fs = %d\n"   % (i, XSIZE - 1))
@@ -130,11 +131,10 @@ def write_cheetah_geom(filename, det_infos):
     f.close()
 
 def get_border(det_name):
-
     if re.match("MPCCD-8B", det_name): # Phase 3 detector
-        return (5, 5)
+        return (5, 23) # based on 17Jul-P3Lys @ 10 keV
     if re.match("MPCCD-8N", det_name): # Compact detector with amp shields
-        return (0, 16)
+        return (0, 22) # based on 17Jul-Kuma @ 7 keV
     else:
         return (0, 0)
 

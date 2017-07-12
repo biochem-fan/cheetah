@@ -46,6 +46,7 @@ cd $PBS_O_WORKDIR/{runname}
 #fi
 
 echo $PBS_JOBID > job.id
+hostname > job.host
 source @@SETUP_SCRIPT@@
 ShowRunInfo -b {beamline} -r {runid} > run.info
 @@CHEETAH_PATH@@/prepare-cheetah-sacla-api2.py {runid} --bl={beamline} --clen={clen}
@@ -84,6 +85,8 @@ EOF
 rm -fr indexamajig.*
 grep Cell {runname}.stream | wc -l > indexed.cnt
 ruby @@SCRIPT_PATH@@/parse_stream.rb < {runname}.stream > {runname}.csv
+
+rm job.id job.host
 '''
 
 job_script_dark = '''#!/bin/bash
@@ -100,6 +103,7 @@ cd $PBS_O_WORKDIR/{runname}/
 #fi
 
 echo $PBS_JOBID > job.id
+hostname > job.host
 source @@SETUP_SCRIPT@@
 
 i=0
@@ -133,6 +137,7 @@ rm -fr indexamajig.*
 grep Cell {runname}.stream | wc -l > indexed.cnt
 ruby @@SCRIPT_PATH@@/parse_stream.rb < {runname}.stream > {runname}.csv
 
+rm job.id job.host
 '''
 
 class LogWatcher(threading.Thread):
@@ -800,7 +805,7 @@ class ProgressCellRenderer(wx.grid.PyGridCellRenderer):
         return ProgressCellRenderer() 
 
 print
-print "Cheetah dispatcher GUI version 2017/07/08"
+print "Cheetah dispatcher GUI version 2017/07/12"
 print "   by Takanori Nakane (takanori.nakane@bs.s.u-tokyo.ac.jp)"
 print
 print "Please cite the following paper when you use this software."
