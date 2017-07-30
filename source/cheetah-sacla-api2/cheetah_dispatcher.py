@@ -720,7 +720,10 @@ class MainWindow(wx.Frame):
 
         status = event.msg['Status']
         self.table.SetCellValue(row, MainWindow.COL_STATUS, status)
-        if (status.startswith("Error")):
+        if (status == "Finished"):
+            self.table.SetCellBackgroundColour(row, MainWindow.COL_STATUS, (124, 252, 0))
+        elif (status.startswith("Error")):
+            self.table.SetCellBackgroundColour(row, MainWindow.COL_STATUS, (252, 124, 0))
             return 
 
         total = int(event.msg['Total'])
@@ -784,7 +787,7 @@ class ProgressCellRenderer(wx.grid.PyGridCellRenderer):
             bg = wx.Colour(255, 255, 255)
 
         dc.SetBrush(wx.Brush(self.progColor, wx.SOLID))
-        dc.SetPen(wx.BLACK_PEN)
+        #dc.SetPen(wx.BLACK_PEN)
         dc.DrawRectangleRect(prog_rect)
 
         # This fills in the rest of the cell background so it doesn't shear
