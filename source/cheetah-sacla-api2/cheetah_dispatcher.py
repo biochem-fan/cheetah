@@ -740,7 +740,7 @@ class MainWindow(wx.Frame):
         self.table.SetCellValue(row, MainWindow.COL_LLF_PASSED,
                                 "%d (%.1f%%)" % (LLFpassed, 100.0 * LLFpassed / processed))
         self.table.SetCellValue(row, MainWindow.COL_HITS,
-                                "%d (%.1f%%)" % (hits, 100.0 * hits / processed))
+                                "%d (%.1f%%)" % (hits, 100.0 * hits / LLFpassed))
 
         try:
             indexed = int(event.msg['indexed'])
