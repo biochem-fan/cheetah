@@ -75,7 +75,7 @@ if [ ! -e run{runname}.h5 ]; then
    cp {runid}.h5 run{runname}.h5
 fi
 
-@@CHEETAH_PATH@@/cheetah-sacla-api2 --ini ../sacla-photon.ini --run {runid} --stride 2 -m {maxI} --station {station} -o run{runname}.h5 --bl {beamline} {arguments}
+@@CHEETAH_PATH@@/cheetah-sacla-api2 --ini ../sacla-photon.ini --run {runid} -o run{runname}.h5 --bl {beamline} {arguments}
 rm {runid}.h5
 
 # th 100 gr 5000000 for > 10 keV
@@ -126,7 +126,7 @@ while :; do
 done
 
 cp {runid}.h5 run{runname}.h5
-@@CHEETAH_PATH@@/cheetah-sacla-api2 --ini ../sacla-photon.ini --run {runid} --stride 2 -m {maxI} --station {station} -o run{runname}.h5 --bl {beamline} {arguments}
+@@CHEETAH_PATH@@/cheetah-sacla-api2 --ini ../sacla-photon.ini --run {runid} -o run{runname}.h5 --bl {beamline} {arguments}
 rm {runid}.h5
 
 # th 100 gr 5000000 for > 10 keV
@@ -324,18 +324,14 @@ class MainWindow(wx.Frame):
         self.start_button.Bind(wx.EVT_BUTTON, self.onPush)
         self.text_runid = wx.TextCtrl(self)
         self.label_runid = wx.StaticText(self, wx.ID_ANY, "Run ID:")
-        self.text_maxI = wx.TextCtrl(self, wx.ID_ANY, "0")
-        self.label_maxI = wx.StaticText(self, wx.ID_ANY, "MaxI threshold:")
-        self.combo_station = wx.ComboBox(self, wx.ID_ANY, value="ST4", choices=["ST2", "ST3", "ST4"],
-                                         size=(80, -1), style=wx.CB_READONLY)
-        self.combo_station.SetSelection(2) # somehow value= is ignored...
+	self.combo_bl = wx.ComboBox(self, wx.ID_ANY, value="BL2", choices=["BL2", "BL3"],
+                                            size=(80, -1), style=wx.CB_READONLY)
+        self.combo_bl.SetSelection(self.opts.bl - 2) # TODO: refactor 
 
         self.hsizer = wx.BoxSizer(wx.HORIZONTAL)
         self.hsizer.Add(self.label_runid, 0, wx.ALIGN_CENTER_VERTICAL)
         self.hsizer.Add(self.text_runid, 1, wx.EXPAND | wx.ALL, 5)
-        self.hsizer.Add(self.label_maxI, 0, wx.ALIGN_CENTER_VERTICAL)
-        self.hsizer.Add(self.text_maxI, 0, wx.ALL, 5)
-        self.hsizer.Add(self.combo_station, 0, wx.ALIGN_CENTER_VERTICAL)
+        self.hsizer.Add(self.combo_bl, 0, wx.ALIGN_CENTER_VERTICAL)
         self.hsizer.Add(self.start_button, 0, wx.ALL, 3)
 
         self.label_pd = wx.StaticText(self, wx.ID_ANY, "Dark/Light threshold (0 to disable)")
@@ -547,15 +543,14 @@ class MainWindow(wx.Frame):
     def prepareSubmitJob(self, run_str):
         runids = None
         try:
-            maxI = int(self.text_maxI.GetValue())
-            station = self.combo_station.GetStringSelection()[-1]
+            bl = self.combo_bl.GetSelection() + 2 # TODO: refactor
             pd1_thresh = float(self.text_pd1.GetValue())
             pd2_thresh = float(self.text_pd2.GetValue())
             pd3_thresh = float(self.text_pd3.GetValue())
             re_single = re.match('^([0-9]+)$', run_str)
             re_range = re.match('^([0-9]+)-([0-9]+)$', run_str)
             re_autofollow = re.match('^([0-9]+)-$', run_str)
-            if maxI < 0 or pd1_thresh < 0 or pd2_thresh < 0 or pd3_thresh < 0:
+            if pd1_thresh < 0 or pd2_thresh < 0 or pd3_thresh < 0:
                 raise
 
             if re_single != None: # I wish I could use = within if !!
@@ -577,7 +572,7 @@ class MainWindow(wx.Frame):
             return
 
         for runid in runids:
-            self.startRun("%d" % runid, maxI, station, pd1_thresh, pd2_thresh, pd3_thresh)
+            self.startRun("%d" % runid, bl, pd1_thresh, pd2_thresh, pd3_thresh)
 
     def stopWatch(self):
         self.waitFor = None
@@ -587,7 +582,7 @@ class MainWindow(wx.Frame):
         self.text_pd2.Enable()
         self.text_pd3.Enable()
         self.text_maxI.Enable()
-        self.combo_station.Enable()
+        self.combo_bl.Enable()
 
     def startWatchFrom(self, runid):
         self.waitFor = runid
@@ -597,7 +592,7 @@ class MainWindow(wx.Frame):
         self.text_pd2.Disable()
         self.text_pd3.Disable()
         self.text_maxI.Disable()
-        self.combo_station.Disable()
+        self.combo_bl.Disable()
 
     def OnTimer(self, event):
         self.scanDirectory()
@@ -617,7 +612,7 @@ class MainWindow(wx.Frame):
         dlg.ShowModal()
         dlg.Destroy()
 
-    def startRun(self, runid, maxI, station, pd1_thresh=0, pd2_thresh=0, pd3_thresh=0):
+    def startRun(self, runid, bl, pd1_thresh=0, pd2_thresh=0, pd3_thresh=0):
         run_dir = runid
         arguments = ""
         master_arguments = ""
@@ -651,8 +646,8 @@ class MainWindow(wx.Frame):
         os.mkdir(run_dir)
         f = open("%s/run.sh" % run_dir, "w")
         f.write(job_script.format(runid=runid, runname=run_dir, clen=self.opts.clen, queuename=self.opts.queue,
-                                  subjobs=" ".join(subjobs), maxI=maxI, station=station, arguments=master_arguments,
-                                  crystfel_args=self.opts.crystfel_args, beamline=self.opts.bl))
+                                  subjobs=" ".join(subjobs), arguments=master_arguments,
+                                  crystfel_args=self.opts.crystfel_args, beamline=bl))
         f.close()
         os.system("qsub {rundir}/run.sh > {rundir}/job.id".format(rundir=run_dir))
         self.addRun(run_dir)
@@ -667,9 +662,9 @@ class MainWindow(wx.Frame):
                 return
             os.mkdir(run_dir)
             f = open("%s/run.sh" % run_dir, "w")
-            f.write(job_script_dark.format(runid=runid, runname=run_dir, maxI=maxI, station=station, 
+            f.write(job_script_dark.format(runid=runid, runname=run_dir, 
                                            queuename=self.opts.queue, arguments=child_arguments,
-                                           crystfel_args=self.opts.crystfel_args, beamline=self.opts.bl))
+                                           crystfel_args=self.opts.crystfel_args, beamline=bl))
             f.close()
             if self.opts.quick != 1:
                 os.system("qsub {runid}/run.sh > {runid}/job.id".format(runid=run_dir))
@@ -808,7 +803,7 @@ class ProgressCellRenderer(wx.grid.PyGridCellRenderer):
         return ProgressCellRenderer() 
 
 print
-print "Cheetah dispatcher GUI version 2017/07/12"
+print "Cheetah dispatcher GUI version 2017823"
 print "   by Takanori Nakane (takanori.nakane@bs.s.u-tokyo.ac.jp)"
 print
 print "Please cite the following paper when you use this software."
@@ -824,7 +819,7 @@ if not os.path.exists("sacla-photon.ini"):
 
 parser = optparse.OptionParser()
 parser.add_option("--monitor", dest="monitor", type=int, default=False, help="Monitor only")
-parser.add_option("--bl", dest="bl", type=int, default=3, help="Beamline")
+parser.add_option("--bl", dest="bl", type=int, default=2, help="Beamline")
 parser.add_option("--clen", dest="clen", type=float, default=51.5, help="camera length in mm")
 parser.add_option("--quick", dest="quick", type=int, default=False, help="enable quick mode")
 parser.add_option("--queue", dest="queue", type=str, default="serial", help="queue name")
