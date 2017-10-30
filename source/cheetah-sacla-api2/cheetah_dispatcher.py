@@ -803,7 +803,7 @@ class ProgressCellRenderer(wx.grid.PyGridCellRenderer):
         return ProgressCellRenderer() 
 
 print
-print "Cheetah dispatcher GUI version 2017823"
+print "Cheetah dispatcher GUI version 20171030"
 print "   by Takanori Nakane (takanori.nakane@bs.s.u-tokyo.ac.jp)"
 print
 print "Please cite the following paper when you use this software."
@@ -820,7 +820,7 @@ if not os.path.exists("sacla-photon.ini"):
 parser = optparse.OptionParser()
 parser.add_option("--monitor", dest="monitor", type=int, default=False, help="Monitor only")
 parser.add_option("--bl", dest="bl", type=int, default=2, help="Beamline")
-parser.add_option("--clen", dest="clen", type=float, default=51.5, help="camera length in mm")
+parser.add_option("--clen", dest="clen", type=float, default=50.0, help="camera length in mm")
 parser.add_option("--quick", dest="quick", type=int, default=False, help="enable quick mode")
 parser.add_option("--queue", dest="queue", type=str, default="serial", help="queue name")
 parser.add_option("--max_jobs", dest="max_jobs", type=int, default=14, help="maximum number of jobs to submit when --quick is enabled")

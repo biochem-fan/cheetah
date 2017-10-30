@@ -11,7 +11,7 @@ import math
 import numpy as np
 import re
 
-VERSION = 170823
+VERSION = 171030
 XSIZE = 512
 YSIZE = 1024
 NPANELS = 8
