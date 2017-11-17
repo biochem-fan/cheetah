@@ -568,6 +568,7 @@ class MainWindow(wx.Frame):
             else:
                 raise
         except:
+            print traceback.format_exc()
             self.showError("Invalid run ID or paramters were specified.")
             return
 
@@ -581,7 +582,6 @@ class MainWindow(wx.Frame):
         self.text_pd1.Enable()
         self.text_pd2.Enable()
         self.text_pd3.Enable()
-        self.text_maxI.Enable()
         self.combo_bl.Enable()
 
     def startWatchFrom(self, runid):
@@ -591,7 +591,6 @@ class MainWindow(wx.Frame):
         self.text_pd1.Disable()
         self.text_pd2.Disable()
         self.text_pd3.Disable()
-        self.text_maxI.Disable()
         self.combo_bl.Disable()
 
     def OnTimer(self, event):
@@ -803,7 +802,7 @@ class ProgressCellRenderer(wx.grid.PyGridCellRenderer):
         return ProgressCellRenderer() 
 
 print
-print "Cheetah dispatcher GUI version 20171030"
+print "Cheetah dispatcher GUI version 20171117"
 print "   by Takanori Nakane (takanori.nakane@bs.s.u-tokyo.ac.jp)"
 print
 print "Please cite the following paper when you use this software."
