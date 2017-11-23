@@ -731,10 +731,14 @@ class MainWindow(wx.Frame):
             return
         LLFpassed = int(event.msg['LLFpassed'])
         hits = int(event.msg['Hits'])
+        acceptance_rate = 0
+        if processed != 0: acceptance_rate = 100.0 * LLFpassed / processed
+        hit_rate = 0
+        if LLFpassed != 0: hit_rate = 100.0 * hits / LLFpassed
         self.table.SetCellValue(row, MainWindow.COL_LLF_PASSED,
-                                "%d (%.1f%%)" % (LLFpassed, 100.0 * LLFpassed / processed))
+                                "%d (%.1f%%)" % (LLFpassed, acceptance_rate))
         self.table.SetCellValue(row, MainWindow.COL_HITS,
-                                "%d (%.1f%%)" % (hits, 100.0 * hits / LLFpassed))
+                                "%d (%.1f%%)" % (hits, hit_rate))
 
         try:
             indexed = int(event.msg['indexed'])
@@ -802,7 +806,7 @@ class ProgressCellRenderer(wx.grid.PyGridCellRenderer):
         return ProgressCellRenderer() 
 
 print
-print "Cheetah dispatcher GUI version 20171117"
+print "Cheetah dispatcher GUI version 20171123"
 print "   by Takanori Nakane (takanori.nakane@bs.s.u-tokyo.ac.jp)"
 print
 print "Please cite the following paper when you use this software."
