@@ -103,7 +103,7 @@ static bool get_image(double *buffer, int tag, double photon_energy) {
 }
 
 int main(int argc, char *argv[]) {
-	printf("Cheetah for SACLA new offline API -- version 170823\n");
+	printf("Cheetah for SACLA new offline API -- version 180212\n");
 	printf(" by Takanori Nakane\n");
 	printf(" This program is based on cheetah-sacla by Anton Barty.\n");
 	int c, retno;
@@ -478,6 +478,11 @@ int main(int argc, char *argv[]) {
 		printf("tag %d shutter = %s\n", tagID, shutter[j].c_str());
 		if (runNumber >= 358814 && runNumber <=358842) {
 			// 2015 Oct: new run control GUI produces gaps in tag number
+			//           attempts to read such tags cause crash, so we have to skip.
+			// For other runs, reading shutter-closed images does not cause any harm.
+			// Actually, some runs in 2018 Feb have unreliable shuter status, so
+			// we should NOT skip images based on shutter status!
+
 			if (atoi(shutter[j].c_str()) != 1) {
 				printf("SHUTTER: tag %d rejected. shutter = %s\n", tagID, shutter[j].c_str());
 				continue;

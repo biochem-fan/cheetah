@@ -11,7 +11,7 @@ import math
 import numpy as np
 import re
 
-VERSION = 171030
+VERSION = 180212
 XSIZE = 512
 YSIZE = 1024
 NPANELS = 8
@@ -234,6 +234,24 @@ def run(runid, bl=3, clen=50.0):
         log_error("NoShutterStatus")
         sys.exit(-1)
     dark_tags = [tag for tag, is_open in zip(tag_list, shutter) if is_open == 0]
+    
+    if bl == 2 and runid >= 32348 and runid <= 33416:
+	# 2018 Feb: Unreliable shutter status. Should use PD and take darks only at the beginning of a run
+        print "The shutter status was unreliable for runs in 2018 Feb."
+        print "The number of tags with shutter closed:", len(dark_tags)
+        print "Since the above value is not reliable, we use X-ray PD values instead."
+        xray_pd = "xfel_bl_2_st_3_bm_1_pd/charge"
+        pd_values = [str2float(s) for s in dbpy.read_syncdatalist(xray_pd, high_tag, tag_list)]
+        dark_tags = []
+        is_head = True
+        for tag, pd in zip(tag_list, pd_values):
+             if pd == None and is_head:
+                 dark_tags.append(tag)
+             else:
+                 is_head = False
+        print "Number of tags without X-ray:", len([1 for pd_val in pd_values if pd_val is None])
+        print "But we use only tags at the beginning of a run."
+
     if len(dark_tags) == 0:
         log_error("NoDarkImage")
         sys.exit(-1)
