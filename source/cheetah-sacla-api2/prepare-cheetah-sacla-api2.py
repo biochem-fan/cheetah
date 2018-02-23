@@ -11,7 +11,7 @@ import math
 import numpy as np
 import re
 
-VERSION = 180212
+VERSION = 180214
 XSIZE = 512
 YSIZE = 1024
 NPANELS = 8
@@ -235,7 +235,7 @@ def run(runid, bl=3, clen=50.0):
         sys.exit(-1)
     dark_tags = [tag for tag, is_open in zip(tag_list, shutter) if is_open == 0]
     
-    if bl == 2 and runid >= 32348 and runid <= 33416:
+    if bl == 2 and runid >= 32348: # and runid <= 33416:
 	# 2018 Feb: Unreliable shutter status. Should use PD and take darks only at the beginning of a run
         print "The shutter status was unreliable for runs in 2018 Feb."
         print "The number of tags with shutter closed:", len(dark_tags)

@@ -103,7 +103,7 @@ static bool get_image(double *buffer, int tag, double photon_energy) {
 }
 
 int main(int argc, char *argv[]) {
-	printf("Cheetah for SACLA new offline API -- version 180212\n");
+	printf("Cheetah for SACLA new offline API -- version 180214\n");
 	printf(" by Takanori Nakane\n");
 	printf(" This program is based on cheetah-sacla by Anton Barty.\n");
 	int c, retno;
@@ -283,13 +283,16 @@ int main(int argc, char *argv[]) {
 	}
 	da_destroy_int_array(&tagbuf);
 
+	bool workaround_18feb = (bl == 2) && (runNumber >= 32348);
 	std::vector<std::string> shutterAll;
-	if ((bl == 3 && myReadSyncDataList(&shutterAll, "xfel_bl_3_shutter_1_open_valid/status", tag_hi, numAll, tagAll) != 0) ||
+	if ((workaround_18feb && myReadSyncDataList(&shutterAll, "xfel_bl_2_st_3_bm_1_pd/charge", tag_hi, numAll, tagAll) != 0) ||
+	    (bl == 3 && myReadSyncDataList(&shutterAll, "xfel_bl_3_shutter_1_open_valid/status", tag_hi, numAll, tagAll) != 0) ||
 	    (bl == 2 && myReadSyncDataList(&shutterAll, "xfel_bl_2_shutter_1_open_valid/status", tag_hi, numAll, tagAll) != 0)) {
 		printf("Failed to get shutter status.\n");
 		return -1;
 	}
 
+	if (workaround_18feb) printf("Warning: applyied workaround for unreliable shutter status on 18 feb.\n");
 	int numDark = 0;
 	for (int i = 0; i < numAll; i++) {
 		tag_start = tagAll[i];
