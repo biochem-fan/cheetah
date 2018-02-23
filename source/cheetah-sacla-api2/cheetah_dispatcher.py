@@ -79,7 +79,7 @@ fi
 rm {runid}.h5
 
 # th 100 gr 5000000 for > 10 keV
-@@INDEXAMAJIG_PATH@@/indexamajig -g {runid}.geom --indexing=dirax-raw --peaks=zaef --threshold=400 --min-gradient=10000 --min-snr=5 --int-radius=3,4,7 -o {runname}.stream -j 14 -i - {crystfel_args} <<EOF
+@@INDEXAMAJIG_PATH@@/indexamajig -g {runid}.geom --indexing=dirax --peaks=zaef --threshold=400 --min-gradient=10000 --min-snr=5 --int-radius=3,4,7 -o {runname}.stream -j 14 -i - {crystfel_args} <<EOF
 run{runname}.h5
 EOF
 rm -fr indexamajig.*
@@ -130,7 +130,7 @@ cp {runid}.h5 run{runname}.h5
 rm {runid}.h5
 
 # th 100 gr 5000000 for > 10 keV
-@@INDEXAMAJIG_PATH@@/indexamajig -g {runname}.geom --indexing=dirax-raw --peaks=zaef --threshold=400 --min-gradient=10000 --min-snr=5 --int-radius=3,4,7 -o {runname}.stream -j 14 -i - {crystfel_args} <<EOF
+@@INDEXAMAJIG_PATH@@/indexamajig -g {runname}.geom --indexing=dirax --peaks=zaef --threshold=400 --min-gradient=10000 --min-snr=5 --int-radius=3,4,7 -o {runname}.stream -j 14 -i - {crystfel_args} <<EOF
 run{runname}.h5
 EOF
 rm -fr indexamajig.*
@@ -287,12 +287,15 @@ class MainWindow(wx.Frame):
     MENU_CELLEXPLORER = 2
     MENU_COUNTSUMS = 3
 
-    def __init__(self, parent, opts):
+    def __init__(self, parent, opts, nogui=False):
         self.opts = opts
         self.subthreads = []
         self.rows = {}
         self.waitFor = None
         self.autoqsub = None
+        self.noGUI = nogui
+        if nogui:
+            return
 
         title = "Cheetah Dispatcher on " + os.getcwd()
         wx.Frame.__init__(self, parent, title=title, size=(900,800))
@@ -335,11 +338,11 @@ class MainWindow(wx.Frame):
         self.hsizer.Add(self.start_button, 0, wx.ALL, 3)
 
         self.label_pd = wx.StaticText(self, wx.ID_ANY, "Dark/Light threshold (0 to disable)")
-        self.text_pd1 = wx.TextCtrl(self, wx.ID_ANY, "0")
+        self.text_pd1 = wx.TextCtrl(self, wx.ID_ANY, "%f" % opts.pd1_thresh)
         self.label_pd1 = wx.StaticText(self, wx.ID_ANY, "%s :" % self.opts.pd1_name)
-        self.text_pd2 = wx.TextCtrl(self, wx.ID_ANY, "0")
+        self.text_pd2 = wx.TextCtrl(self, wx.ID_ANY, "%f" % opts.pd2_thresh)
         self.label_pd2 = wx.StaticText(self, wx.ID_ANY, "%s:" % self.opts.pd2_name)
-        self.text_pd3 = wx.TextCtrl(self, wx.ID_ANY, "0")
+        self.text_pd3 = wx.TextCtrl(self, wx.ID_ANY, "%f" % opts.pd3_thresh)
         self.label_pd3 = wx.StaticText(self, wx.ID_ANY, "%s:" % self.opts.pd3_name)
 
         self.hsizer_pd = wx.BoxSizer(wx.HORIZONTAL)
@@ -611,6 +614,21 @@ class MainWindow(wx.Frame):
         dlg.ShowModal()
         dlg.Destroy()
 
+    def loadCrystFELArgs(self):
+        ret = " "
+        try:
+            f = open("crystfel.args", "r")
+            for line in f:
+                line = line.strip()
+                pos = line.find("#")
+                if pos >= 0:
+                    line = line[:pos]
+                if len(line) > 0:
+                    ret = ret + line + " "
+        except:
+            return ""
+        return ret
+
     def startRun(self, runid, bl, pd1_thresh=0, pd2_thresh=0, pd3_thresh=0):
         run_dir = runid
         arguments = ""
@@ -638,6 +656,8 @@ class MainWindow(wx.Frame):
             for i in xrange(1, PARALLEL_SIZE):
                 subjobs.append("%d" % i)
 
+        crystfel_args = self.opts.crystfel_args + " " + self.loadCrystFELArgs()
+
         # Master
         if os.path.exists(run_dir):
             self.showError("You told me to process run %s, but a directory for the run already exists. Please remove it before re-processing." % run_dir)
@@ -646,7 +666,7 @@ class MainWindow(wx.Frame):
         f = open("%s/run.sh" % run_dir, "w")
         f.write(job_script.format(runid=runid, runname=run_dir, clen=self.opts.clen, queuename=self.opts.queue,
                                   subjobs=" ".join(subjobs), arguments=master_arguments,
-                                  crystfel_args=self.opts.crystfel_args, beamline=bl))
+                                  crystfel_args=crystfel_args, beamline=bl))
         f.close()
         os.system("qsub {rundir}/run.sh > {rundir}/job.id".format(rundir=run_dir))
         self.addRun(run_dir)
@@ -663,14 +683,14 @@ class MainWindow(wx.Frame):
             f = open("%s/run.sh" % run_dir, "w")
             f.write(job_script_dark.format(runid=runid, runname=run_dir, 
                                            queuename=self.opts.queue, arguments=child_arguments,
-                                           crystfel_args=self.opts.crystfel_args, beamline=bl))
+                                           crystfel_args=crystfel_args, beamline=bl))
             f.close()
             if self.opts.quick != 1:
                 os.system("qsub {runid}/run.sh > {runid}/job.id".format(runid=run_dir))
             self.addRun(run_dir)
 
     def addRun(self, runid):
-        if self.rows.get(runid) is not None:
+        if self.noGUI or self.rows.get(runid) is not None:
             return
 
         row = self.table.GetNumberRows()
@@ -835,6 +855,11 @@ parser.add_option("--submit_dark2", dest="submit_dark2", type=int, default=False
 parser.add_option("--submit_dark_to", dest="submit_dark_to", type=int, default=False, help="accepts up to M (<=9) darks (Ln-Dm) and divide into light, dark1, ..., darkM")
 parser.add_option("--submit_dark_any", dest="submit_dark_any", type=int, default=False, help="accepts any lights and darks (Ln-Dm) and divide into light and dark")
 parser.add_option("--crystfel_args", dest="crystfel_args", type=str, default="", help="optional arguments to CrystFEL")
+parser.add_option("--submit", dest="submit", type=int, default=-1, help="submit run (noGUI)")
+parser.add_option("--pd1_thresh", dest="pd1_thresh", type=float, default=0, help="PD1 threshold")
+parser.add_option("--pd2_thresh", dest="pd2_thresh", type=float, default=0, help="PD2 threshold")
+parser.add_option("--pd3_thresh", dest="pd3_thresh", type=float, default=0, help="PD3 threshold")
+
 opts, args = parser.parse_args()
 
 if opts.submit_dark2 is not False:
@@ -874,11 +899,19 @@ print "Option: queue            = %s" % opts.queue
 print "Option: pd1_name         = %s" % opts.pd1_name
 print "Option: pd2_name         = %s" % opts.pd2_name
 print "Option: pd3_name         = %s" % opts.pd3_name
+print "Option: pd1_thresh       = %f" % opts.pd1_thresh
+print "Option: pd2_thresh       = %f" % opts.pd2_thresh
+print "Option: pd3_thresh       = %f" % opts.pd3_thresh
 print "Option: submit_dark_to   = %s" % opts.submit_dark_to
 print "Option: submit_dark_any  = %s" % opts.submit_dark_any
 print "Option: crystfel_args    = %s" % opts.crystfel_args
 
-app = wx.App(False)
-frame = MainWindow(None, opts)
-app.MainLoop()
+if opts.submit > 0: # headless
+    mw = MainWindow(None, opts, True)
+    print mw.loadCrystFELArgs()
+    mw.startRun("%d" % opts.submit, opts.bl, pd1_thresh=opts.pd1_thresh, pd2_thresh=opts.pd2_thresh, pd3_thresh=opts.pd3_thresh)
+else:
+    app = wx.App(False)
+    frame = MainWindow(None, opts)
+    app.MainLoop()
 
