@@ -292,11 +292,11 @@ int main(int argc, char *argv[]) {
 		return -1;
 	}
 
-	if (workaround_18feb) printf("Warning: applyied workaround for unreliable shutter status on 18 feb.\n");
+	if (workaround_18feb) printf("Warning: applyied workaround for unreliable shutter status since 18 feb.\n");
 	int numDark = 0;
 	for (int i = 0; i < numAll; i++) {
 		tag_start = tagAll[i];
-		if (atoi(shutterAll[i].c_str()) == 0) {
+		if (shutterAll[i] != "saturated" && (shutterAll[i] == "not-converged" || atoi(shutterAll[i].c_str()) == 0)) {
 			numDark++;
 		} else {
 			break;

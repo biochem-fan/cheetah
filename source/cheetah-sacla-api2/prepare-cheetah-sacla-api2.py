@@ -182,13 +182,17 @@ def add_image(acc, readers, buffers, gains, tag_id, energy):
     return 1
 
 def str2float(str):
+    # 'is' instead of '==' will NOT work!
+    if str == "not-converged": return float("nan")
+    if str == "saturated": return float("inf")
+
     m = re.match("-?\d+(.\d+)?(e[+-]?\d+)?", str)
     if m is not None:
         return float(m.group(0))
     else:
         return None
 
-def run(runid, bl=3, clen=50.0):
+def run(runid, bl=3, clen=50.0, dry_run=False):
     # Beamline specific constants
     if bl == 2:
         sensor_spec = "xfel_bl_2_tc_spec_1/energy"
@@ -236,8 +240,8 @@ def run(runid, bl=3, clen=50.0):
     dark_tags = [tag for tag, is_open in zip(tag_list, shutter) if is_open == 0]
     
     if bl == 2 and runid >= 32348: # and runid <= 33416:
-	# 2018 Feb: Unreliable shutter status. Should use PD and take darks only at the beginning of a run
-        print "The shutter status was unreliable for runs in 2018 Feb."
+	# 2018 Feb: Unreliable shutter status. We should use BM1 PD and take darks only at the beginning of a run
+        print "The shutter status was unreliable for runs since 2018 Feb."
         print "The number of tags with shutter closed:", len(dark_tags)
         print "Since the above value is not reliable, we use X-ray PD values instead."
         xray_pd = "xfel_bl_2_st_3_bm_1_pd/charge"
@@ -245,11 +249,11 @@ def run(runid, bl=3, clen=50.0):
         dark_tags = []
         is_head = True
         for tag, pd in zip(tag_list, pd_values):
-             if pd == None and is_head:
+             if math.isnan(pd) and is_head:
                  dark_tags.append(tag)
              else:
                  is_head = False
-        print "Number of tags without X-ray:", len([1 for pd_val in pd_values if pd_val is None])
+        print "Number of tags without X-ray:", len([1 for pd_val in pd_values if math.isnan(pd_val)])
         print "But we use only tags at the beginning of a run."
 
     if len(dark_tags) == 0:
@@ -318,6 +322,8 @@ def run(runid, bl=3, clen=50.0):
     # Write metadata
     write_metadata("%d.h5" % runid, det_infos, clen, comment)
 
+    if (dry_run): return
+ 
     # Create dark average
     print
     print "Calculating a dark average:"
@@ -358,6 +364,7 @@ parser = optparse.OptionParser()
 
 parser.add_option("--bl", dest="bl", type=int, default=3, help="Beamline")
 parser.add_option("--clen", dest="clen", type=float, default=50.0, help="Camera distance")
+parser.add_option("--dry-run", dest="dry_run", type=int, default=0, help="Do not read images")
 opts, args = parser.parse_args()
 
 if (opts.bl != 2 and opts.bl !=3):
@@ -374,6 +381,7 @@ print " by Takanori Nakane at University of Tokyo"
 print
 print "Option: bl               = %d" % opts.bl
 print "Option: clen             = %.1f mm" % opts.clen
+print "Option: dry-run          = %d" % opts.dry_run
 print
 
-run(runid=runid, bl=opts.bl, clen=opts.clen)
+run(runid=runid, bl=opts.bl, clen=opts.clen, dry_run=opts.dry_run)
