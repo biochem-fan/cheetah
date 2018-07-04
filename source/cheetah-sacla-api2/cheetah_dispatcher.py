@@ -49,7 +49,7 @@ echo $PBS_JOBID > job.id
 hostname > job.host
 source @@SETUP_SCRIPT@@
 ShowRunInfo -b {beamline} -r {runid} > run.info
-@@CHEETAH_PATH@@/prepare-cheetah-sacla-api2.py {runid} --bl={beamline} --clen={clen}
+@@CHEETAH_PATH@@/prepare-cheetah-sacla-api2.py {runid} --bl={beamline} --clen={clen} 2>&1 >> cheetah.log
 grep Error status.txt
 if [ $? -eq 0 ]; then # Found
    for i in {subjobs}; do
@@ -75,7 +75,7 @@ if [ ! -e run{runname}.h5 ]; then
    cp {runid}.h5 run{runname}.h5
 fi
 
-@@CHEETAH_PATH@@/cheetah-sacla-api2 --ini ../sacla-photon.ini --run {runid} -o run{runname}.h5 --bl {beamline} {arguments}
+@@CHEETAH_PATH@@/cheetah-sacla-api2 --ini ../sacla-photon.ini --run {runid} -o run{runname}.h5 --bl {beamline} {arguments} 2>&1 >> cheetah.log
 rm {runid}.h5
 
 # th 100 gr 5000000 for > 10 keV
@@ -126,7 +126,7 @@ while :; do
 done
 
 cp {runid}.h5 run{runname}.h5
-@@CHEETAH_PATH@@/cheetah-sacla-api2 --ini ../sacla-photon.ini --run {runid} -o run{runname}.h5 --bl {beamline} {arguments}
+@@CHEETAH_PATH@@/cheetah-sacla-api2 --ini ../sacla-photon.ini --run {runid} -o run{runname}.h5 --bl {beamline} {arguments} 2>&1 >> cheetah.log
 rm {runid}.h5
 
 # th 100 gr 5000000 for > 10 keV
@@ -625,6 +625,7 @@ class MainWindow(wx.Frame):
                     line = line[:pos]
                 if len(line) > 0:
                     ret = ret + line + " "
+            f.close()
         except:
             return ""
         return ret
