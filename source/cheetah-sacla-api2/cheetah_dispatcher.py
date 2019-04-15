@@ -287,6 +287,9 @@ class MainWindow(wx.Frame):
     MENU_CELLEXPLORER = 2
     MENU_COUNTSUMS = 3
 
+    COLOUR_BAD = (252, 124, 0)
+    COLOUR_GOOD = (124, 252, 0)
+
     def __init__(self, parent, opts, nogui=False):
         self.opts = opts
         self.subthreads = []
@@ -736,9 +739,9 @@ class MainWindow(wx.Frame):
         status = event.msg['Status']
         self.table.SetCellValue(row, MainWindow.COL_STATUS, status)
         if (status == "Finished"):
-            self.table.SetCellBackgroundColour(row, MainWindow.COL_STATUS, (124, 252, 0))
+            self.table.SetCellBackgroundColour(row, MainWindow.COL_STATUS, MainWindow.COLOUR_GOOD)
         elif (status.startswith("Error")):
-            self.table.SetCellBackgroundColour(row, MainWindow.COL_STATUS, (252, 124, 0))
+            self.table.SetCellBackgroundColour(row, MainWindow.COL_STATUS, MainWindow.COLOUR_BAD)
             return 
 
         total = int(event.msg['Total'])
@@ -747,6 +750,7 @@ class MainWindow(wx.Frame):
                                 "%d" % total)
         self.table.SetCellValue(row, MainWindow.COL_PROCESSED, 
                                 "%d (%.1f%%)" % (processed, 100.0 * processed / total))
+        self.table.SetCellBackgroundColour(row, MainWindow.COL_PROCESSED, MainWindow.COLOUR_GOOD)
 
         if (status == "DarkAveraging" or status == "waiting"):
             return
@@ -758,8 +762,13 @@ class MainWindow(wx.Frame):
         if LLFpassed != 0: hit_rate = 100.0 * hits / LLFpassed
         self.table.SetCellValue(row, MainWindow.COL_LLF_PASSED,
                                 "%d (%.1f%%)" % (LLFpassed, acceptance_rate))
+        self.table.SetCellBackgroundColour(row, MainWindow.COL_LLF_PASSED, MainWindow.COLOUR_GOOD)
         self.table.SetCellValue(row, MainWindow.COL_HITS,
                                 "%d (%.1f%%)" % (hits, hit_rate))
+        if hit_rate > 75:
+            self.table.SetCellBackgroundColour(row, MainWindow.COL_HITS, MainWindow.COLOUR_BAD)
+        else:
+            self.table.SetCellBackgroundColour(row, MainWindow.COL_HITS, MainWindow.COLOUR_GOOD)
 
         try:
             indexed = int(event.msg['indexed'])
@@ -768,6 +777,7 @@ class MainWindow(wx.Frame):
             else:
                 self.table.SetCellValue(row, MainWindow.COL_INDEXED,
                                             "%d (%.1f%%)" % (indexed, 100.0 * indexed / hits))
+                self.table.SetCellBackgroundColour(row, MainWindow.COL_INDEXED, MainWindow.COLOUR_GOOD)
         except:
             self.table.SetCellValue(row, MainWindow.COL_INDEXED, "NA")
 
@@ -778,7 +788,6 @@ class ProgressCellRenderer(wx.grid.PyGridCellRenderer):
     re_percent = re.compile('([0-9.]+)%')
     def __init__(self):
         wx.grid.PyGridCellRenderer.__init__(self)
-        self.progColor = wx.Colour(124, 252, 0)
 
     def Draw(self, grid, attr, dc, rect, row, col, isSelected):
         text = grid.GetCellValue(row, col)
@@ -805,7 +814,7 @@ class ProgressCellRenderer(wx.grid.PyGridCellRenderer):
         else:
             bg = wx.Colour(255, 255, 255)
 
-        dc.SetBrush(wx.Brush(self.progColor, wx.SOLID))
+        dc.SetBrush(wx.Brush(attr.GetBackgroundColour(), wx.SOLID))
         #dc.SetPen(wx.BLACK_PEN)
         dc.DrawRectangleRect(prog_rect)
 
@@ -827,8 +836,8 @@ class ProgressCellRenderer(wx.grid.PyGridCellRenderer):
         return ProgressCellRenderer() 
 
 print
-print "Cheetah dispatcher GUI version 20180704"
-print "   by Takanori Nakane (takanori.nakane@bs.s.u-tokyo.ac.jp)"
+print "Cheetah dispatcher GUI version 20190415"
+print "   by Takanori Nakane (tnakane@mrc-lmb.cam.ac.uk)"
 print
 print "Please cite the following paper when you use this software."
 print " \"Data processing pipeline for serial femtosecond crystallography at SACLA\""
