@@ -11,7 +11,7 @@ import math
 import numpy as np
 import re
 
-VERSION = 180704
+VERSION = 190611
 XSIZE = 512
 YSIZE = 1024
 NPANELS = 8
@@ -23,7 +23,8 @@ def log_error(message):
 def write_crystfel_geom(filename, det_infos, energy, clen):
     with open(filename, "w") as out:
         out.write("; CrystFEL geometry file produced by prepare_cheetah_api2.py\n")
-        out.write(";   Takanori Nakane (takanori.nakane@bs.s.u-tokyo.ac.jp)\n")
+        out.write(";   Takanori Nakane (tnakane@mrc-lmb.cam.ac.uk)\n")
+	out.write("; Detector ID: %s\n" % det_infos[0]['id'])
         out.write("; for tiled but NOT reassembled images (512x8192 pixels)\n\n")
         out.write("clen = %.4f               ; %.1f mm camera length. You SHOULD optimize this!\n" % (clen * 1E-3, clen))
         out.write("res = 20000                 ; = 1 m /50 micron\n")
@@ -91,6 +92,19 @@ def write_crystfel_geom(filename, det_infos, energy, clen):
                 out.write("badq%dh1/max_fs = %d\n"   % (i, XSIZE - 1))
                 out.write("badq%dh1/min_ss = %d\n"   % (i, YSIZE * i))
                 out.write("badq%dh1/max_ss = %d\n\n" % (i, YSIZE * i + border - 1))
+
+        if re.match("MPCCD-8B0-2", det_infos[0]['id']): # Severly damaged Phase 3 detector
+                out.write("; Severly damaged Phase 3 detector\n")
+                out.write("baddamage1/min_fs = 501\n")
+                out.write("baddamage1/max_fs = 511\n")
+                out.write("baddamage1/min_ss = 1024\n")
+                out.write("baddamage1/max_ss = 2047\n\n")
+
+                out.write("baddamage2/min_fs = 0\n")
+                out.write("baddamage2/max_fs = 12\n")
+                out.write("baddamage2/min_ss = 2048\n")
+                out.write("baddamage2/max_ss = 3071\n\n")
+
         if outer_border != 0:
             out.write("; Bad regions near outer edges of each sensor due to amplifier shields\n")
             out.write(";  you might want to optimize these widths (edit min_ss)\n")
@@ -138,8 +152,8 @@ def get_border(det_name):
     else:
         return (0, 0)
 
-def make_pixelmask(borders):
-    border, outer_border = borders
+def make_pixelmask(det_name):
+    border, outer_border = get_border(det_name)
 
     mask = np.zeros((YSIZE * NPANELS, XSIZE), dtype=np.uint16)
     mask[:, 0:border] = 1
@@ -148,6 +162,10 @@ def make_pixelmask(borders):
     for i in xrange(NPANELS):
         mask[(YSIZE * i):(YSIZE * i + border), :] = 1
         mask[(YSIZE * (i + 1) - outer_border):(YSIZE * (i + 1)), :] = 1
+
+    if re.match("MPCCD-8B0-2", det_name): # Severly damaged Phase 3 detector
+            mask[501:512, 1024:2048] = 1
+            mask[0:11, 2048:3072] = 1
 
     return mask
 
@@ -164,7 +182,7 @@ def write_metadata(filename, det_infos, clen, comment):
     f["/metadata/pixelsizex_in_um"] = [det_info['mp_pixelsizex'] for det_info in det_infos]
     f["/metadata/pixelsizey_in_um"] = [det_info['mp_pixelsizey'] for det_info in det_infos]
     f["/metadata/distance_in_mm"] = clen
-    pixel_mask = make_pixelmask(get_border(det_infos[0]['id']))
+    pixel_mask = make_pixelmask(det_infos[0]['id'])
     f.create_dataset("/metadata/pixelmask", data=pixel_mask, compression="gzip", shuffle=True)
     f.close()
 
