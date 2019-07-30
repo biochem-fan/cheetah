@@ -14,7 +14,9 @@
 #include <stdio.h>
 #include <math.h>
 #include <hdf5.h>
+#include <H5DOpublic.h>
 #include <stdlib.h>
+#include <zlib.h>
 
 #include "detectorObject.h"
 #include "cheetahGlobal.h"
@@ -28,9 +30,12 @@ void writeSACLA(cEventData *eventData, cGlobal *global) {
 
 	const int detIndex = 0;
 	// from saveFrame.cpp
+	const long original_size = global->detector[detIndex].pix_nn * sizeof(int16_t);
 	int16_t* corrected_data_int16 = (int16_t*)calloc(global->detector[detIndex].pix_nn, sizeof(int16_t));
-			
-	for (long i=0;i<global->detector[0].pix_nn;i++) {
+	Bytef* compressed_data = NULL;
+	uLongf compressed_size = -1;
+	
+	for (long i = 0; i < global->detector[0].pix_nn; i++) {
 		long tmp = lrint(eventData->detector[detIndex].data_detPhotCorr[i]);
 		if (tmp < 0) {
 			tmp = 0; 
@@ -38,6 +43,22 @@ void writeSACLA(cEventData *eventData, cGlobal *global) {
 			tmp = SHRT_MAX; 
 		}
 		corrected_data_int16[i] = (int16_t)tmp;
+	}
+
+        if (global->h5compress != 0) {
+		// compression can make the size larger
+		compressed_size = ceil(original_size * 1.002 + 12);
+		compressed_data = (Bytef*)calloc(compressed_size, 1);
+		printf("ori_size = %ld max_size = %ld\n", original_size, compressed_size);	
+		int ret = compress2(compressed_data, &compressed_size, (Bytef*)corrected_data_int16, 
+		                    original_size, global->h5compress);
+
+		if (ret != Z_OK) {
+			printf("TAG %d zlib error code = %d\n", eventData->fiducial, ret);
+			free(compressed_data);
+			free(corrected_data_int16);
+			return;
+		}
 	}
 
 	// This is a multi-event file, so a mutex is necessary
@@ -53,6 +74,9 @@ void writeSACLA(cEventData *eventData, cGlobal *global) {
 	char group_name[256];
 	snprintf(group_name, 256, "/tag-%d", eventData->fiducial);
 	group_id = H5Gcreate2(file_id, group_name, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+	if (group_id < 0) {
+		printf("ERROR in creating tag group\n");
+	}
 
 	char dataset_name[256];
 	dataspace_id = H5Screate(H5S_SCALAR);
@@ -74,14 +98,21 @@ void writeSACLA(cEventData *eventData, cGlobal *global) {
         if (global->h5compress != 0) {
                 dcpl = H5Pcreate(H5P_DATASET_CREATE);
                 //printf("global->h5compress = %d\n", global->h5compress);
-                H5Pset_shuffle(dcpl);
+                //H5Pset_shuffle(dcpl);
                 H5Pset_deflate(dcpl, global->h5compress);
                 H5Pset_chunk(dcpl, 2, dims);
         }
         // was H5T_NATIVE_USHORT
 	dataset_id = H5Dcreate2(file_id, dataset_name, H5T_STD_I16LE, dataspace_id, H5P_DEFAULT, dcpl, H5P_DEFAULT);
 
-	H5Dwrite(dataset_id, H5T_STD_I16LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, corrected_data_int16);
+	if (global->h5compress == 0) {
+		H5Dwrite(dataset_id, H5T_STD_I16LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, corrected_data_int16);
+	} else {
+		const hsize_t offset[2] = {0, 0};
+		H5DOwrite_chunk(dataset_id, H5P_DEFAULT, 0, offset, compressed_size, compressed_data);
+		printf("ori_size = %ld compressed_size = %ld\n", original_size, compressed_size);	
+		free(compressed_data);
+	}
 	free(corrected_data_int16);
 
         H5Pclose(dcpl);
