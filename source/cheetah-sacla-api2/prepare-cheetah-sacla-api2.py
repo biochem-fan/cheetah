@@ -11,7 +11,7 @@ import math
 import numpy as np
 import re
 
-VERSION = 190611
+VERSION = 191028
 XSIZE = 512
 YSIZE = 1024
 NPANELS = 8
@@ -20,7 +20,7 @@ def log_error(message):
     with open("status.txt", "w") as out:
         out.write("Status: Status=Error-%s\n" % message)
 
-def write_crystfel_geom(filename, det_infos, energy, clen):
+def write_crystfel_geom(filename, det_infos, energy, clen, runid):
     with open(filename, "w") as out:
         out.write("; CrystFEL geometry file produced by prepare_cheetah_api2.py\n")
         out.write(";   Takanori Nakane (tnakane@mrc-lmb.cam.ac.uk)\n")
@@ -94,20 +94,42 @@ def write_crystfel_geom(filename, det_infos, energy, clen):
                 out.write("badq%dh1/max_ss = %d\n\n" % (i, YSIZE * i + border - 1))
 
         if re.match("MPCCD-8B0-2", det_infos[0]['id']): # Severly damaged Phase 3 detector
-                out.write("; Severly damaged Phase 3 detector\n")
-                out.write("baddamage1/min_fs = 501\n")
-                out.write("baddamage1/max_fs = 511\n")
-                out.write("baddamage1/min_ss = 1024\n")
-                out.write("baddamage1/max_ss = 2047\n\n")
+            out.write("; Severly damaged Phase 3 detector\n")
+            out.write("baddamage1/min_fs = 501\n")
+            out.write("baddamage1/max_fs = 511\n")
+            out.write("baddamage1/min_ss = 1024\n")
+            out.write("baddamage1/max_ss = 2047\n\n")
 
-                out.write("baddamage2/min_fs = 0\n")
-                out.write("baddamage2/max_fs = 12\n")
-                out.write("baddamage2/min_ss = 2048\n")
-                out.write("baddamage2/max_ss = 3071\n\n")
+            out.write("baddamage2/min_fs = 0\n")
+            out.write("baddamage2/max_fs = 12\n")
+            out.write("baddamage2/min_ss = 2048\n")
+            out.write("baddamage2/max_ss = 3071\n\n")
+
+            if runid >= 73832:
+                out.write("; 2019B: broken ports in Panel 2,3,6,7\n")
+                out.write("badport2/min_fs = 448\n")
+                out.write("badport2/max_fs = 511\n")
+                out.write("badport2/min_ss = 1024\n")
+                out.write("badport2/max_ss = 2047\n\n")
+
+                out.write("badport3/min_fs = 0\n")
+                out.write("badport3/max_fs = 63\n")
+                out.write("badport3/min_ss = 2048\n")
+                out.write("badport3/max_ss = 3071\n\n")
+
+                out.write("badport6/min_fs = 0\n")
+                out.write("badport6/max_fs = 63\n")
+                out.write("badport6/min_ss = 5120\n")
+                out.write("badport6/max_ss = 6143\n\n")
+
+                out.write("badport7/min_fs = 448\n")
+                out.write("badport7/max_fs = 511\n")
+                out.write("badport7/min_ss = 6144\n")
+                out.write("badport7/max_ss = 7167\n\n")
 
         if outer_border != 0:
-            out.write("; Bad regions near outer edges of each sensor due to amplifier shields\n")
-            out.write(";  you might want to optimize these widths (edit min_ss)\n")
+            out.write("; Bad regions near outer edges of each sensor due to amplifier shields;\n")
+            out.write("; you might want to optimize these widths (edit min_ss).\n")
             for i in xrange(NPANELS):
                 out.write("badq%dh2/min_fs = %d\n"   % (i, 0))
                 out.write("badq%dh2/max_fs = %d\n"   % (i, XSIZE - 1))
@@ -152,7 +174,7 @@ def get_border(det_name):
     else:
         return (0, 0)
 
-def make_pixelmask(det_name):
+def make_pixelmask(det_name, runid):
     border, outer_border = get_border(det_name)
 
     mask = np.zeros((YSIZE * NPANELS, XSIZE), dtype=np.uint16)
@@ -164,12 +186,18 @@ def make_pixelmask(det_name):
         mask[(YSIZE * (i + 1) - outer_border):(YSIZE * (i + 1)), :] = 1
 
     if re.match("MPCCD-8B0-2", det_name): # Severly damaged Phase 3 detector
-            mask[501:512, 1024:2048] = 1
-            mask[0:11, 2048:3072] = 1
+        mask[1024:2048, 501:512] = 1
+        mask[2048:3072, 0:11] = 1
+
+        if runid >= 73832:
+            mask[1024:2048, 448:512] = 1
+            mask[2048:3072, 0:64] = 1
+            mask[5120:6144, 0:64] = 1
+            mask[6144:7168, 448:512] = 1
 
     return mask
 
-def write_metadata(filename, det_infos, clen, comment):
+def write_metadata(filename, det_infos, clen, comment, runid):
     f = h5py.File(filename, "w")
     
     f["/metadata/pipeline_version"] = VERSION
@@ -182,7 +210,7 @@ def write_metadata(filename, det_infos, clen, comment):
     f["/metadata/pixelsizex_in_um"] = [det_info['mp_pixelsizex'] for det_info in det_infos]
     f["/metadata/pixelsizey_in_um"] = [det_info['mp_pixelsizey'] for det_info in det_infos]
     f["/metadata/distance_in_mm"] = clen
-    pixel_mask = make_pixelmask(det_infos[0]['id'])
+    pixel_mask = make_pixelmask(det_infos[0]['id'], runid)
     f.create_dataset("/metadata/pixelmask", data=pixel_mask, compression="gzip", shuffle=True)
     f.close()
 
@@ -334,11 +362,11 @@ def run(runid, bl=3, clen=50.0, dry_run=False):
     print
 
     # Create geometry files
-    write_crystfel_geom("%d.geom" % runid, det_infos, mean_energy, clen)
+    write_crystfel_geom("%d.geom" % runid, det_infos, mean_energy, clen, runid)
     write_cheetah_geom("%d-geom.h5" % runid, det_infos)
 
     # Write metadata
-    write_metadata("%d.h5" % runid, det_infos, clen, comment)
+    write_metadata("%d.h5" % runid, det_infos, clen, comment, runid)
 
     if (dry_run): return
  
