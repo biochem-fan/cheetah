@@ -93,7 +93,7 @@ def write_crystfel_geom(filename, det_infos, energy, clen, runid):
                 out.write("badq%dh1/min_ss = %d\n"   % (i, YSIZE * i))
                 out.write("badq%dh1/max_ss = %d\n\n" % (i, YSIZE * i + border - 1))
 
-        if re.match("MPCCD-8B0-2", det_infos[0]['id']): # Severly damaged Phase 3 detector
+        if re.match("MPCCD-8B0-2-003", det_infos[0]['id']): # Severly damaged Phase 3 detector
             out.write("; Severly damaged Phase 3 detector\n")
             out.write("baddamage1/min_fs = 501\n")
             out.write("baddamage1/max_fs = 511\n")
@@ -185,7 +185,7 @@ def make_pixelmask(det_name, runid):
         mask[(YSIZE * i):(YSIZE * i + border), :] = 1
         mask[(YSIZE * (i + 1) - outer_border):(YSIZE * (i + 1)), :] = 1
 
-    if re.match("MPCCD-8B0-2", det_name): # Severly damaged Phase 3 detector
+    if re.match("MPCCD-8B0-2-003", det_name): # Severly damaged Phase 3 detector
         mask[1024:2048, 501:512] = 1
         mask[2048:3072, 0:11] = 1
 
