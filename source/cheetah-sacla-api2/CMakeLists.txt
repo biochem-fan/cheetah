@@ -1,4 +1,4 @@
-find_package(HDF5 REQUIRED)
+find_package(HDF5 COMPONENTS C HL REQUIRED)
 # find_package(Ldap REQUIRED)
 
 LIST(APPEND sources "main-sacla-api2.cpp")

@@ -1,12 +1,11 @@
-
-find_package(HDF5 REQUIRED)
+# COMPONENTS C is necessary for newer CMake: https://gitlab.kitware.com/cmake/cmake/issues/16397
+find_package(HDF5 COMPONENTS C HL REQUIRED)
 find_package(PythonLibs REQUIRED)
 # We don't want to scare people with this
 mark_as_advanced(HDF5_DIR)
 mark_as_advanced(CLEAR HDF5_C_INCLUDE_DIR)
 mark_as_advanced(CLEAR HDF5_hdf5_LIBRARY_RELEASE)
 mark_as_advanced(CLEAR HDF5_hdf5_LIBRARY_DEBUG)
-
 
 # Add source files here
 LIST(APPEND sources "src/assemble2DImage.cpp" "src/backgroundCorrection.cpp")
@@ -35,7 +34,7 @@ include_directories(${PYTHON_INCLUDE_DIR})
 
 add_library(cheetah SHARED ${sources})
 
-target_link_libraries(cheetah ${HDF5_LIBRARIES} ${PYTHON_LIBRARIES})
+target_link_libraries(cheetah ${HDF5_LIBRARIES} ${HDF5_HL_LIBRARIES} ${PYTHON_LIBRARIES})
 
 set_target_properties(
  cheetah
