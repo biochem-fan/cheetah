@@ -11,7 +11,7 @@ import math
 import numpy as np
 import re
 
-VERSION = 200121
+VERSION = 200123
 XSIZE = 512
 YSIZE = 1024
 NPANELS = 8
@@ -242,10 +242,12 @@ def run(runid, bl=3, clen=50.0, dry_run=False):
     # Beamline specific constants
     if bl == 2:
         sensor_spec = "xfel_bl_2_tc_spec_1/energy"
-        sensor_shutter = "xfel_bl_2_shutter_1_open_valid/status"
+        sensor_shutter_open = "xfel_bl_2_shutter_1_open_valid/status"
+        sensor_shutter_close = "xfel_bl_2_shutter_1_close_valid/status"
     elif bl == 3:
         sensor_spec = "xfel_bl_3_tc_spec_1/energy"
-        sensor_shutter = "xfel_bl_3_shutter_1_open_valid/status"
+        sensor_shutter_open = "xfel_bl_3_shutter_1_open_valid/status"
+        sensor_shutter_close = "xfel_bl_3_shutter_1_close_valid/status"
     else:
         log_error("BadBeamline")
         sys.exit(-1)
@@ -277,29 +279,57 @@ def run(runid, bl=3, clen=50.0, dry_run=False):
     print "MPCCD Octal IDs to use: " + " ".join(det_IDs)
     print
 
-    # Get shutter status and find dark images
+    # Get the shutter status and find dark images
     try:
-        shutter = [str2float(s) for s in dbpy.read_syncdatalist(sensor_shutter, high_tag, tag_list)]
+        shutter_open = [str2float(s) for s in dbpy.read_syncdatalist(sensor_shutter_open, high_tag, tag_list)]
     except:
         log_error("NoShutterStatus")
         sys.exit(-1)
-    dark_tags = [tag for tag, is_open in zip(tag_list, shutter) if is_open == 0]
+    dark_tags = [tag for tag, is_open in zip(tag_list, shutter_open) if int(is_open) == 0]
     
-    if bl == 2 and runid >= 32348: # and runid <= 33416:
-	# 2018 Feb: Unreliable shutter status. We should use BM1 PD and take darks only at the beginning of a run
-        print "The shutter status was unreliable for runs since 2018 Feb."
+    if bl == 2 and runid >= 32348 and runid < 81550:
+	# 2018 Feb (run 32348-): Unreliable shutter status. We should use BM1 PD and take darks only at the beginning of a run
+        # 2020 Jan (run 81550-): X-ray PD does not necessarily show "not-converged" but can have values around 1e-11.
+        #           Thus, xray_pd_thresh = 1e-10 was introduced, but it still does not work perfectly...
+        print "The shutter status has been unreliable for runs since 2018 Feb."
         print "The number of tags with shutter closed:", len(dark_tags)
         print "Since the above value is not reliable, we use X-ray PD values instead."
         xray_pd = "xfel_bl_2_st_3_bm_1_pd/charge"
+        xray_pd_thresh = 1e-10
         pd_values = [str2float(s) for s in dbpy.read_syncdatalist(xray_pd, high_tag, tag_list)]
         dark_tags = []
         is_head = True
         for tag, pd in zip(tag_list, pd_values):
-             if math.isnan(pd) and is_head:
+             if (math.isnan(pd) or pd < xray_pd_thresh) and is_head:
                  dark_tags.append(tag)
              else:
                  is_head = False
-        print "Number of tags without X-ray:", len([1 for pd_val in pd_values if math.isnan(pd_val)])
+        print "Number of tags without X-ray:", len([1 for pd_val in pd_values if math.isnan(pd_val) or pd_val < xray_pd_thresh])
+        print "But we use only tags at the beginning of a run."
+    elif bl == 2 and runid >= 81550: # TODO: What about BL3?
+        # 2020 Jan (run 81550-): Eventually, decided to use another strategy: look at both open and close status.
+        #                        This method was unreliable at 2018 but Dr. Tono says it should be fine now.
+        #                        If the detector alarm triggered shutter closure, these values can still be nonsense.
+        #                        This is why we look at "only tags at the beginning of a run" to avoid false positives.
+        print "The shutter 'open' status has been unreliable for runs since 2018 Feb."
+        print "The number of tags with shutter open = 0:", len(dark_tags)
+        print "Since the above value is not reliable, we also look at close status."
+        try:
+            shutter_close = [str2float(s) for s in dbpy.read_syncdatalist(sensor_shutter_close, high_tag, tag_list)]
+        except:
+            log_error("NoShutterStatus")
+            sys.exit(-1)
+        dark_tags = []
+        is_head = True
+        n_closed_and_not_open = 0
+        for tag, is_open, is_close in zip(tag_list, shutter_open, shutter_close):
+             if (int(is_open) == 0 and int(is_close) == 1):
+                 n_closed_and_not_open += 1
+                 if is_head:
+                     dark_tags.append(tag)
+             else:
+                 is_head = False
+        print "Number of tags without X-ray:", n_closed_and_not_open
         print "But we use only tags at the beginning of a run."
 
     if len(dark_tags) == 0:
