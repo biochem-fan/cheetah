@@ -103,7 +103,7 @@ static bool get_image(double *buffer, int tag, double photon_energy) {
 }
 
 int main(int argc, char *argv[]) {
-	printf("Cheetah for SACLA new offline API -- version 180705\n");
+	printf("Cheetah for SACLA new offline API -- version 200123\n");
 	printf(" by Takanori Nakane\n");
 	printf(" This program is based on cheetah-sacla by Anton Barty.\n");
 	int c, retno;
@@ -283,20 +283,43 @@ int main(int argc, char *argv[]) {
 	}
 	da_destroy_int_array(&tagbuf);
 
-	bool workaround_18feb = (bl == 2) && (runNumber >= 32348);
-	std::vector<std::string> shutterAll;
-	if ((workaround_18feb && myReadSyncDataList(&shutterAll, "xfel_bl_2_st_3_bm_1_pd/charge", tag_hi, numAll, tagAll) != 0) ||
-	    (bl == 3 && myReadSyncDataList(&shutterAll, "xfel_bl_3_shutter_1_open_valid/status", tag_hi, numAll, tagAll) != 0) ||
-	    (bl == 2 && myReadSyncDataList(&shutterAll, "xfel_bl_2_shutter_1_open_valid/status", tag_hi, numAll, tagAll) != 0)) {
-		printf("Failed to get shutter status.\n");
-		return -1;
+	// See prepare-cheetah-sacla-api2.py for details.
+	bool workaround_18feb = (bl == 2) && (runNumber >= 32348) && (runNumber < 81550);
+        bool use_close_status = (bl == 2) && (runNumber >= 81550);
+	std::vector<std::string> shutterOpen, shutterClose;
+	if (workaround_18feb) {
+		if (myReadSyncDataList(&shutterOpen, "xfel_bl_2_st_3_bm_1_pd/charge", tag_hi, numAll, tagAll) != 0) {
+			printf("Failed to get xfel_bl_2_st_3_bm_1_pd/charge.\n");
+			return -1;
+		}
+	} else if (bl == 3) {
+		if (myReadSyncDataList(&shutterOpen, "xfel_bl_3_shutter_1_open_valid/status", tag_hi, numAll, tagAll) != 0) {
+			printf("Failed to get xfel_bl_3_shutter_1_open_valid/status.\n");
+			return -1;
+		}
+        	if (use_close_status && myReadSyncDataList(&shutterClose, "xfel_bl_3_shutter_1_close_valid/status", tag_hi, numAll, tagAll) != 0) {
+			printf("Failed to get xfel_bl_3_shutter_1_close_valid/status.\n");
+			return -1;
+		}
+	} else if (bl == 2) {
+		if (myReadSyncDataList(&shutterOpen, "xfel_bl_2_shutter_1_open_valid/status", tag_hi, numAll, tagAll) != 0) {
+			printf("Failed to get xfel_bl_2_shutter_1_open_valid/status.\n");
+			return -1;
+		}
+		if (use_close_status && myReadSyncDataList(&shutterClose, "xfel_bl_2_shutter_1_close_valid/status", tag_hi, numAll, tagAll) != 0) {
+			printf("Failed to get xfel_bl_2_shutter_1_close_valid/status.\n");
+			return -1;
+		}
 	}
 
 	if (workaround_18feb) printf("Warning: applyied workaround for unreliable shutter status since 18 feb.\n");
+	if (use_close_status) printf("Both shutter open and shutter close fields are used to find non-exposed images.\n");
 	int numDark = 0;
 	for (int i = 0; i < numAll; i++) {
 		tag_start = tagAll[i];
-		if (shutterAll[i] != "saturated" && (shutterAll[i] == "not-converged" || atoi(shutterAll[i].c_str()) == 0)) {
+		// xfel_bl_2_st_3_bm_1_pd/charge might contain "saturated" or "not-converged".
+		if ((shutterOpen[i] != "saturated" && (shutterOpen[i] == "not-converged" || atoi(shutterOpen[i].c_str()) == 0))
+		    && (!use_close_status || atoi(shutterClose[i].c_str()) == 1)) {
 			numDark++;
 		} else {
 			break;
