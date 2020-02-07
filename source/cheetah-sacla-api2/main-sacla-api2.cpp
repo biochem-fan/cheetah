@@ -103,7 +103,7 @@ static bool get_image(double *buffer, int tag, double photon_energy) {
 }
 
 int main(int argc, char *argv[]) {
-	printf("Cheetah for SACLA new offline API -- version 200123\n");
+	printf("Cheetah for SACLA new offline API -- version 200206\n");
 	printf(" by Takanori Nakane\n");
 	printf(" This program is based on cheetah-sacla by Anton Barty.\n");
 	int c, retno;
@@ -285,7 +285,7 @@ int main(int argc, char *argv[]) {
 
 	// See prepare-cheetah-sacla-api2.py for details.
 	bool workaround_18feb = (bl == 2) && (runNumber >= 32348) && (runNumber < 81550);
-        bool use_close_status = (bl == 2) && (runNumber >= 81550);
+	bool use_close_status = (bl == 2 && runNumber >= 81550) || (bl == 3 && runNumber >= 909709);
 	std::vector<std::string> shutterOpen, shutterClose;
 	if (workaround_18feb) {
 		if (myReadSyncDataList(&shutterOpen, "xfel_bl_2_st_3_bm_1_pd/charge", tag_hi, numAll, tagAll) != 0) {

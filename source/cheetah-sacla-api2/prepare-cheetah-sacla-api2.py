@@ -11,7 +11,7 @@ import math
 import numpy as np
 import re
 
-VERSION = 200123
+VERSION = 200206
 XSIZE = 512
 YSIZE = 1024
 NPANELS = 8
@@ -306,7 +306,7 @@ def run(runid, bl=3, clen=50.0, dry_run=False):
                  is_head = False
         print "Number of tags without X-ray:", len([1 for pd_val in pd_values if math.isnan(pd_val) or pd_val < xray_pd_thresh])
         print "But we use only tags at the beginning of a run."
-    elif bl == 2 and runid >= 81550: # TODO: What about BL3?
+    elif (bl == 2 and runid >= 81550) or (bl == 3 and runid >= 909709):
         # 2020 Jan (run 81550-): Eventually, decided to use another strategy: look at both open and close status.
         #                        This method was unreliable at 2018 but Dr. Tono says it should be fine now.
         #                        If the detector alarm triggered shutter closure, these values can still be nonsense.
