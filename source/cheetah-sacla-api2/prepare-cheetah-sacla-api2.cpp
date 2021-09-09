@@ -212,24 +212,6 @@ int run(int runid) {
     }
   }
 
-  // LLF values
-  struct da_string_array *llf;
-  int n_llf;
-  
-  da_alloc_string_array(&llf);
-  sy_read_statistics_detllf(llf, LLF_ID, bl, tag_hi, numDark, tagList);
-
-  da_getsize_string_array(&n_llf, llf);
-  printf("\nLLF statistics for %d frames:\n", n_llf);
-  for (int i = 0; i < n_llf; i++) {
-    char *val;
-    da_getstring_string_array(&val, llf, i);
-    printf(" %s", val);
-    free(val);
-  }
-  printf("\n\n");
-  da_destroy_string_array(&llf);
-
   // PD values
   struct da_string_array *pd_laser;
   int n_pd_laser;
