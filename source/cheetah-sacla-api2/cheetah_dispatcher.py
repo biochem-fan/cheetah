@@ -30,7 +30,8 @@ re_status = re.compile("^Status:")
 (ThreadEvent, EVT_THREAD) = wx.lib.newevent.NewEvent()
 
 job_script = '''#!/bin/bash
-#PBS -l nodes=1:ppn=14
+#PBS -l nodes=1:ppn=16
+#PBS -l mem=50g
 #PBS -e {runname}/cheetah.stderr
 #PBS -o {runname}/cheetah.stdout
 #PBS -N {runname}
@@ -79,7 +80,7 @@ fi
 rm {runid}.h5
 
 # th 100 gr 5000000 for > 10 keV
-@@INDEXAMAJIG_PATH@@/indexamajig -g {runid}.geom --indexing=dirax --peaks=zaef --threshold=400 --min-gradient=10000 --min-snr=5 --int-radius=3,4,7 -o {runname}.stream -j 14 -i - {crystfel_args} <<EOF
+@@INDEXAMAJIG_PATH@@/indexamajig -g {runid}.geom --indexing=dirax --peaks=zaef --threshold=400 --min-gradient=10000 --min-snr=5 --int-radius=3,4,7 -o {runname}.stream -j 16 -i - {crystfel_args} <<EOF
 run{runname}.h5
 EOF
 rm -fr indexamajig.*
@@ -90,7 +91,8 @@ rm job.id job.host
 '''
 
 job_script_dark = '''#!/bin/bash
-#PBS -l nodes=1:ppn=14
+#PBS -l nodes=1:ppn=16
+#PBS -l mem=50g
 #PBS -e {runname}/cheetah.stderr
 #PBS -o {runname}/cheetah.stdout
 #PBS -N {runname}
@@ -130,7 +132,7 @@ cp {runid}.h5 run{runname}.h5
 rm {runid}.h5
 
 # th 100 gr 5000000 for > 10 keV
-@@INDEXAMAJIG_PATH@@/indexamajig -g {runname}.geom --indexing=dirax --peaks=zaef --threshold=400 --min-gradient=10000 --min-snr=5 --int-radius=3,4,7 -o {runname}.stream -j 14 -i - {crystfel_args} <<EOF
+@@INDEXAMAJIG_PATH@@/indexamajig -g {runname}.geom --indexing=dirax --peaks=zaef --threshold=400 --min-gradient=10000 --min-snr=5 --int-radius=3,4,7 -o {runname}.stream -j 16 -i - {crystfel_args} <<EOF
 run{runname}.h5
 EOF
 rm -fr indexamajig.*
@@ -835,7 +837,7 @@ class ProgressCellRenderer(wx.grid.GridCellRenderer):
         return ProgressCellRenderer() 
 
 print()
-print("Cheetah dispatcher GUI version 20190415")
+print("Cheetah dispatcher GUI version 20210909")
 print("   by Takanori Nakane (tnakane@mrc-lmb.cam.ac.uk)")
 print()
 print("Please cite the following paper when you use this software.")
