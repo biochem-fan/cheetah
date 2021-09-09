@@ -11,7 +11,7 @@ import math
 import numpy as np
 import re
 
-VERSION = 200219
+VERSION = 210909
 XSIZE = 512
 YSIZE = 1024
 NPANELS = 8
@@ -24,7 +24,7 @@ def write_crystfel_geom(filename, det_infos, energy, clen, runid):
     with open(filename, "w") as out:
         out.write("; CrystFEL geometry file produced by prepare_cheetah_api2.py\n")
         out.write(";   Takanori Nakane (tnakane@mrc-lmb.cam.ac.uk)\n")
-	out.write("; Detector ID: %s\n" % det_infos[0]['id'])
+        out.write("; Detector ID: %s\n" % det_infos[0]['id'])
         out.write("; for tiled but NOT reassembled images (512x8192 pixels)\n\n")
         out.write("clen = %.4f               ; %.1f mm camera length. You SHOULD optimize this!\n" % (clen * 1E-3, clen))
         out.write("res = 20000                 ; = 1 m /50 micron\n")
@@ -55,7 +55,7 @@ def write_crystfel_geom(filename, det_infos, energy, clen, runid):
             detz = det_info['mp_posz']
             rotation = det_info['mp_rotationangle'] * (math.pi / 180.0) # rad
             pixel_size = det_info['mp_pixelsizex']
-            print "gain %f pos (%f, %f, %f) rotation %f energy %f" % (gain, detx, dety, detz, rotation, energy)
+            print("gain %f pos (%f, %f, %f) rotation %f energy %f" % (gain, detx, dety, detz, rotation, energy))
 
             detx /= pixel_size; dety /= pixel_size;
             det_id = i + 1
@@ -87,7 +87,7 @@ def write_crystfel_geom(filename, det_infos, energy, clen, runid):
             out.write("badv2/max_fs = %d\n"   % (XSIZE - 1))
             out.write("badv2/min_ss = %d\n"   % 0)
             out.write("badv2/max_ss = %d\n\n" % (YSIZE * NPANELS - 1))
-            for i in xrange(NPANELS):
+            for i in range(NPANELS):
                 out.write("badq%dh1/min_fs = %d\n"   % (i, 0))
                 out.write("badq%dh1/max_fs = %d\n"   % (i, XSIZE - 1))
                 out.write("badq%dh1/min_ss = %d\n"   % (i, YSIZE * i))
@@ -130,7 +130,7 @@ def write_crystfel_geom(filename, det_infos, energy, clen, runid):
         if outer_border != 0:
             out.write("; Bad regions near outer edges of each sensor due to amplifier shields;\n")
             out.write("; you might want to optimize these widths (edit min_ss).\n")
-            for i in xrange(NPANELS):
+            for i in range(NPANELS):
                 out.write("badq%dh2/min_fs = %d\n"   % (i, 0))
                 out.write("badq%dh2/max_fs = %d\n"   % (i, XSIZE - 1))
                 out.write("badq%dh2/min_ss = %d\n"   % (i, YSIZE * (i + 1) - outer_border))
@@ -155,7 +155,7 @@ def write_cheetah_geom(filename, det_infos):
         slow_y = math.cos(rotation) * pixel_size;
 
         y = np.arange(YSIZE)
-        for x in xrange(XSIZE):
+        for x in range(XSIZE):
             posx[i * YSIZE + y, x] = fast_x * x + slow_x * y - detx
             posy[i * YSIZE + y, x] = -(fast_y * x + slow_y * y + dety)
             posz[i * YSIZE + y, x] = 0
@@ -183,7 +183,7 @@ def make_pixelmask(det_name, runid):
     mask[:, 0:border] = 1
     mask[:, (XSIZE - border):XSIZE] = 1
 
-    for i in xrange(NPANELS):
+    for i in range(NPANELS):
         mask[(YSIZE * i):(YSIZE * i + border), :] = 1
         mask[(YSIZE * (i + 1) - outer_border):(YSIZE * (i + 1)), :] = 1
 
@@ -266,20 +266,20 @@ def run(runid, bl=3, clen=50.0, dry_run=False):
 
     tag_list = dbpy.read_taglist_byrun(bl, runid)
     tag = tag_list[0]
-    print "Run %d: HighTag %d, Tags %d (inclusive) to %d (exclusive), thus %d images" % (runid, high_tag, start_tag, end_tag, len(tag_list))
+    print("Run %d: HighTag %d, Tags %d (inclusive) to %d (exclusive), thus %d images" % (runid, high_tag, start_tag, end_tag, len(tag_list)))
     comment = dbpy.read_comment(bl, runid)
-    print "Comment: %s" % comment
-    print
+    print("Comment: %s" % comment)
+    print()
 
     # Find detectors
     det_IDs = dbpy.read_detidlist(bl, runid)
-    print "Detector IDs: " + " ".join(det_IDs)
+    print("Detector IDs: " + " ".join(det_IDs))
     det_IDs = sorted([x for x in det_IDs if re.match("^MPCCD-8.*-[1-8]$", x)])
     if len(det_IDs) != 8:
         log_error("NoSupportedDetectorFound")
         sys.exit(-1)
-    print "MPCCD Octal IDs to use: " + " ".join(det_IDs)
-    print
+    print("MPCCD Octal IDs to use: " + " ".join(det_IDs))
+    print()
 
     # Get the shutter status and find dark images
     try:
@@ -293,9 +293,9 @@ def run(runid, bl=3, clen=50.0, dry_run=False):
 	# 2018 Feb (run 32348-): Unreliable shutter status. We should use BM1 PD and take darks only at the beginning of a run
         # 2020 Jan (run 81550-): X-ray PD does not necessarily show "not-converged" but can have values around 1e-11.
         #           Thus, xray_pd_thresh = 1e-10 was introduced, but it still does not work perfectly...
-        print "The shutter status has been unreliable for runs since 2018 Feb."
-        print "The number of tags with shutter closed:", len(dark_tags)
-        print "Since the above value is not reliable, we use X-ray PD values instead."
+        print("The shutter status has been unreliable for runs since 2018 Feb.")
+        print("The number of tags with shutter closed:", len(dark_tags))
+        print("Since the above value is not reliable, we use X-ray PD values instead.")
         xray_pd = "xfel_bl_2_st_3_bm_1_pd/charge"
         xray_pd_thresh = 1e-10
         pd_values = [str2float(s) for s in dbpy.read_syncdatalist(xray_pd, high_tag, tag_list)]
@@ -306,16 +306,16 @@ def run(runid, bl=3, clen=50.0, dry_run=False):
                  dark_tags.append(tag)
              else:
                  is_head = False
-        print "Number of tags without X-ray:", len([1 for pd_val in pd_values if math.isnan(pd_val) or pd_val < xray_pd_thresh])
-        print "But we use only tags at the beginning of a run."
+        print("Number of tags without X-ray:", len([1 for pd_val in pd_values if math.isnan(pd_val) or pd_val < xray_pd_thresh]))
+        print("But we use only tags at the beginning of a run.")
     elif (bl == 2 and runid >= 81550) or (bl == 3 and runid >= 909709):
         # 2020 Jan (run 81550-): Eventually, decided to use another strategy: look at both open and close status.
         #                        This method was unreliable at 2018 but Dr. Tono says it should be fine now.
         #                        If the detector alarm triggered shutter closure, these values can still be nonsense.
         #                        This is why we look at "only tags at the beginning of a run" to avoid false positives.
-        print "The shutter 'open' status has been unreliable for runs since 2018 Feb."
-        print "The number of tags with shutter open = 0:", len(dark_tags)
-        print "Since the above value is not reliable, we also look at close status."
+        print("The shutter 'open' status has been unreliable for runs since 2018 Feb.")
+        print("The number of tags with shutter open = 0:", len(dark_tags))
+        print("Since the above value is not reliable, we also look at close status.")
         try:
             shutter_close = [str2float(s) for s in dbpy.read_syncdatalist(sensor_shutter_close, high_tag, tag_list)]
         except:
@@ -331,14 +331,14 @@ def run(runid, bl=3, clen=50.0, dry_run=False):
                      dark_tags.append(tag)
              else:
                  is_head = False
-        print "Number of tags without X-ray:", n_closed_and_not_open
-        print "But we use only tags at the beginning of a run."
+        print("Number of tags without X-ray:", n_closed_and_not_open)
+        print("But we use only tags at the beginning of a run.")
 
     if len(dark_tags) == 0:
         log_error("NoDarkImage")
         sys.exit(-1)
-    print "Number of dark images to average: %d" % len(dark_tags)
-    print
+    print("Number of dark images to average: %d" % len(dark_tags))
+    print()
 
     # Setup buffer readers
     try:
@@ -368,9 +368,9 @@ def run(runid, bl=3, clen=50.0, dry_run=False):
     config_photon_energy = 1000.0 * dbpy.read_config_photonenergy(bl, runid)
     config_photon_energy_sensible = True
     if config_photon_energy < 5000 or config_photon_energy > 14000:
-        print "WARNING: dbpy.read_config_photonenergy returned %f eV, which is absurd!" % config_photon_energy
-        print "         Report this to SACLA DAQ team."
-        print "         This is not problematic unless the inline spectrometer is also broken." 
+        print("WARNING: dbpy.read_config_photonenergy returned %f eV, which is absurd!" % config_photon_energy)
+        print("         Report this to SACLA DAQ team.")
+        print("         This is not problematic unless the inline spectrometer is also broken.")
         config_photon_energy_sensible = False
 
     pulse_energies_in_keV  = [str2float(s) for s in dbpy.read_syncdatalist(sensor_spec, high_tag, tuple(dark_tags))]
@@ -379,19 +379,19 @@ def run(runid, bl=3, clen=50.0, dry_run=False):
         if energy is not None and energy > 0:
             pulse_energies.append(energy * 1000.0)
         else:
-            print "WARNING: The wavelength from the inline spectrometer does not look sensible for tag %d." % tag
+            print("WARNING: The wavelength from the inline spectrometer does not look sensible for tag %d." % tag)
             if config_photon_energy_sensible:
                 pulse_energies.append(config_photon_energy)
-                print "         Used the accelerator config value instead."
+                print("         Used the accelerator config value instead.")
             else:
                 pulse_energies.append(7000.0)
-                print "         The accelerator config value is also broken; assumed 7 keV as a last resort!"
+                print("         The accelerator config value is also broken; assumed 7 keV as a last resort!")
 
-    print
+    print()
     mean_energy = np.mean(pulse_energies)
-    print "Mean photon energy: %f eV" % mean_energy
-    print "Configured photon energy: %f eV" % config_photon_energy
-    print
+    print("Mean photon energy: %f eV" % mean_energy)
+    print("Configured photon energy: %f eV" % config_photon_energy)
+    print()
 
     # Create geometry files
     write_crystfel_geom("%d.geom" % runid, det_infos, mean_energy, clen, runid)
@@ -403,26 +403,26 @@ def run(runid, bl=3, clen=50.0, dry_run=False):
     if (dry_run): return
  
     # Create dark average
-    print
-    print "Calculating a dark average:"
+    print()
+    print("Calculating a dark average:")
     num_added = 0
     sum_buffer = np.zeros((YSIZE * NPANELS, XSIZE), dtype=np.float64)
     gains = [det_info['mp_absgain'] for det_info in det_infos]
 
     for j, tag_id in enumerate(dark_tags):
-        print "Processing tag %d (%2.1f%% done)" % (tag_id, 100.0 * (j + 1) / len(dark_tags))
+        print("Processing tag %d (%2.1f%% done)" % (tag_id, 100.0 * (j + 1) / len(dark_tags)))
         if (j % 5 == 0):
             with open("status.txt", "w") as status:
                 status.write("Status: Total=%d,Processed=%d,Status=DarkAveraging\n" % (len(dark_tags), j + 1))
         num_added += add_image(sum_buffer, readers, buffers, gains, tag_id, pulse_energies[j])
-    print "\nDone. Averaged %d frames." % num_added
+    print("\nDone. Averaged %d frames." % num_added)
   
     if (num_added < 1):
         return -1
 
     sum_buffer /= num_added
     ushort_max = np.iinfo(np.uint16).max
-    print " #neg (< 0) %d, #overflow (> %d) %d" % (np.sum(sum_buffer < 0), ushort_max, np.sum(sum_buffer > ushort_max))
+    print(" #neg (< 0) %d, #overflow (> %d) %d" % (np.sum(sum_buffer < 0), ushort_max, np.sum(sum_buffer > ushort_max)))
     sum_buffer[sum_buffer < 0] = 0
     sum_buffer[sum_buffer > ushort_max] = ushort_max
     averaged = sum_buffer.astype(np.uint16)
@@ -435,7 +435,7 @@ def run(runid, bl=3, clen=50.0, dry_run=False):
     f.create_dataset("/data/data", data=averaged, compression="gzip", shuffle=True)
 #    f.create_dataset("/data/raw", data=sum_buffer, compression="gzip", shuffle=True)
     f.close()
-    print "Dark average was written to %s" % ("%d-dark.h5" % runid)
+    print("Dark average was written to %s" % ("%d-dark.h5" % runid))
 
 import optparse
 parser = optparse.OptionParser()
@@ -446,20 +446,20 @@ parser.add_option("--dry-run", dest="dry_run", type=int, default=0, help="Do not
 opts, args = parser.parse_args()
 
 if (opts.bl != 2 and opts.bl !=3):
-    print "--bl must be 2 or 3."
+    print("--bl must be 2 or 3.")
     sys.exit(-1)
 
 if len(args) != 1:
-    print "Usage: prepare-cheetah-sacla-api2.py runid [--bl 3] [--clen 50.0]"
+    print("Usage: prepare-cheetah-sacla-api2.py runid [--bl 3] [--clen 50.0]")
     sys.exit(-1)
 runid = int(args[0])
 
-print "prepare-cheetah-sacla-api2.py version %d" % VERSION
-print " by Takanori Nakane at University of Tokyo"
-print
-print "Option: bl               = %d" % opts.bl
-print "Option: clen             = %.1f mm" % opts.clen
-print "Option: dry-run          = %d" % opts.dry_run
-print
+print("prepare-cheetah-sacla-api2.py version %d" % VERSION)
+print(" by Takanori Nakane at MRC laboratory of molecular biology")
+print()
+print("Option: bl               = %d" % opts.bl)
+print("Option: clen             = %.1f mm" % opts.clen)
+print("Option: dry-run          = %d" % opts.dry_run)
+print()
 
 run(runid=runid, bl=opts.bl, clen=opts.clen, dry_run=opts.dry_run)

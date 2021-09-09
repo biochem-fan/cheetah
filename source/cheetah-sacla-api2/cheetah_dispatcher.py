@@ -16,7 +16,7 @@ import time
 import threading
 import traceback
 from subprocess import *
-import commands
+import subprocess
 import optparse
 
 import wx
@@ -172,7 +172,6 @@ class LogWatcher(threading.Thread):
                         ret = line[8:].rstrip() #  len("Status: ")
                         break
         except:
-#            print "File not ready: %s" % self.filename
             return None
                 
         return ret
@@ -241,10 +240,10 @@ class AutoQsub(threading.Thread):
         self.cv.notify()
         self.cv.release()
         self.join()
-        print "AutoQsub stopped."
+        print("AutoQsub stopped.")
 
     def checkAndSubmit(self, forceSubmit=False):
-#        print "started directory scan ---"
+#        print("started directory scan ---")
         for filename in sorted(glob.glob("*"), reverse=True):
             if os.path.isdir(filename) and re_filename.match(filename) != None:
                 dir = filename
@@ -254,15 +253,15 @@ class AutoQsub(threading.Thread):
                     self.cv.release()
 
                     if os.path.exists(dir + "/job.id"):
-                        print "WARNING: Another instance of auto_qsub is runnning?"
+                        print("WARNING: Another instance of auto_qsub is runnning?")
                         break
-                    print "Unsubmitted job found in " + dir
-                    njobs = int(commands.getoutput("qstat -w -u $USER | grep -c %s" % self.queue)) # FIXME: deprecated method 
+                    print("Unsubmitted job found in " + dir)
+                    njobs = int(subprocess.getoutput("qstat -w -u $USER | grep -c %s" % self.queue))
                     if forceSubmit or njobs <= self.maxjobs:
-                        print " submitted this job. %d jobs in the queue" % (njobs + 1)
+                        print(" submitted this job. %d jobs in the queue" % (njobs + 1))
                         os.system("qsub {dir}/run.sh > {dir}/job.id".format(dir=dir))
                     else:
-                        print " the queue is full"
+                        print(" the queue is full")
                         break
 
     def run(self):
@@ -321,7 +320,7 @@ class MainWindow(wx.Frame):
         self.table.SetColAttr(MainWindow.COL_LLF_PASSED, attr)
         self.table.SetColAttr(MainWindow.COL_HITS, attr)
         self.table.SetColAttr(MainWindow.COL_INDEXED, attr)
-        for i in xrange(7):
+        for i in range(7):
             self.table.AutoSizeColLabelSize(i)
         self.table.Bind(wx.grid.EVT_GRID_CELL_RIGHT_CLICK, self.OnGridRightClick)
         self.table.Bind(wx.EVT_SIZE, self.OnGridResize)
@@ -330,8 +329,8 @@ class MainWindow(wx.Frame):
         self.start_button.Bind(wx.EVT_BUTTON, self.onPush)
         self.text_runid = wx.TextCtrl(self)
         self.label_runid = wx.StaticText(self, wx.ID_ANY, "Run ID:")
-	self.combo_bl = wx.ComboBox(self, wx.ID_ANY, value="BL2", choices=["BL2", "BL3"],
-                                            size=(80, -1), style=wx.CB_READONLY)
+        self.combo_bl = wx.ComboBox(self, wx.ID_ANY, value="BL2", choices=["BL2", "BL3"],
+                                    size=(80, -1), style=wx.CB_READONLY)
         self.combo_bl.SetSelection(self.opts.bl - 2) # TODO: refactor 
 
         self.hsizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -411,7 +410,7 @@ class MainWindow(wx.Frame):
         # Reference: https://forums.wxwidgets.org/viewtopic.php?t=90
         sum_width = self.table.GetRowLabelSize()
         ncols = self.table.GetNumberCols()
-        for i in xrange(ncols - 1):
+        for i in range(ncols - 1):
             sum_width += self.table.GetColSize(i)
 
         target = self.table.GetClientSize().GetWidth() - sum_width
@@ -456,7 +455,7 @@ class MainWindow(wx.Frame):
         accepted = {}
         hits = {}
         indexed = {}
-        types = ("normal", "light", "dark") + tuple("dark%d" % i for i in xrange(1, 10))
+        types = ("normal", "light", "dark") + tuple("dark%d" % i for i in range(1, 10))
         for t in types:
             for x in (total, processed, accepted, hits, indexed):
                 x[t] = 0
@@ -532,7 +531,7 @@ class MainWindow(wx.Frame):
 #            shutil.rmtree("%s/" % runid)
         except:
             self.showError("Failed to delete run %s." % runid)
-            print traceback.format_exc()
+            print(traceback.format_exc())
 
     def scanDirectory(self):
         for filename in sorted(glob.glob("*")):
@@ -574,7 +573,7 @@ class MainWindow(wx.Frame):
             else:
                 raise
         except:
-            print traceback.format_exc()
+            print(traceback.format_exc())
             self.showError("Invalid run ID or paramters were specified.")
             return
 
@@ -607,7 +606,7 @@ class MainWindow(wx.Frame):
         out = Popen(["ShowRunInfo", "-b", "%d" % self.opts.bl, "-r", "%d" % self.waitFor], stdout=PIPE).communicate()[0]
         lines = out.split("\n")
         if lines[0].find("Ready to Read") != -1:
-                print "\rRun %d became ready." % self.waitFor
+                print("\rRun %d became ready." % self.waitFor)
                 self.prepareSubmitJob("%d" % self.waitFor)
                 self.waitFor = self.waitFor + 1
                 self.text_runid.SetValue("%d-" % self.waitFor)
@@ -651,13 +650,13 @@ class MainWindow(wx.Frame):
             if self.opts.submit_dark_any == 1:
                 subjobs.append("dark")
             else:
-                for i in xrange(1, self.opts.submit_dark_to + 1):
+                for i in range(1, self.opts.submit_dark_to + 1):
                     subjobs.append("dark%d" % i)
 
         else:
             master_arguments = arguments + " --type=0 "
             run_dir += "-0"
-            for i in xrange(1, PARALLEL_SIZE):
+            for i in range(1, PARALLEL_SIZE):
                 subjobs.append("%d" % i)
 
         crystfel_args = self.opts.crystfel_args + " " + self.loadCrystFELArgs()
@@ -784,10 +783,10 @@ class MainWindow(wx.Frame):
 # Based on https://groups.google.com/forum/#!topic/wxpython-dev/MRVAPULwG70
 #          http://screeniqsys.com/blog/2009/11/01/progresscellrenderer-gauges-for-grid-cells/
 #       by David Watson
-class ProgressCellRenderer(wx.grid.PyGridCellRenderer):
+class ProgressCellRenderer(wx.grid.GridCellRenderer):
     re_percent = re.compile('([0-9.]+)%')
     def __init__(self):
-        wx.grid.PyGridCellRenderer.__init__(self)
+        wx.grid.GridCellRenderer.__init__(self)
 
     def Draw(self, grid, attr, dc, rect, row, col, isSelected):
         text = grid.GetCellValue(row, col)
@@ -816,12 +815,12 @@ class ProgressCellRenderer(wx.grid.PyGridCellRenderer):
 
         dc.SetBrush(wx.Brush(attr.GetBackgroundColour(), wx.SOLID))
         #dc.SetPen(wx.BLACK_PEN)
-        dc.DrawRectangleRect(prog_rect)
+        dc.DrawRectangle(prog_rect)
 
         # This fills in the rest of the cell background so it doesn't shear
         dc.SetBrush(wx.Brush(bg, wx.SOLID))
         dc.SetPen(wx.TRANSPARENT_PEN)
-        dc.DrawRectangleRect(other_rect)
+        dc.DrawRectangle(other_rect)
 
         dc.SetTextForeground(wx.Colour(0, 0, 0))
         grid.DrawTextRectangle(dc, text, rect, hAlign, vAlign)
@@ -835,14 +834,14 @@ class ProgressCellRenderer(wx.grid.PyGridCellRenderer):
     def Clone(self):
         return ProgressCellRenderer() 
 
-print
-print "Cheetah dispatcher GUI version 20190415"
-print "   by Takanori Nakane (tnakane@mrc-lmb.cam.ac.uk)"
-print
-print "Please cite the following paper when you use this software."
-print " \"Data processing pipeline for serial femtosecond crystallography at SACLA\""
-print " Nakane et al., J. Appl. Cryst. (2016). 49"
-print
+print()
+print("Cheetah dispatcher GUI version 20190415")
+print("   by Takanori Nakane (tnakane@mrc-lmb.cam.ac.uk)")
+print()
+print("Please cite the following paper when you use this software.")
+print(" \"Data processing pipeline for serial femtosecond crystallography at SACLA\"")
+print(" Nakane et al., J. Appl. Cryst. (2016). 49")
+print()
 
 if not os.path.exists("sacla-photon.ini"):
     sys.stderr.write("ERROR: Configuration file was not found!\n\n")
@@ -900,25 +899,25 @@ if opts.bl != 2 and opts.bl != 3:
     sys.stderr.write("ERROR: beamline must be 2 or 3.\n")
     sys.exit(-1)
 
-print "Option: monitor          = %s" % opts.monitor
-print "Option: bl               = %d" % opts.bl
-print "Option: clen             = %f mm" % opts.clen
-print "Option: quick            = %s" % opts.quick
-print "Option: max_jobs         = %s" % opts.max_jobs
-print "Option: queue            = %s" % opts.queue
-print "Option: pd1_name         = %s" % opts.pd1_name
-print "Option: pd2_name         = %s" % opts.pd2_name
-print "Option: pd3_name         = %s" % opts.pd3_name
-print "Option: pd1_thresh       = %f" % opts.pd1_thresh
-print "Option: pd2_thresh       = %f" % opts.pd2_thresh
-print "Option: pd3_thresh       = %f" % opts.pd3_thresh
-print "Option: submit_dark_to   = %s" % opts.submit_dark_to
-print "Option: submit_dark_any  = %s" % opts.submit_dark_any
-print "Option: crystfel_args    = %s" % opts.crystfel_args
+print("Option: monitor          = %s" % opts.monitor)
+print("Option: bl               = %d" % opts.bl)
+print("Option: clen             = %f mm" % opts.clen)
+print("Option: quick            = %s" % opts.quick)
+print("Option: max_jobs         = %s" % opts.max_jobs)
+print("Option: queue            = %s" % opts.queue)
+print("Option: pd1_name         = %s" % opts.pd1_name)
+print("Option: pd2_name         = %s" % opts.pd2_name)
+print("Option: pd3_name         = %s" % opts.pd3_name)
+print("Option: pd1_thresh       = %f" % opts.pd1_thresh)
+print("Option: pd2_thresh       = %f" % opts.pd2_thresh)
+print("Option: pd3_thresh       = %f" % opts.pd3_thresh)
+print("Option: submit_dark_to   = %s" % opts.submit_dark_to)
+print("Option: submit_dark_any  = %s" % opts.submit_dark_any)
+print("Option: crystfel_args    = %s" % opts.crystfel_args)
 
 if opts.submit > 0: # headless
     mw = MainWindow(None, opts, True)
-    print mw.loadCrystFELArgs()
+    print(mw.loadCrystFELArgs())
     mw.startRun("%d" % opts.submit, opts.bl, pd1_thresh=opts.pd1_thresh, pd2_thresh=opts.pd2_thresh, pd3_thresh=opts.pd3_thresh)
 else:
     app = wx.App(False)
