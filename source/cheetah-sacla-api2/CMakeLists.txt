@@ -12,6 +12,9 @@ include_directories(${SACLA_API2_INCLUDE_DIR})
 
 add_executable(cheetah-sacla-api2 ${sources})
 add_dependencies(cheetah-sacla-api2 cheetah)
+set_target_properties(cheetah-sacla-api2 PROPERTIES MAKE_SKIP_BUILD_RPATH FALSE)
+set_target_properties(cheetah-sacla-api2 PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE)
+set_target_properties(cheetah-sacla-api2 PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 # HDF5 is linked inside libcheetah.so but we have to explicitly
 # link again to prevent "DSO missing" errors
