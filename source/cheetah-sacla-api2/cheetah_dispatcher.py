@@ -15,7 +15,6 @@ import sys
 import time
 import threading
 import traceback
-from subprocess import *
 import subprocess
 import optparse
 
@@ -85,7 +84,6 @@ run{runname}.h5
 EOF
 rm -fr indexamajig.*
 grep Cell {runname}.stream | wc -l > indexed.cnt
-ruby @@SCRIPT_PATH@@/parse_stream.rb < {runname}.stream > {runname}.csv
 
 rm job.id job.host
 '''
@@ -137,7 +135,6 @@ run{runname}.h5
 EOF
 rm -fr indexamajig.*
 grep Cell {runname}.stream | wc -l > indexed.cnt
-ruby @@SCRIPT_PATH@@/parse_stream.rb < {runname}.stream > {runname}.csv
 
 rm job.id job.host
 '''
@@ -605,7 +602,7 @@ class MainWindow(wx.Frame):
         if (self.waitFor == None):
             return
 
-        out = Popen(["ShowRunInfo", "-b", "%d" % self.opts.bl, "-r", "%d" % self.waitFor], stdout=PIPE).communicate()[0]
+        out = subprocess.Popen(["ShowRunInfo", "-b", "%d" % self.opts.bl, "-r", "%d" % self.waitFor], stdout=subprocess.PIPE).stdout.read().decode()
         lines = out.split("\n")
         if lines[0].find("Ready to Read") != -1:
                 print("\rRun %d became ready." % self.waitFor)
@@ -837,7 +834,7 @@ class ProgressCellRenderer(wx.grid.GridCellRenderer):
         return ProgressCellRenderer() 
 
 print()
-print("Cheetah dispatcher GUI version 20210909")
+print("Cheetah dispatcher GUI version 20211012")
 print("   by Takanori Nakane (tnakane@mrc-lmb.cam.ac.uk)")
 print()
 print("Please cite the following paper when you use this software.")
