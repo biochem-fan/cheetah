@@ -11,7 +11,7 @@ import math
 import numpy as np
 import re
 
-VERSION = 210909
+VERSION = 211013
 XSIZE = 512
 YSIZE = 1024
 NPANELS = 8
@@ -22,7 +22,7 @@ def log_error(message):
 
 def write_crystfel_geom(filename, det_infos, energy, clen, runid):
     with open(filename, "w") as out:
-        out.write("; CrystFEL geometry file produced by prepare_cheetah_api2.py\n")
+        out.write("; CrystFEL geometry file produced by prepare_cheetah_api2.py version %d\n" % VERSION)
         out.write(";   Takanori Nakane (tnakane@mrc-lmb.cam.ac.uk)\n")
         out.write("; Detector ID: %s\n" % det_infos[0]['id'])
         out.write("; for tiled but NOT reassembled images (512x8192 pixels)\n\n")
@@ -75,66 +75,79 @@ def write_crystfel_geom(filename, det_infos, energy, clen, runid):
 
         border, outer_border = get_border(det_infos[0]['id'])
         if border != 0:
-            out.write("; Bad regions near edges of each sensor\n")
-            # NOTE: ranges are inclusive in CrystFEL
-            # left
-            out.write("badv1/min_fs = %d\n"   % 0)
-            out.write("badv1/max_fs = %d\n"   % (border - 1))
-            out.write("badv1/min_ss = %d\n"   % 0)
-            out.write("badv1/max_ss = %d\n\n" % (YSIZE * NPANELS - 1))
-            # right
-            out.write("badv2/min_fs = %d\n"   % (XSIZE - border))
-            out.write("badv2/max_fs = %d\n"   % (XSIZE - 1))
-            out.write("badv2/min_ss = %d\n"   % 0)
-            out.write("badv2/max_ss = %d\n\n" % (YSIZE * NPANELS - 1))
-            for i in range(NPANELS):
-                out.write("badq%dh1/min_fs = %d\n"   % (i, 0))
-                out.write("badq%dh1/max_fs = %d\n"   % (i, XSIZE - 1))
-                out.write("badq%dh1/min_ss = %d\n"   % (i, YSIZE * i))
-                out.write("badq%dh1/max_ss = %d\n\n" % (i, YSIZE * i + border - 1))
+            out.write("; Bad regions near edges of each sensor.\n")
+            out.write(";  l: long axis, s: short axis\n")
+            out.write("; NOTE: ranges are 0-indexed and inclusive in CrystFEL\n")
 
-        if re.match("MPCCD-8B0-2-003", det_infos[0]['id']): # Severly damaged Phase 3 detector
+            for i in range(NPANELS):
+                out.write("badq%dl1/min_fs = %d\n"    % (i + 1, 0))
+                out.write("badq%dl1/max_fs = %d\n"    % (i + 1, border - 1))
+                out.write("badq%dl1/min_ss = %d\n"    % (i + 1, YSIZE * i))
+                out.write("badq%dl1/max_ss = %d\n"    % (i + 1, YSIZE * (i + 1) - 1))
+                out.write("badq%dl1/panel  = q%d\n\n" % (i + 1, i + 1))
+
+                out.write("badq%dl2/min_fs = %d\n"    % (i + 1, XSIZE - border))
+                out.write("badq%dl2/max_fs = %d\n"    % (i + 1, XSIZE - 1))
+                out.write("badq%dl2/min_ss = %d\n"    % (i + 1, YSIZE * i))
+                out.write("badq%dl2/max_ss = %d\n"    % (i + 1, YSIZE * (i + 1) - 1))
+                out.write("badq%dl2/panel  = q%d\n\n" % (i + 1, i + 1))
+
+                out.write("badq%ds1/min_fs = %d\n"    % (i + 1, 0))
+                out.write("badq%ds1/max_fs = %d\n"    % (i + 1, XSIZE - 1))
+                out.write("badq%ds1/min_ss = %d\n"    % (i + 1, YSIZE * i))
+                out.write("badq%ds1/max_ss = %d\n"    % (i + 1, YSIZE * i + border - 1))
+                out.write("badq%ds1/panel  = q%d\n\n" % (i + 1, i + 1))
+
+        if outer_border != 0:
+            out.write("; Bad regions near outer edges of each sensor due to amplifier shields;\n")
+            out.write("; you might want to optimize these widths (edit min_ss).\n")
+
+            for i in range(NPANELS):
+                out.write("badq%ds2/min_fs = %d\n"    % (i + 1, 0))
+                out.write("badq%ds2/max_fs = %d\n"    % (i + 1, XSIZE - 1))
+                out.write("badq%ds2/min_ss = %d\n"    % (i + 1, YSIZE * (i + 1) - outer_border))
+                out.write("badq%ds2/max_ss = %d\n"    % (i + 1, YSIZE * (i + 1) - 1))
+                out.write("badq%ds2/panel  = q%d\n\n" % (i + 1, i + 1))
+
+        if re.match("MPCCD-8B0-2-003", det_infos[0]['id']):
             out.write("; Severly damaged Phase 3 detector\n")
             out.write("baddamage1/min_fs = 501\n")
             out.write("baddamage1/max_fs = 511\n")
             out.write("baddamage1/min_ss = 1024\n")
-            out.write("baddamage1/max_ss = 2047\n\n")
+            out.write("baddamage1/max_ss = 2047\n")
+            out.write("baddamage1/panel  = q2\n\n")
 
             out.write("baddamage2/min_fs = 0\n")
             out.write("baddamage2/max_fs = 12\n")
             out.write("baddamage2/min_ss = 2048\n")
-            out.write("baddamage2/max_ss = 3071\n\n")
+            out.write("baddamage2/max_ss = 3071\n")
+            out.write("baddamage2/panel  = q3\n\n")
 
             if runid >= 73832:
                 out.write("; 2019B: broken ports in Panel 2,3,6,7\n")
                 out.write("badport2/min_fs = 448\n")
                 out.write("badport2/max_fs = 511\n")
                 out.write("badport2/min_ss = 1024\n")
-                out.write("badport2/max_ss = 2047\n\n")
+                out.write("badport2/max_ss = 2047\n")
+                out.write("badport2/panel  = q2\n\n")
 
                 out.write("badport3/min_fs = 0\n")
                 out.write("badport3/max_fs = 63\n")
                 out.write("badport3/min_ss = 2048\n")
-                out.write("badport3/max_ss = 3071\n\n")
+                out.write("badport3/max_ss = 3071\n")
+                out.write("badport3/panel  = q3\n\n")
 
                 out.write("badport6/min_fs = 0\n")
                 out.write("badport6/max_fs = 63\n")
                 out.write("badport6/min_ss = 5120\n")
-                out.write("badport6/max_ss = 6143\n\n")
+                out.write("badport6/max_ss = 6143\n")
+                out.write("badport6/panel  = q6\n\n")
 
                 out.write("badport7/min_fs = 448\n")
                 out.write("badport7/max_fs = 511\n")
                 out.write("badport7/min_ss = 6144\n")
-                out.write("badport7/max_ss = 7167\n\n")
-
-        if outer_border != 0:
-            out.write("; Bad regions near outer edges of each sensor due to amplifier shields;\n")
-            out.write("; you might want to optimize these widths (edit min_ss).\n")
-            for i in range(NPANELS):
-                out.write("badq%dh2/min_fs = %d\n"   % (i, 0))
-                out.write("badq%dh2/max_fs = %d\n"   % (i, XSIZE - 1))
-                out.write("badq%dh2/min_ss = %d\n"   % (i, YSIZE * (i + 1) - outer_border))
-                out.write("badq%dh2/max_ss = %d\n\n" % (i, YSIZE * (i + 1) - 1))
+                out.write("badport7/max_ss = 7167\n")
+                out.write("badport7/panel  = q7\n\n")
 
 def write_cheetah_geom(filename, det_infos):
     posx = np.zeros((YSIZE * NPANELS, XSIZE), dtype=np.float32)
