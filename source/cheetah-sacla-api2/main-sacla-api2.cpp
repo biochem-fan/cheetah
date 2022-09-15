@@ -32,11 +32,6 @@ const int blocksize = xsize * ysize;
 const int buffersize = blocksize * NDET;
 const int PD_DARK_ANY = -2, PD_ANY = -1, PD_LIGHT = 0; // PD_DARKn = n afterwards
 
-char LLF_ID[50] = {};
-char *LLF_ST4 = "BL3-ST4-MPCCD-octal";
-char *LLF_ST3 = "BL3-ST3-MPCCD-octal";
-char *LLF_ST2 = "BL3-ST2-MPCCD-octal";
-
 // FIXME: make these local. Is Cheetah's main portion reentrant?
 double buffer[buffersize] = {};
 unsigned short averaged[buffersize] = {};
@@ -108,7 +103,7 @@ static bool get_image(double *buffer, int tag, double photon_energy) {
 }
 
 int main(int argc, char *argv[]) {
-	printf("Cheetah for SACLA new offline API -- version 170218\n");
+	printf("Cheetah for SACLA new offline API -- version 200206\n");
 	printf(" by Takanori Nakane\n");
 	printf(" This program is based on cheetah-sacla by Anton Barty.\n");
 	int c, retno;
@@ -116,8 +111,6 @@ int main(int argc, char *argv[]) {
 	// default values
 	int runNumber = -1;
 	char cheetahIni[4096] = {};
-	int maxI_threshold = 10000;
-	//int stride = 2; // 30 Hz mode (60 / 30)
 	double pd1_threshold = 0, pd2_threshold = 0, pd3_threshold = 0;
 	char *pd1_sensor_name = "xfel_bl_3_st_4_pd_laser_fitting_peak/voltage";
 	char *pd2_sensor_name = "xfel_bl_3_st_4_pd_user_10_fitting_peak/voltage";
@@ -126,7 +119,6 @@ int main(int argc, char *argv[]) {
 	int light_dark = PD_ANY;
 	
 	char outputH5[4096] = {};
-	char station = 4;
 	char *tagList_file = NULL;
 
 	const struct option longopts[] = {
@@ -134,7 +126,7 @@ int main(int argc, char *argv[]) {
 		{"output", 1, NULL, 'o'},
 		{"run", 1, NULL, 'r'},
 		{"maxI", 1, NULL, 'm'},
-//		{"stride", 1, NULL, 11},
+	        {"stride", 1, NULL, 11},
 		{"station", 1, NULL, 12},
 		{"pd1_thresh", 1, NULL, 13},
 		{"pd2_thresh", 1, NULL, 14},
@@ -160,18 +152,13 @@ int main(int argc, char *argv[]) {
 			runNumber = atoi(optarg);
 			break;
 		case 'm':
-			maxI_threshold = atoi(optarg);
+			printf("WARNING: LLF is no longer supported. Thus, maxI option is ignored.\n");
 			break;
-/*		case 11: // stride
-			tmp = atoi(optarg);
-			if (tmp <= 0) {
-				printf("ERROR: Stride must be a positive integer. \n");
-				return -1;
-			}
-			stride = tmp;
-			break; */
+		case 11: //stride
+			printf("WARNING: stride option is no longer supported; ignored.\n");
+			break;
 		case 12: // station
-			station = atoi(optarg);
+			printf("WARNING: LLF is no longer supported. Thus, station option is ignored.\n");
 			break;
 		case 13: // pd1_thresh
 			pd1_threshold = atof(optarg);
@@ -211,7 +198,6 @@ int main(int argc, char *argv[]) {
 			}
 			tagList_file = strdup(optarg);
 			printf("A tag list file was specified. maxI check was disabled.\n");
-			maxI_threshold = -1;
 			break;
 		case 17: // pd1_name
 			pd1_sensor_name = strdup(optarg); // small leak.
@@ -234,24 +220,11 @@ int main(int argc, char *argv[]) {
 	if (strnlen(outputH5, 4096) == 0) {
 		snprintf(outputH5, 4096, "run%d.h5", runNumber);
 	}
-	if (station == 2) {
-		strncpy(LLF_ID, LLF_ST2, 50);
-	} else if (station == 3) {
-		strncpy(LLF_ID, LLF_ST3, 50);
-	} else if (station == 4) {
-		strncpy(LLF_ID, LLF_ST4, 50);
-	} else {
-		printf("ERROR! Station must be 3 or 4\n");
-		return -1;
-	}
 
 	printf("\nConfigurations:\n");
 	printf(" runNumber (-r/--run):         %d\n", runNumber);
 	printf(" cheetah ini file (-i/--ini):  %s\n", cheetahIni);
 	printf(" output H5 file (-o/--output): %s (default = run######.h5)\n", outputH5);
-	printf(" maxI threshold (-m/--maxI):   %d (default = 10000)\n", maxI_threshold);
-//	printf(" stride (--stride):            %d (default = 2; 30 Hz mode)\n", stride);
-	printf(" station (--station):          %d (default = 4)\n", station);
         printf(" beamline (--bl):              %d (default = 3)\n", bl);
 	printf(" PD1 threshold (--pd1_thresh): %.3f (default = 0; ignore.)\n", pd1_threshold);
 	printf(" PD2 threshold (--pd2_thresh): %.3f (default = 0; ignore.)\n", pd2_threshold);
@@ -263,7 +236,7 @@ int main(int argc, char *argv[]) {
 	printf(" parallel_block:               %d (default = -1; no parallelization)\n", parallel_block);
 
 	if (runNumber < 0 || strlen(cheetahIni) == 0) {
-		printf("Wrong argument! \nUsage: cheetah-sacla-api -i cheetah.ini -r runNumber [-m maxI]\n");
+		printf("Wrong argument! \nUsage: cheetah-sacla-api -i cheetah.ini -r runNumber\n");
 		return -1;
 	}
 	
@@ -310,17 +283,43 @@ int main(int argc, char *argv[]) {
 	}
 	da_destroy_int_array(&tagbuf);
 
-	std::vector<std::string> shutterAll;
-	if ((bl == 3 && myReadSyncDataList(&shutterAll, "xfel_bl_3_shutter_1_open_valid/status", tag_hi, numAll, tagAll) != 0) ||
-	    (bl == 2 && myReadSyncDataList(&shutterAll, "xfel_bl_2_shutter_1_open_valid/status", tag_hi, numAll, tagAll) != 0)) {
-		printf("Failed to get shutter status.\n");
-		return -1;
+	// See prepare-cheetah-sacla-api2.py for details.
+	bool workaround_18feb = (bl == 2) && (runNumber >= 32348) && (runNumber < 81550);
+	bool use_close_status = (bl == 2 && runNumber >= 81550) || (bl == 3 && runNumber >= 909709);
+	std::vector<std::string> shutterOpen, shutterClose;
+	if (workaround_18feb) {
+		if (myReadSyncDataList(&shutterOpen, "xfel_bl_2_st_3_bm_1_pd/charge", tag_hi, numAll, tagAll) != 0) {
+			printf("Failed to get xfel_bl_2_st_3_bm_1_pd/charge.\n");
+			return -1;
+		}
+	} else if (bl == 3) {
+		if (myReadSyncDataList(&shutterOpen, "xfel_bl_3_shutter_1_open_valid/status", tag_hi, numAll, tagAll) != 0) {
+			printf("Failed to get xfel_bl_3_shutter_1_open_valid/status.\n");
+			return -1;
+		}
+        	if (use_close_status && myReadSyncDataList(&shutterClose, "xfel_bl_3_shutter_1_close_valid/status", tag_hi, numAll, tagAll) != 0) {
+			printf("Failed to get xfel_bl_3_shutter_1_close_valid/status.\n");
+			return -1;
+		}
+	} else if (bl == 2) {
+		if (myReadSyncDataList(&shutterOpen, "xfel_bl_2_shutter_1_open_valid/status", tag_hi, numAll, tagAll) != 0) {
+			printf("Failed to get xfel_bl_2_shutter_1_open_valid/status.\n");
+			return -1;
+		}
+		if (use_close_status && myReadSyncDataList(&shutterClose, "xfel_bl_2_shutter_1_close_valid/status", tag_hi, numAll, tagAll) != 0) {
+			printf("Failed to get xfel_bl_2_shutter_1_close_valid/status.\n");
+			return -1;
+		}
 	}
 
+	if (workaround_18feb) printf("Warning: applyied workaround for unreliable shutter status since 18 feb.\n");
+	if (use_close_status) printf("Both shutter open and shutter close fields are used to find non-exposed images.\n");
 	int numDark = 0;
 	for (int i = 0; i < numAll; i++) {
 		tag_start = tagAll[i];
-		if (atoi(shutterAll[i].c_str()) == 0) {
+		// xfel_bl_2_st_3_bm_1_pd/charge might contain "saturated" or "not-converged".
+		if ((shutterOpen[i] != "saturated" && (shutterOpen[i] == "not-converged" || atoi(shutterOpen[i].c_str()) == 0))
+		    && (!use_close_status || atoi(shutterClose[i].c_str()) == 1)) {
 			numDark++;
 		} else {
 			break;
@@ -450,35 +449,6 @@ int main(int argc, char *argv[]) {
 	}
 	printf("\n");
 
-	// LLF values
-	std::vector<std::string> maxIs;
-	if (runNumber >= 355387 && runNumber <=355403) {
-		// Broken runs in 2015-Jul Beamtime
-		printf("WARNING: LLF ignored as the database is broken!\n");
-	} else {
-		struct da_string_array *llf;
-		int n_llf;
-		
-		da_alloc_string_array(&llf);
-		sy_read_statistics_detllf(llf, LLF_ID, bl, tag_hi, tagList.size(), tagList_array);
-		
-		da_getsize_string_array(&n_llf, llf);
-		if (n_llf != (signed)tagList.size()) {
-			printf("WARNING: Failed to get LLF. Filling 65535 instead.\n");
-			for (int i = 0; i < (signed)tagList.size(); i++) {
-				maxIs.push_back("65535");
-			}
-		} else {
-			for (int i = 0; i < n_llf; i++) {
-				char *val;
-				da_getstring_string_array(&val, llf, i);
-				maxIs.push_back(val);
-				free(val);
-			}
-		}
-		da_destroy_string_array(&llf);
-	}
-
 	// Pulse energies (in keV)
 	double config_photon_energy;
 	sy_read_config_photonenergy(&config_photon_energy, bl, runNumber);
@@ -530,16 +500,15 @@ int main(int argc, char *argv[]) {
 	int processedTags = 0, LLFpassed = 0, tagSize = tagList.size(), frame_after_light = 9999;
 	for (int j = 0; j < tagSize; j++) {
 		int tagID = tagList[j];
-		int maxI = 0;
-		if (runNumber >= 355387 && runNumber <=355403) {
-			maxI = 100000; // Accept all
-		} else {
-			maxI = atoi(maxIs[j].c_str());
-		}
 
 		printf("tag %d shutter = %s\n", tagID, shutter[j].c_str());
 		if (runNumber >= 358814 && runNumber <=358842) {
 			// 2015 Oct: new run control GUI produces gaps in tag number
+			//           attempts to read such tags cause crash, so we have to skip.
+			// For other runs, reading shutter-closed images does not cause any harm.
+			// Actually, some runs in 2018 Feb have unreliable shuter status, so
+			// we should NOT skip images based on shutter status!
+
 			if (atoi(shutter[j].c_str()) != 1) {
 				printf("SHUTTER: tag %d rejected. shutter = %s\n", tagID, shutter[j].c_str());
 				continue;
@@ -584,14 +553,11 @@ int main(int argc, char *argv[]) {
 
 		processedTags++;
 
-		printf("Event: %d (%d / %d (%.1f%%), Filter passed %d / %d (%.1f%%), Hits %ld (%.1f%%), maxI = %d, pd1_value = %.1f, pd2_value = %.3f, pd3_value = %.3f\n",
+		printf("Event: %d (%d / %d (%.1f%%), Filter passed %d / %d (%.1f%%), Hits %ld (%.1f%%), pd1_value = %.1f, pd2_value = %.3f, pd3_value = %.3f\n",
 			   tagID, (j + 1), tagSize, 100.0 * (j + 1) / tagSize, 
 			   LLFpassed, processedTags, 100.0 * LLFpassed / processedTags,
 			   cheetahGlobal.nhits, 100.0 * cheetahGlobal.nhits / processedTags,
-			   maxI, pd1_value, pd2_value, pd3_value);
-		if (maxI < maxI_threshold) {
-			continue;
-		}
+			   pd1_value, pd2_value, pd3_value);
 		LLFpassed++;
 
 		if (!get_image(buffer, tagID, photon_energy)) {

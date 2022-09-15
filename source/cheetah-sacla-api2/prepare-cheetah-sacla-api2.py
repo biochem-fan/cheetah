@@ -11,7 +11,7 @@ import math
 import numpy as np
 import re
 
-VERSION = 170218
+VERSION = 211013
 XSIZE = 512
 YSIZE = 1024
 NPANELS = 8
@@ -20,10 +20,11 @@ def log_error(message):
     with open("status.txt", "w") as out:
         out.write("Status: Status=Error-%s\n" % message)
 
-def write_crystfel_geom(filename, det_infos, energy, clen):
+def write_crystfel_geom(filename, det_infos, energy, clen, runid):
     with open(filename, "w") as out:
-        out.write("; CrystFEL geometry file produced by prepare_cheetah_api2.py\n")
-        out.write(";   Takanori Nakane (takanori.nakane@bs.s.u-tokyo.ac.jp)\n")
+        out.write("; CrystFEL geometry file produced by prepare_cheetah_api2.py version %d\n" % VERSION)
+        out.write(";   Takanori Nakane (tnakane@mrc-lmb.cam.ac.uk)\n")
+        out.write("; Detector ID: %s\n" % det_infos[0]['id'])
         out.write("; for tiled but NOT reassembled images (512x8192 pixels)\n\n")
         out.write("clen = %.4f               ; %.1f mm camera length. You SHOULD optimize this!\n" % (clen * 1E-3, clen))
         out.write("res = 20000                 ; = 1 m /50 micron\n")
@@ -54,14 +55,14 @@ def write_crystfel_geom(filename, det_infos, energy, clen):
             detz = det_info['mp_posz']
             rotation = det_info['mp_rotationangle'] * (math.pi / 180.0) # rad
             pixel_size = det_info['mp_pixelsizex']
-            print "gain %f pos (%f, %f, %f) rotation %f energy %f" % (gain, detx, dety, detz, rotation, energy)
+            print("gain %f pos (%f, %f, %f) rotation %f energy %f" % (gain, detx, dety, detz, rotation, energy))
 
             detx /= pixel_size; dety /= pixel_size;
             det_id = i + 1
 
             # Nphotons = S [ADU] * G [e-/ADU] / (E [eV] * 3.65 [eV/e-]) according to the manual.
             # Thus, ADU/eV = 1/(3.65*G)
-
+            out.write("; sensor %s\n" % det_info['id'])
             out.write("q%d/adu_per_eV = %f\n" % (det_id, 1.0 / (0.1 * energy))) # Keitaro's 0.1 photon
             out.write("q%d/min_fs = %d\n" % (det_id, 0))
             out.write("q%d/min_ss = %d\n" % (det_id, i * YSIZE))
@@ -72,31 +73,81 @@ def write_crystfel_geom(filename, det_infos, energy, clen):
             out.write("q%d/corner_x = %f\n" % (det_id, -detx))
             out.write("q%d/corner_y = %f\n\n" % (det_id, dety))
 
-        border = get_border(det_infos[0]['id'])
-        if border == 0:
-            return # no bad region
+        border, outer_border = get_border(det_infos[0]['id'])
+        if border != 0:
+            out.write("; Bad regions near edges of each sensor.\n")
+            out.write(";  l: long axis, s: short axis\n")
+            out.write("; NOTE: ranges are 0-indexed and inclusive in CrystFEL\n")
 
-        out.write("; Bad regions near edges of each sensor\n")
-        # NOTE: ranges are inclusive in CrystFEL
-        # left
-        out.write("badv1/min_fs = %d\n"   % 0)
-        out.write("badv1/max_fs = %d\n"   % (border - 1))
-        out.write("badv1/min_ss = %d\n"   % 0)
-        out.write("badv1/max_ss = %d\n\n" % (YSIZE * NPANELS - 1))
-        # right
-        out.write("badv2/min_fs = %d\n"   % (XSIZE - border))
-        out.write("badv2/max_fs = %d\n"   % (XSIZE - 1))
-        out.write("badv2/min_ss = %d\n"   % 0)
-        out.write("badv2/max_ss = %d\n\n" % (YSIZE * NPANELS - 1))
-        for i in xrange(NPANELS):
-            out.write("badq%dh1/min_fs = %d\n"   % (i, 0))
-            out.write("badq%dh1/max_fs = %d\n"   % (i, XSIZE - 1))
-            out.write("badq%dh1/min_ss = %d\n"   % (i, YSIZE * i))
-            out.write("badq%dh1/max_ss = %d\n\n" % (i, YSIZE * i + border - 1))
-            out.write("badq%dh2/min_fs = %d\n"   % (i, 0))
-            out.write("badq%dh2/max_fs = %d\n"   % (i, XSIZE - 1))
-            out.write("badq%dh2/min_ss = %d\n"   % (i, YSIZE * (i + 1) - border))
-            out.write("badq%dh2/max_ss = %d\n\n" % (i, YSIZE * (i + 1) - 1))
+            for i in range(NPANELS):
+                out.write("badq%dl1/min_fs = %d\n"    % (i + 1, 0))
+                out.write("badq%dl1/max_fs = %d\n"    % (i + 1, border - 1))
+                out.write("badq%dl1/min_ss = %d\n"    % (i + 1, YSIZE * i))
+                out.write("badq%dl1/max_ss = %d\n"    % (i + 1, YSIZE * (i + 1) - 1))
+                out.write("badq%dl1/panel  = q%d\n\n" % (i + 1, i + 1))
+
+                out.write("badq%dl2/min_fs = %d\n"    % (i + 1, XSIZE - border))
+                out.write("badq%dl2/max_fs = %d\n"    % (i + 1, XSIZE - 1))
+                out.write("badq%dl2/min_ss = %d\n"    % (i + 1, YSIZE * i))
+                out.write("badq%dl2/max_ss = %d\n"    % (i + 1, YSIZE * (i + 1) - 1))
+                out.write("badq%dl2/panel  = q%d\n\n" % (i + 1, i + 1))
+
+                out.write("badq%ds1/min_fs = %d\n"    % (i + 1, 0))
+                out.write("badq%ds1/max_fs = %d\n"    % (i + 1, XSIZE - 1))
+                out.write("badq%ds1/min_ss = %d\n"    % (i + 1, YSIZE * i))
+                out.write("badq%ds1/max_ss = %d\n"    % (i + 1, YSIZE * i + border - 1))
+                out.write("badq%ds1/panel  = q%d\n\n" % (i + 1, i + 1))
+
+        if outer_border != 0:
+            out.write("; Bad regions near outer edges of each sensor due to amplifier shields;\n")
+            out.write("; you might want to optimize these widths (edit min_ss).\n")
+
+            for i in range(NPANELS):
+                out.write("badq%ds2/min_fs = %d\n"    % (i + 1, 0))
+                out.write("badq%ds2/max_fs = %d\n"    % (i + 1, XSIZE - 1))
+                out.write("badq%ds2/min_ss = %d\n"    % (i + 1, YSIZE * (i + 1) - outer_border))
+                out.write("badq%ds2/max_ss = %d\n"    % (i + 1, YSIZE * (i + 1) - 1))
+                out.write("badq%ds2/panel  = q%d\n\n" % (i + 1, i + 1))
+
+        if re.match("MPCCD-8B0-2-003", det_infos[0]['id']):
+            out.write("; Severly damaged Phase 3 detector\n")
+            out.write("baddamage1/min_fs = 501\n")
+            out.write("baddamage1/max_fs = 511\n")
+            out.write("baddamage1/min_ss = 1024\n")
+            out.write("baddamage1/max_ss = 2047\n")
+            out.write("baddamage1/panel  = q2\n\n")
+
+            out.write("baddamage2/min_fs = 0\n")
+            out.write("baddamage2/max_fs = 12\n")
+            out.write("baddamage2/min_ss = 2048\n")
+            out.write("baddamage2/max_ss = 3071\n")
+            out.write("baddamage2/panel  = q3\n\n")
+
+            if runid >= 73832:
+                out.write("; 2019B: broken ports in Panel 2,3,6,7\n")
+                out.write("badport2/min_fs = 448\n")
+                out.write("badport2/max_fs = 511\n")
+                out.write("badport2/min_ss = 1024\n")
+                out.write("badport2/max_ss = 2047\n")
+                out.write("badport2/panel  = q2\n\n")
+
+                out.write("badport3/min_fs = 0\n")
+                out.write("badport3/max_fs = 63\n")
+                out.write("badport3/min_ss = 2048\n")
+                out.write("badport3/max_ss = 3071\n")
+                out.write("badport3/panel  = q3\n\n")
+
+                out.write("badport6/min_fs = 0\n")
+                out.write("badport6/max_fs = 63\n")
+                out.write("badport6/min_ss = 5120\n")
+                out.write("badport6/max_ss = 6143\n")
+                out.write("badport6/panel  = q6\n\n")
+
+                out.write("badport7/min_fs = 448\n")
+                out.write("badport7/max_fs = 511\n")
+                out.write("badport7/min_ss = 6144\n")
+                out.write("badport7/max_ss = 7167\n")
+                out.write("badport7/panel  = q7\n\n")
 
 def write_cheetah_geom(filename, det_infos):
     posx = np.zeros((YSIZE * NPANELS, XSIZE), dtype=np.float32)
@@ -117,7 +168,7 @@ def write_cheetah_geom(filename, det_infos):
         slow_y = math.cos(rotation) * pixel_size;
 
         y = np.arange(YSIZE)
-        for x in xrange(XSIZE):
+        for x in range(XSIZE):
             posx[i * YSIZE + y, x] = fast_x * x + slow_x * y - detx
             posy[i * YSIZE + y, x] = -(fast_y * x + slow_y * y + dety)
             posz[i * YSIZE + y, x] = 0
@@ -129,23 +180,39 @@ def write_cheetah_geom(filename, det_infos):
     f.close()
 
 def get_border(det_name):
-    if re.match("MPCCD-8B", det_name): # Phase 3 detector?
-        return 5
+    if re.match("MPCCD-8B0-2-006", det_name): # New Phase 3 detector
+        return (5, 30) # based on 20Feb-Ueno @ 10keV
+    elif re.match("MPCCD-8B", det_name): # Other Phase 3 detector
+        return (5, 23) # based on 17Jul-P3Lys @ 10 keV
+    elif re.match("MPCCD-8N", det_name): # Compact detector with amp shields
+        return (0, 22) # based on 17Jul-Kuma @ 7 keV
     else:
-        return 0
+        return (0, 0)
 
-def make_pixelmask(border=5):
+def make_pixelmask(det_name, runid):
+    border, outer_border = get_border(det_name)
+
     mask = np.zeros((YSIZE * NPANELS, XSIZE), dtype=np.uint16)
     mask[:, 0:border] = 1
     mask[:, (XSIZE - border):XSIZE] = 1
 
-    for i in xrange(NPANELS):
+    for i in range(NPANELS):
         mask[(YSIZE * i):(YSIZE * i + border), :] = 1
-        mask[(YSIZE * (i + 1) - border):(YSIZE * (i + 1)), :] = 1
+        mask[(YSIZE * (i + 1) - outer_border):(YSIZE * (i + 1)), :] = 1
+
+    if re.match("MPCCD-8B0-2-003", det_name): # Severly damaged Phase 3 detector
+        mask[1024:2048, 501:512] = 1
+        mask[2048:3072, 0:11] = 1
+
+        if runid >= 73832:
+            mask[1024:2048, 448:512] = 1
+            mask[2048:3072, 0:64] = 1
+            mask[5120:6144, 0:64] = 1
+            mask[6144:7168, 448:512] = 1
 
     return mask
 
-def write_metadata(filename, det_infos, clen, comment):
+def write_metadata(filename, det_infos, clen, comment, runid):
     f = h5py.File(filename, "w")
     
     f["/metadata/pipeline_version"] = VERSION
@@ -158,7 +225,7 @@ def write_metadata(filename, det_infos, clen, comment):
     f["/metadata/pixelsizex_in_um"] = [det_info['mp_pixelsizex'] for det_info in det_infos]
     f["/metadata/pixelsizey_in_um"] = [det_info['mp_pixelsizey'] for det_info in det_infos]
     f["/metadata/distance_in_mm"] = clen
-    pixel_mask = make_pixelmask(get_border(det_infos[0]['id']))
+    pixel_mask = make_pixelmask(det_infos[0]['id'], runid)
     f.create_dataset("/metadata/pixelmask", data=pixel_mask, compression="gzip", shuffle=True)
     f.close()
 
@@ -176,20 +243,26 @@ def add_image(acc, readers, buffers, gains, tag_id, energy):
     return 1
 
 def str2float(str):
+    # 'is' instead of '==' will NOT work!
+    if str == "not-converged": return float("nan")
+    if str == "saturated": return float("inf")
+
     m = re.match("-?\d+(.\d+)?(e[+-]?\d+)?", str)
     if m is not None:
         return float(m.group(0))
     else:
         return None
 
-def run(runid, bl=3, clen=50.0):
+def run(runid, bl=3, clen=50.0, dry_run=False):
     # Beamline specific constants
     if bl == 2:
         sensor_spec = "xfel_bl_2_tc_spec_1/energy"
-        sensor_shutter = "xfel_bl_2_shutter_1_open_valid/status"
+        sensor_shutter_open = "xfel_bl_2_shutter_1_open_valid/status"
+        sensor_shutter_close = "xfel_bl_2_shutter_1_close_valid/status"
     elif bl == 3:
         sensor_spec = "xfel_bl_3_tc_spec_1/energy"
-        sensor_shutter = "xfel_bl_3_shutter_1_open_valid/status"
+        sensor_shutter_open = "xfel_bl_3_shutter_1_open_valid/status"
+        sensor_shutter_close = "xfel_bl_3_shutter_1_close_valid/status"
     else:
         log_error("BadBeamline")
         sys.exit(-1)
@@ -206,33 +279,79 @@ def run(runid, bl=3, clen=50.0):
 
     tag_list = dbpy.read_taglist_byrun(bl, runid)
     tag = tag_list[0]
-    print "Run %d: HighTag %d, Tags %d (inclusive) to %d (exclusive), thus %d images" % (runid, high_tag, start_tag, end_tag, len(tag_list))
+    print("Run %d: HighTag %d, Tags %d (inclusive) to %d (exclusive), thus %d images" % (runid, high_tag, start_tag, end_tag, len(tag_list)))
     comment = dbpy.read_comment(bl, runid)
-    print "Comment: %s" % comment
-    print
+    print("Comment: %s" % comment)
+    print()
 
     # Find detectors
     det_IDs = dbpy.read_detidlist(bl, runid)
-    print "Detector IDs: " + " ".join(det_IDs)
+    print("Detector IDs: " + " ".join(det_IDs))
     det_IDs = sorted([x for x in det_IDs if re.match("^MPCCD-8.*-[1-8]$", x)])
     if len(det_IDs) != 8:
         log_error("NoSupportedDetectorFound")
         sys.exit(-1)
-    print "MPCCD Octal IDs to use: " + " ".join(det_IDs)
-    print
+    print("MPCCD Octal IDs to use: " + " ".join(det_IDs))
+    print()
 
-    # Get shutter status and find dark images
+    # Get the shutter status and find dark images
     try:
-        shutter = [str2float(s) for s in dbpy.read_syncdatalist(sensor_shutter, high_tag, tag_list)]
+        shutter_open = [str2float(s) for s in dbpy.read_syncdatalist(sensor_shutter_open, high_tag, tag_list)]
     except:
         log_error("NoShutterStatus")
         sys.exit(-1)
-    dark_tags = [tag for tag, is_open in zip(tag_list, shutter) if is_open == 0]
+    dark_tags = [tag for tag, is_open in zip(tag_list, shutter_open) if int(is_open) == 0]
+    
+    if bl == 2 and runid >= 32348 and runid < 81550:
+	# 2018 Feb (run 32348-): Unreliable shutter status. We should use BM1 PD and take darks only at the beginning of a run
+        # 2020 Jan (run 81550-): X-ray PD does not necessarily show "not-converged" but can have values around 1e-11.
+        #           Thus, xray_pd_thresh = 1e-10 was introduced, but it still does not work perfectly...
+        print("The shutter status has been unreliable for runs since 2018 Feb.")
+        print("The number of tags with shutter closed:", len(dark_tags))
+        print("Since the above value is not reliable, we use X-ray PD values instead.")
+        xray_pd = "xfel_bl_2_st_3_bm_1_pd/charge"
+        xray_pd_thresh = 1e-10
+        pd_values = [str2float(s) for s in dbpy.read_syncdatalist(xray_pd, high_tag, tag_list)]
+        dark_tags = []
+        is_head = True
+        for tag, pd in zip(tag_list, pd_values):
+             if (math.isnan(pd) or pd < xray_pd_thresh) and is_head:
+                 dark_tags.append(tag)
+             else:
+                 is_head = False
+        print("Number of tags without X-ray:", len([1 for pd_val in pd_values if math.isnan(pd_val) or pd_val < xray_pd_thresh]))
+        print("But we use only tags at the beginning of a run.")
+    elif (bl == 2 and runid >= 81550) or (bl == 3 and runid >= 909709):
+        # 2020 Jan (run 81550-): Eventually, decided to use another strategy: look at both open and close status.
+        #                        This method was unreliable at 2018 but Dr. Tono says it should be fine now.
+        #                        If the detector alarm triggered shutter closure, these values can still be nonsense.
+        #                        This is why we look at "only tags at the beginning of a run" to avoid false positives.
+        print("The shutter 'open' status has been unreliable for runs since 2018 Feb.")
+        print("The number of tags with shutter open = 0:", len(dark_tags))
+        print("Since the above value is not reliable, we also look at close status.")
+        try:
+            shutter_close = [str2float(s) for s in dbpy.read_syncdatalist(sensor_shutter_close, high_tag, tag_list)]
+        except:
+            log_error("NoShutterStatus")
+            sys.exit(-1)
+        dark_tags = []
+        is_head = True
+        n_closed_and_not_open = 0
+        for tag, is_open, is_close in zip(tag_list, shutter_open, shutter_close):
+             if (int(is_open) == 0 and int(is_close) == 1):
+                 n_closed_and_not_open += 1
+                 if is_head:
+                     dark_tags.append(tag)
+             else:
+                 is_head = False
+        print("Number of tags without X-ray:", n_closed_and_not_open)
+        print("But we use only tags at the beginning of a run.")
+
     if len(dark_tags) == 0:
         log_error("NoDarkImage")
         sys.exit(-1)
-    print "Number of dark images to average: %d" % len(dark_tags)
-    print
+    print("Number of dark images to average: %d" % len(dark_tags))
+    print()
 
     # Setup buffer readers
     try:
@@ -262,9 +381,9 @@ def run(runid, bl=3, clen=50.0):
     config_photon_energy = 1000.0 * dbpy.read_config_photonenergy(bl, runid)
     config_photon_energy_sensible = True
     if config_photon_energy < 5000 or config_photon_energy > 14000:
-        print "WARNING: dbpy.read_config_photonenergy returned %f eV, which is absurd!" % config_photon_energy
-        print "         Report this to SACLA DAQ team."
-        print "         This is not problematic unless the inline spectrometer is also broken." 
+        print("WARNING: dbpy.read_config_photonenergy returned %f eV, which is absurd!" % config_photon_energy)
+        print("         Report this to SACLA DAQ team.")
+        print("         This is not problematic unless the inline spectrometer is also broken.")
         config_photon_energy_sensible = False
 
     pulse_energies_in_keV  = [str2float(s) for s in dbpy.read_syncdatalist(sensor_spec, high_tag, tuple(dark_tags))]
@@ -273,48 +392,50 @@ def run(runid, bl=3, clen=50.0):
         if energy is not None and energy > 0:
             pulse_energies.append(energy * 1000.0)
         else:
-            print "WARNING: The wavelength from the inline spectrometer does not look sensible for tag %d." % tag
+            print("WARNING: The wavelength from the inline spectrometer does not look sensible for tag %d." % tag)
             if config_photon_energy_sensible:
                 pulse_energies.append(config_photon_energy)
-                print "         Used the accelerator config value instead."
+                print("         Used the accelerator config value instead.")
             else:
                 pulse_energies.append(7000.0)
-                print "         The accelerator config value is also broken; assumed 7 keV as a last resort!"
+                print("         The accelerator config value is also broken; assumed 7 keV as a last resort!")
 
-    print
+    print()
     mean_energy = np.mean(pulse_energies)
-    print "Mean photon energy: %f eV" % mean_energy
-    print "Configured photon energy: %f eV" % config_photon_energy
-    print
+    print("Mean photon energy: %f eV" % mean_energy)
+    print("Configured photon energy: %f eV" % config_photon_energy)
+    print()
 
     # Create geometry files
-    write_crystfel_geom("%d.geom" % runid, det_infos, mean_energy, clen)
+    write_crystfel_geom("%d.geom" % runid, det_infos, mean_energy, clen, runid)
     write_cheetah_geom("%d-geom.h5" % runid, det_infos)
 
     # Write metadata
-    write_metadata("%d.h5" % runid, det_infos, clen, comment)
+    write_metadata("%d.h5" % runid, det_infos, clen, comment, runid)
 
+    if (dry_run): return
+ 
     # Create dark average
-    print
-    print "Calculating a dark average:"
+    print()
+    print("Calculating a dark average:")
     num_added = 0
     sum_buffer = np.zeros((YSIZE * NPANELS, XSIZE), dtype=np.float64)
     gains = [det_info['mp_absgain'] for det_info in det_infos]
 
     for j, tag_id in enumerate(dark_tags):
-        print "Processing tag %d (%2.1f%% done)" % (tag_id, 100.0 * (j + 1) / len(dark_tags))
+        print("Processing tag %d (%2.1f%% done)" % (tag_id, 100.0 * (j + 1) / len(dark_tags)))
         if (j % 5 == 0):
             with open("status.txt", "w") as status:
                 status.write("Status: Total=%d,Processed=%d,Status=DarkAveraging\n" % (len(dark_tags), j + 1))
         num_added += add_image(sum_buffer, readers, buffers, gains, tag_id, pulse_energies[j])
-    print "\nDone. Averaged %d frames." % num_added
+    print("\nDone. Averaged %d frames." % num_added)
   
     if (num_added < 1):
         return -1
 
     sum_buffer /= num_added
     ushort_max = np.iinfo(np.uint16).max
-    print " #neg (< 0) %d, #overflow (> %d) %d" % (np.sum(sum_buffer < 0), ushort_max, np.sum(sum_buffer > ushort_max))
+    print(" #neg (< 0) %d, #overflow (> %d) %d" % (np.sum(sum_buffer < 0), ushort_max, np.sum(sum_buffer > ushort_max)))
     sum_buffer[sum_buffer < 0] = 0
     sum_buffer[sum_buffer > ushort_max] = ushort_max
     averaged = sum_buffer.astype(np.uint16)
@@ -327,29 +448,31 @@ def run(runid, bl=3, clen=50.0):
     f.create_dataset("/data/data", data=averaged, compression="gzip", shuffle=True)
 #    f.create_dataset("/data/raw", data=sum_buffer, compression="gzip", shuffle=True)
     f.close()
-    print "Dark average was written to %s" % ("%d-dark.h5" % runid)
+    print("Dark average was written to %s" % ("%d-dark.h5" % runid))
 
 import optparse
 parser = optparse.OptionParser()
 
 parser.add_option("--bl", dest="bl", type=int, default=3, help="Beamline")
 parser.add_option("--clen", dest="clen", type=float, default=50.0, help="Camera distance")
+parser.add_option("--dry-run", dest="dry_run", type=int, default=0, help="Do not read images")
 opts, args = parser.parse_args()
 
 if (opts.bl != 2 and opts.bl !=3):
-    print "--bl must be 2 or 3."
+    print("--bl must be 2 or 3.")
     sys.exit(-1)
 
 if len(args) != 1:
-    print "Usage: prepare-cheetah-sacla-api2.py runid [--bl 3] [--clen 50.0]"
+    print("Usage: prepare-cheetah-sacla-api2.py runid [--bl 3] [--clen 50.0]")
     sys.exit(-1)
 runid = int(args[0])
 
-print "prepare-cheetah-sacla-api2.py version %d" % VERSION
-print " by Takanori Nakane at University of Tokyo"
-print
-print "Option: bl               = %d" % opts.bl
-print "Option: clen             = %.1f mm" % opts.clen
-print
+print("prepare-cheetah-sacla-api2.py version %d" % VERSION)
+print(" by Takanori Nakane at MRC laboratory of molecular biology")
+print()
+print("Option: bl               = %d" % opts.bl)
+print("Option: clen             = %.1f mm" % opts.clen)
+print("Option: dry-run          = %d" % opts.dry_run)
+print()
 
-run(runid=runid, bl=opts.bl, clen=opts.clen)
+run(runid=runid, bl=opts.bl, clen=opts.clen, dry_run=opts.dry_run)

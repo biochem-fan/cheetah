@@ -1,4 +1,5 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 2.9)
+cmake_policy(SET CMP0074 NEW)
 
 PROJECT (cheetah)
 
@@ -49,13 +50,13 @@ OPTION(BUILD_CHEETAH_MYANA "If ON build cheetah_myana. Otherwise skip it." OFF )
 OPTION(BUILD_CHEETAH_SACLA "If ON build cheetah-sacla. Otherwise skip it." OFF )
 OPTION(BUILD_CHEETAH_SACLA_API "If ON build cheetah-sacla-api and cheetah-sacla-online-api. Otherwise skip it." OFF )
 if(BUILD_CHEETAH_SACLA_API)
-   SET(SACLA_API_INCLUDE_DIR "" CACHE STRING "Directory that contains libSaclaDataAccessUserAPI.h")
-   SET(SACLA_ONLINE_API_INCLUDE_DIR "" CACHE STRING "Directory that contains OnlineUserAPI.h")
-   SET(SACLA_API_LIB "" CACHE STRING "Path to libSaclaDataAccessUserAPI.so")
-   SET(SACLA_ONLINE_API_LIB "" CACHE STRING "Path to libOnlineUserAPI.so")
    SET(MYSQL_LIB "" CACHE STRING "Path to libmysql.so")
+   SET(SACLA_ARRAY_API_INCLUDE_DIR "" CACHE STRING "Directory that contains DataArrayUserAPI.h")
+   SET(SACLA_ARRAY_API_LIB "" CACHE STRING "Path to libDataArrayUserAPI.so")
    SET(SACLA_API2_INCLUDE_DIR "" CACHE STRING "Directory that contains DataAccessUserAPI.h")
    SET(SACLA_API2_LIB "" CACHE STRING "Path to libDataAccessUserAPI.so")
+   SET(SACLA_ONLINE_API_INCLUDE_DIR "" CACHE STRING "Directory that contains OnlineUserAPI.h")
+   SET(SACLA_ONLINE_API_LIB "" CACHE STRING "Path to libOnlineUserAPI.so")
 endif(BUILD_CHEETAH_SACLA_API)
 
 SET(CHEETAH_INCLUDES ${CMAKE_SOURCE_DIR}/source/libcheetah/include CACHE PATH "libcheetah include directory")
@@ -63,7 +64,6 @@ MARK_AS_ADVANCED(CHEETAH_INCLUDES)
 
 SET(CHEETAH_LIBRARY ${CMAKE_BINARY_DIR}/source/libcheetah/libcheetah.so CACHE FILEPATH "libcheetah to link against")
 MARK_AS_ADVANCED(CHEETAH_LIBRARY)
-
 
 ADD_SUBDIRECTORY(source)
 
