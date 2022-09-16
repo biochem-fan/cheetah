@@ -38,8 +38,8 @@ void ol_initialize_dummy(char* filename);
 #define PRIMARY_DET 0 // Normally 0. 4 for xu-bl2-st3-opcon2
 int TAG_INCREMENT = 2; // 2 for 30 Hz, 1 for API stub or 60 Hz
 
-const struct timespec SHORT_WAIT = {0, 1E6}; // 1E6 = msec
-const struct timespec LONG_WAIT = {0, 5E6}; // 25E6 for testing
+const struct timespec SHORT_WAIT = {0, 1000000}; // 1E6 = msec
+const struct timespec LONG_WAIT = {0, 5000000}; // 25E6 for testing
 
 typedef struct {
 	float buf[IMGSIZE];
@@ -182,8 +182,8 @@ void* thread(void *thread_data) {
 
 int main(int argc, const char * argv[])
 {	
-   	printf("Cheetah for SACLA Online API version 170221\n\n");
-	printf("Takanori Nakane, 2014-2017\n");
+   	printf("Cheetah for SACLA Online API version 220915\n\n");
+	printf("Takanori Nakane, 2014-2022\n");
 	printf("based on the work by Anton Barty, 21 January 2014\n");
 	
 	// Input data file and Cheetah configuration file
