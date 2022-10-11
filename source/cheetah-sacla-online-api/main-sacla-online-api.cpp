@@ -87,12 +87,6 @@ void* thread(void *thread_data) {
 		}
 		printf("Start tag = %d\n", actual_tag);
 
-		while (actual_tag % TAG_INCREMENT != 0) {
-			actual_tag++;
-		}
-
-		printf("Start tag after adjustment = %d\n", actual_tag);
-		
 		for (int i = 0; i < NDET; i++) {
 			cur_tags[i] = actual_tag;
 		}
@@ -182,7 +176,7 @@ void* thread(void *thread_data) {
 
 int main(int argc, const char * argv[])
 {	
-   	printf("Cheetah for SACLA Online API version 220915\n\n");
+   	printf("Cheetah for SACLA Online API version 221011\n\n");
 	printf("Takanori Nakane, 2014-2022\n");
 	printf("based on the work by Anton Barty, 21 January 2014\n");
 	
