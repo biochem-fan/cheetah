@@ -11,7 +11,7 @@ import math
 import numpy as np
 import re
 
-VERSION = 211013
+VERSION = 221107
 XSIZE = 512
 YSIZE = 1024
 NPANELS = 8
@@ -180,8 +180,15 @@ def write_cheetah_geom(filename, det_infos):
     f.close()
 
 def get_border(det_name):
-    if re.match("MPCCD-8B0-2-006", det_name): # New Phase 3 detector
+    if re.match("MPCCD-8B0-2-007", det_name): # New Phase 3 detector
+        return (5, 33) # based on 22Nov-Iwata @ 10keV
+    elif re.match("MPCCD-8B0-2-006", det_name): # New Phase 3 detector
         return (5, 30) # based on 20Feb-Ueno @ 10keV
+    elif re.match("MPCCD-8B0-2-005", det_name): # New Phase 3 detector
+        # I wasn't aware of this detector until its retirement on 22Nov and
+        # used to manually modify the geometry every beam time.
+        # This line was introduced on 22Nov, just in case someone reprocesses old data.
+        return (5, 35) # based on 22Oct-Ueno @ 10keV
     elif re.match("MPCCD-8B", det_name): # Other Phase 3 detector
         return (5, 23) # based on 17Jul-P3Lys @ 10 keV
     elif re.match("MPCCD-8N", det_name): # Compact detector with amp shields
@@ -468,7 +475,7 @@ if len(args) != 1:
 runid = int(args[0])
 
 print("prepare-cheetah-sacla-api2.py version %d" % VERSION)
-print(" by Takanori Nakane at MRC laboratory of molecular biology")
+print(" by Takanori Nakane at Institute of Protein Research, Osaka University")
 print()
 print("Option: bl               = %d" % opts.bl)
 print("Option: clen             = %.1f mm" % opts.clen)
