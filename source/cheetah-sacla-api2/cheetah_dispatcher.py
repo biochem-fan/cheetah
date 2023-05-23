@@ -78,8 +78,11 @@ fi
 @@CHEETAH_PATH@@/cheetah-sacla-api2 --ini ../sacla-photon.ini --run {runid} -o run{runname}.h5 --bl {beamline} {arguments} 2>&1 >> cheetah.log
 rm {runid}.h5
 
-# th 100 gr 5000000 for > 10 keV
-@@INDEXAMAJIG_PATH@@/indexamajig -g {runid}.geom --indexing=dirax --peaks=zaef --threshold=400 --min-gradient=10000 --min-snr=5 --int-radius=3,4,7 -o {runname}.stream -j 16 -i - {crystfel_args} <<EOF
+# --xgandalf-sampling-pitch=2 --xgandalf-grad-desc-iterations=3 is equivalent to --xgandalf-fast-execution
+# but setting in this way allows one to "disable" it in crystfel.args by overriding to the default
+# --xgandalf-sampling-pitch=6 --xgandalf-grad-desc-iterations=4.
+
+@@INDEXAMAJIG_BIN@@ -g {runid}.geom --indexing=xgandalf --xgandalf-sampling-pitch=2 --xgandalf-grad-desc-iterations=3 --peaks=peakfinder8 --threshold=100 --min-snr=5 --min-pix-count=2 --local-bg-radius=3 --threshold=0 --int-radius=3,4,7 -o {runname}.stream -j 16 -i - {crystfel_args} <<EOF
 run{runname}.h5
 EOF
 rm -fr indexamajig.*
@@ -129,8 +132,8 @@ cp {runid}.h5 run{runname}.h5
 @@CHEETAH_PATH@@/cheetah-sacla-api2 --ini ../sacla-photon.ini --run {runid} -o run{runname}.h5 --bl {beamline} {arguments} 2>&1 >> cheetah.log
 rm {runid}.h5
 
-# th 100 gr 5000000 for > 10 keV
-@@INDEXAMAJIG_PATH@@/indexamajig -g {runname}.geom --indexing=dirax --peaks=zaef --threshold=400 --min-gradient=10000 --min-snr=5 --int-radius=3,4,7 -o {runname}.stream -j 16 -i - {crystfel_args} <<EOF
+# see comments in run.sh for the dark or -0 job.
+@@INDEXAMAJIG_BIN@@ -g {runname}.geom --indexing=xgandalf --xgandalf-sampling-pitch=2 --xgandalf-grad-desc-iterations=3 --peaks=peakfinder8 --threshold=100 --min-snr=5 --min-pix-count=2 --local-bg-radius=3 --threshold=0 --int-radius=3,4,7 -o {runname}.stream -j 16 -i - {crystfel_args} <<EOF
 run{runname}.h5
 EOF
 rm -fr indexamajig.*
@@ -493,9 +496,9 @@ class MainWindow(wx.Frame):
         runnum = re.sub("-light|-0", "", runid)
         def launchHDFsee():
             if os.path.exists("%s/%s.stream" % (runid, runid)):
-                command = "cd {runid}; hdfsee -g {runnum}.geom {runid}.stream -c invmono -i 10 &".format(runid=runid, runnum=runnum)
+                command = "cd {runid}; @@HDFSEE_BIN@@ -g {runnum}.geom {runid}.stream -c invmono -i 10 &".format(runid=runid, runnum=runnum)
             else:
-                command = "hdfsee -g {runid}/{runnum}.geom {runid}/run{runid}.h5 -c invmono -i 10 &".format(runid=runid, runnum=runnum)
+                command = "@@HDFSEE_BIN@@ -g {runid}/{runnum}.geom {runid}/run{runid}.h5 -c invmono -i 10 &".format(runid=runid, runnum=runnum)
             os.system(command)
 
         threading.Thread(target=launchHDFsee).start()
@@ -834,8 +837,8 @@ class ProgressCellRenderer(wx.grid.GridCellRenderer):
         return ProgressCellRenderer() 
 
 print()
-print("Cheetah dispatcher GUI version 20211012")
-print("   by Takanori Nakane (tnakane@mrc-lmb.cam.ac.uk)")
+print("Cheetah dispatcher GUI version 20230523")
+print("   by Takanori Nakane (tnakane.protein@osaka-u.ac.jp)")
 print()
 print("Please cite the following paper when you use this software.")
 print(" \"Data processing pipeline for serial femtosecond crystallography at SACLA\"")
