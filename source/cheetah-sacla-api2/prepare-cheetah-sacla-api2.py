@@ -180,7 +180,9 @@ def write_cheetah_geom(filename, det_infos):
     f.close()
 
 def get_border(det_name):
-    if re.match("MPCCD-8B0-2-007", det_name): # New Phase 3 detector
+    if re.match("MPCCD-8B0-2-008", det_name): # New Phase 3 detector
+        return (5, 30) # based on 24Feb-Shimada @ 10keV
+    elif re.match("MPCCD-8B0-2-007", det_name): # New Phase 3 detector
         return (5, 33) # based on 22Nov-Iwata @ 10keV
     elif re.match("MPCCD-8B0-2-006", det_name): # New Phase 3 detector
         return (5, 30) # based on 20Feb-Ueno @ 10keV
@@ -194,7 +196,7 @@ def get_border(det_name):
     elif re.match("MPCCD-8N", det_name): # Compact detector with amp shields
         return (0, 22) # based on 17Jul-Kuma @ 7 keV
     else:
-        return (0, 0)
+        return (5, 30) # default assumes New Phase 3 detector
 
 def make_pixelmask(det_name, runid):
     border, outer_border = get_border(det_name)
