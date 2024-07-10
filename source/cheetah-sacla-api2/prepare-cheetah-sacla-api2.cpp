@@ -421,7 +421,7 @@ static std::string get_geom(int run, double energy) {
     
     int row = det_id, panel = det_id + 1;
 
-    // Nphotons = S [ADU] * G [e-/ADU] / (E [eV] * 3.65 [eV/e-]) according to the manual.
+    // Nphotons = S [ADU] * G [e-/ADU] / (E [eV] / 3.65 [eV/e-]) according to the manual.
     // Thus, ADU/eV = 1/(3.65*G)
 
     //    ss << boost::format("q%d/adu_per_eV = %f\n") % panel % (1.0 / (gain * 3.65));

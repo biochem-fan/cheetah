@@ -60,7 +60,7 @@ def write_crystfel_geom(filename, det_infos, energy, clen, runid):
             detx /= pixel_size; dety /= pixel_size;
             det_id = i + 1
 
-            # Nphotons = S [ADU] * G [e-/ADU] / (E [eV] * 3.65 [eV/e-]) according to the manual.
+            # Nphotons = S [ADU] * G [e-/ADU] / (E [eV] / 3.65 [eV/e-]) according to the manual.
             # Thus, ADU/eV = 1/(3.65*G)
             out.write("; sensor %s\n" % det_info['id'])
             out.write("q%d/adu_per_eV = %f\n" % (det_id, 1.0 / (0.1 * energy))) # Keitaro's 0.1 photon
