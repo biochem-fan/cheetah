@@ -11,7 +11,7 @@ import math
 import numpy as np
 import re
 
-VERSION = 221107
+VERSION = 250602
 XSIZE = 512
 YSIZE = 1024
 NPANELS = 8
@@ -180,7 +180,9 @@ def write_cheetah_geom(filename, det_infos):
     f.close()
 
 def get_border(det_name):
-    if re.match("MPCCD-8B0-2-008", det_name): # New Phase 3 detector
+    if   re.match("MPCCD-8B0-2-010", det_name): # New Phase 3 detector
+        return (5, 32) # based on 25May-Umena (234606) @ 8.5keV
+    elif re.match("MPCCD-8B0-2-008", det_name): # New Phase 3 detector
         return (5, 30) # based on 24Feb-Shimada @ 10keV
     elif re.match("MPCCD-8B0-2-007", det_name): # New Phase 3 detector
         return (5, 33) # based on 22Nov-Iwata @ 10keV
