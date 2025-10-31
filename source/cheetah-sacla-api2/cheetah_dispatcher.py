@@ -319,10 +319,14 @@ class MainWindow(wx.Frame):
         attr = wx.grid.GridCellAttr()
         attr.SetRenderer(ProgressCellRenderer())
         self.table.SetColAttr(MainWindow.COL_PROCESSED, attr)
+        attr.IncRef() # See https://github.com/wxWidgets/Phoenix/issues/994 for why this is needed
         self.table.SetColAttr(MainWindow.COL_LLF_PASSED, attr)
+        attr.IncRef()
         self.table.SetColAttr(MainWindow.COL_HITS, attr)
+        attr.IncRef()
         self.table.SetColAttr(MainWindow.COL_INDEXED, attr)
-        for i in range(7):
+        attr.IncRef()
+       	for i in range(7):
             self.table.AutoSizeColLabelSize(i)
         self.table.Bind(wx.grid.EVT_GRID_CELL_RIGHT_CLICK, self.OnGridRightClick)
         self.table.Bind(wx.EVT_SIZE, self.OnGridResize)
@@ -837,7 +841,7 @@ class ProgressCellRenderer(wx.grid.GridCellRenderer):
         return ProgressCellRenderer() 
 
 print()
-print("Cheetah dispatcher GUI version 20230523")
+print("Cheetah dispatcher GUI version 20251031")
 print("   by Takanori Nakane (tnakane.protein@osaka-u.ac.jp)")
 print()
 print("Please cite the following paper when you use this software.")
